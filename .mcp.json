@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "trod": {
+      "command": "node",
+      "args": ["plugin/server/trod-server.mjs"]
+    }
+  }
+}
