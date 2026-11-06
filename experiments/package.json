@@ -1,0 +1,15 @@
+{
+  "name": "@trod/experiments",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "run": "node runner/run.ts",
+    "report": "node runner/report.ts"
+  },
+  "devDependencies": {
+    "@anthropic-ai/claude-code": "2.1.318",
+    "playwright": "1.65.0"
+  }
+}
