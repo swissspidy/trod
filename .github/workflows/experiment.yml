@@ -1,0 +1,64 @@
+# Runs the trod experiment headless (experiments/README.md). Manual only: it costs API credits.
+name: Experiment
+
+on:
+  workflow_dispatch:
+    inputs:
+      tasks:
+        description: Comma-separated task ids (empty = all)
+        required: false
+        default: ""
+      arms:
+        description: Arms
+        required: false
+        default: baseline,genesis,nudged
+      seeds:
+        description: Seeds per task and arm
+        required: false
+        default: "3"
+      model:
+        description: Model
+        required: false
+        default: claude-sonnet-5-5
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    name: Run experiment
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: npm install -g @anthropic-ai/claude-code playwright
+      - run: npx playwright install --with-deps chromium
+      - name: Run
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TASKS: ${{ inputs.tasks }}
+          ARMS: ${{ inputs.arms }}
+          SEEDS: ${{ inputs.seeds }}
+          MODEL: ${{ inputs.model }}
+        run: |
+          NODE_PATH="$(npm root -g)"
+          export NODE_PATH
+          node experiments/runner/run.ts ${TASKS:+--tasks "$TASKS"} --arms "$ARMS" --seeds "$SEEDS" --model "$MODEL" --parallel 4 --out results/runs/ci
+          node experiments/runner/report.ts results/runs/ci --out results/ci --writeup results/writeup.html
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: experiment-results
+          path: |
+            results/ci
+            results/runs/ci/**/result.json
+            results/runs/ci/**/stream-*.jsonl
+            results/runs/ci/**/work/.trod
+          retention-days: 30

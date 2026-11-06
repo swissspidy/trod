@@ -37,7 +37,7 @@ trod v0 targets **ephemeral cloud containers**, where the container is the secur
 - **cwd confined to the project.** The process starts in the project directory and gets
   `TROD_PROJECT_DIR`/`TROD_TOOL_DIR`. This is a convention, not enforcement: absolute paths still work. See v1.
 - **Environment scrubbed.** Only an allowlist passes: `PATH`, `HOME`, user/locale/terminal variables, `TMPDIR`,
-  CA bundle variables and proxy variables. A proxy URL that carries `user:password@` is dropped. The proxy is how
+  `NODE_PATH`, `PLAYWRIGHT_BROWSERS_PATH`, CA bundle variables and proxy variables. A proxy URL that carries `user:password@` is dropped. The proxy is how
   cloud containers reach the network, and its URL holds no credential there. Everything else is dropped: API
   keys, `GITHUB_TOKEN`, `AWS_*`, Claude Code's session variables and so on. `TROD_ENV_PASSTHROUGH` names extra
   variables the user chooses to expose. There are no inherited tokens: a tool that needs an API key has to be
