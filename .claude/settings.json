@@ -1,0 +1,6 @@
+{
+  "extraKnownMarketplaces": {
+    "trod": { "source": { "source": "directory", "path": "." } }
+  },
+  "enabledPlugins": { "trod@trod": true }
+}

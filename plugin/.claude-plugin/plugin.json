@@ -1,0 +1,7 @@
+{
+  "name": "trod",
+  "version": "0.0.0",
+  "description": "Genesis server: files in .trod/tools become live MCP tools mid-session.",
+  "author": { "name": "Pascal Birchler" },
+  "license": "MIT"
+}
