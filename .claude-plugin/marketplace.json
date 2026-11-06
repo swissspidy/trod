@@ -1,7 +1,0 @@
-{
-  "name": "trod",
-  "owner": { "name": "Pascal Birchler" },
-  "plugins": [
-    { "name": "trod", "source": "./plugin", "description": "Self-morphing tools for Claude Code" }
-  ]
-}

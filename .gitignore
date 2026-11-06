@@ -1,7 +1,3 @@
 node_modules/
-dist/
 .spike-tools/
 spike-server.log
-.trod/tools/
-.trod/logs/
-results/runs/
