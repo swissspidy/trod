@@ -38,8 +38,8 @@ jobs:
           node-version: 22
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
-      - run: npm install -g @anthropic-ai/claude-code playwright
-      - run: npx playwright install --with-deps chromium
+      # Claude Code and Playwright are locked devDependencies of the experiments package.
+      - run: pnpm --filter @trod/experiments exec playwright install --with-deps chromium
       - name: Run
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -48,8 +48,10 @@ jobs:
           SEEDS: ${{ inputs.seeds }}
           MODEL: ${{ inputs.model }}
         run: |
-          NODE_PATH="$(npm root -g)"
-          export NODE_PATH
+          # claude on PATH, and require('playwright') resolvable from the agents' work dirs.
+          PATH="$PWD/experiments/node_modules/.bin:$PATH"
+          NODE_PATH="$PWD/experiments/node_modules"
+          export PATH NODE_PATH
           node experiments/runner/run.ts ${TASKS:+--tasks "$TASKS"} --arms "$ARMS" --seeds "$SEEDS" --model "$MODEL" --parallel 4 --out results/runs/ci
           node experiments/runner/report.ts results/runs/ci --out results/ci --writeup results/writeup.html
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
