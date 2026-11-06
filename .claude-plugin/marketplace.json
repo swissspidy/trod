@@ -1,0 +1,11 @@
+{
+  "name": "trod",
+  "owner": { "name": "Pascal Birchler" },
+  "plugins": [
+    {
+      "name": "trod",
+      "source": "./plugin",
+      "description": "Genesis server: files in .trod/tools become live MCP tools mid-session."
+    }
+  ]
+}
