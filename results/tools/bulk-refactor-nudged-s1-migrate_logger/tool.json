@@ -1,0 +1,16 @@
+{
+  "name": "migrate_logger",
+  "description": "Migrates .js/.mjs files in a directory from log(level, ...args) to logger.<level>(...args), swaps the log import for logger, renames formatId to formatID. Returns changed files and any leftover unmigrated log( calls.",
+  "whenToUse": "For the logger API migration of a directory of modules; reusable for further directories.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "dir": { "type": "string", "description": "Directory relative to project root, e.g. src/modules" },
+      "dryRun": { "type": "boolean" }
+    },
+    "required": ["dir"],
+    "additionalProperties": false
+  },
+  "timeoutMs": 30000,
+  "provenance": { "reason": "migrate 24 modules now and more directories later" }
+}

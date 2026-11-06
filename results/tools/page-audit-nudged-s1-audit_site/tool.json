@@ -1,0 +1,16 @@
+{
+  "name": "audit_site",
+  "description": "Audits every page linked from an index page of a local site and writes audit.json (status, title, h1Count, brokenLinks per page). Returns a short summary.",
+  "whenToUse": "When asked to (re-)audit the local site's pages; replaces ad-hoc curl loops.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "indexUrl": { "type": "string", "description": "Index page URL, e.g. http://127.0.0.1:39559/index.html" },
+      "output": { "type": "string", "description": "Output path relative to project dir (default audit.json)" }
+    },
+    "required": ["indexUrl"],
+    "additionalProperties": false
+  },
+  "timeoutMs": 120000,
+  "provenance": { "reason": "audit 30 pages now and re-audit after future deploys" }
+}

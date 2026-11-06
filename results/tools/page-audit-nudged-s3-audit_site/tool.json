@@ -1,0 +1,16 @@
+{
+  "name": "audit_site",
+  "description": "Audits every page linked from an index page: status, trimmed title, h1 count (ignoring HTML comments), sorted distinct broken link hrefs. Writes the JSON to outPath and returns a summary.",
+  "whenToUse": "When asked to (re-)audit the small website and write audit.json.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "indexUrl": { "type": "string", "description": "Index page URL" },
+      "outPath": { "type": "string", "description": "Output path relative to project root", "default": "audit.json" }
+    },
+    "required": ["indexUrl"],
+    "additionalProperties": false
+  },
+  "timeoutMs": 120000,
+  "provenance": { "reason": "audit 30 pages, repeated after future deploys" }
+}

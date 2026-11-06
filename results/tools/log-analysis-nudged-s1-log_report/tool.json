@@ -1,0 +1,15 @@
+{
+  "name": "log_report",
+  "description": "Reads every svc-*.log in a directory and writes report.json keyed by file name with {errors, topCode, p95} (nearest-rank p95 of latency_ms; malformed lines ignored). Returns the report.",
+  "whenToUse": "Whenever the daily log report must be (re)generated for a logs directory.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "dir": { "type": "string", "description": "Logs directory relative to project root", "default": "logs" },
+      "out": { "type": "string", "description": "Output path relative to project root", "default": "report.json" }
+    },
+    "additionalProperties": false
+  },
+  "timeoutMs": 30000,
+  "provenance": { "reason": "daily log report for 20+ service logs" }
+}

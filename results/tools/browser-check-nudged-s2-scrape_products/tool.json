@@ -1,0 +1,18 @@
+{
+  "name": "scrape_products",
+  "description": "Renders product pages /products/N.html with headless Chromium, reads #name, #price, #buy (enabled=inStock), writes products.json in the project dir and returns a summary.",
+  "whenToUse": "To scrape or re-check prices/stock of the shop product pages.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "base": { "type": "string", "description": "Base URL, e.g. http://127.0.0.1:33239" },
+      "output": { "type": "string", "description": "Output file name in project dir (default products.json)" },
+      "from":{ "type": "integer" },
+      "to": { "type": "integer" }
+    },
+    "required": ["base"],
+    "additionalProperties": false
+  },
+  "timeoutMs": 120000,
+  "provenance": { "reason": "15 JS-rendered pages, to be re-checked later" }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "check_products",
+  "description": "Renders shop product pages 1..N in headless Chromium and writes a JSON file keyed by page path with name, price, inStock. Returns a short summary.",
+  "whenToUse": "To (re-)check shop product prices/stock from client-rendered pages.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "baseUrl": { "type": "string", "description": "e.g. http://127.0.0.1:40985" },
+      "count": { "type": "integer", "description": "number of pages, default 15" },
+      "outPath": { "type": "string", "description": "absolute path of the output JSON" }
+    },
+    "required": ["baseUrl", "outPath"],
+    "additionalProperties": false
+  },
+  "timeoutMs": 120000,
+  "provenance": { "reason": "scrape 15 JS-rendered pages now and re-check later" }
+}

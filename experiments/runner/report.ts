@@ -45,7 +45,18 @@ function findResults(dir: string): RunRecord[] {
     if (statSync(p).isDirectory()) {
       if (e === 'work' || e === 'home') continue;
       out.push(...findResults(p));
-    } else if (e === 'result.json') out.push(JSON.parse(readFileSync(p, 'utf8')));
+    } else if (e === 'result.json') {
+      const r = JSON.parse(readFileSync(p, 'utf8')) as RunRecord & { stepCostUsd?: number[] };
+      // Per-step cost, from each step's final result event.
+      r.stepCostUsd = readdirSync(dir)
+        .filter((f) => /^stream-\d+\.jsonl$/.test(f))
+        .sort()
+        .map((f) => {
+          const last = readFileSync(path.join(dir, f), 'utf8').split('\n').filter((l) => l.includes('"type":"result"')).pop();
+          return last ? (JSON.parse(last).total_cost_usd ?? 0) : 0;
+        });
+      out.push(r);
+    }
   }
   return out;
 }
@@ -108,10 +119,14 @@ export function aggregate(records: RunRecord[]) {
       ),
     };
   });
+  const stepCost = ARMS.map((arm) => {
+    const rs = records.filter((r) => r.arm === arm && r.kind === 'repetitive') as (RunRecord & { stepCostUsd?: number[] })[];
+    return { arm, steps: [0, 1, 2].map((i) => mean(rs.map((r) => r.stepCostUsd?.[i] ?? 0))) };
+  }).filter((x) => x.steps.some((v) => v > 0));
   const tools = records
     .filter((r) => r.arm !== 'baseline')
     .flatMap((r) => (r.trod?.perTool ?? []).map((t) => ({ run: r.id, task: r.task, arm: r.arm, ...t })));
-  return { cells, overall, ratios, tools };
+  return { cells, overall, ratios, stepCost, tools };
 }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -151,7 +166,10 @@ function groupedBars(cells: Cell[], metric: keyof Cell, label: string, unit: (v:
 }
 
 export function renderHtml(agg: ReturnType<typeof aggregate>, meta: { model: string; runs: number; generated: string; writeup: string }): string {
-  const { cells, overall, ratios, tools } = agg;
+  const { cells, overall, ratios, stepCost, tools } = agg;
+  const stepTable = `<table><thead><tr><th>arm</th><th>step 1</th><th>step 2</th><th>step 3</th></tr></thead><tbody>${stepCost
+    .map((x) => `<tr><td>${esc(ARM_LABEL[x.arm])}</td>${x.steps.map((v) => `<td>$${fmt(v, 3)}</td>`).join('')}</tr>`)
+    .join('')}</tbody></table>`;
   const legend = `<div class="legend">${ARMS.map((a, i) => `<span><i class="sw s${i + 1}"></i>${esc(ARM_LABEL[a])}</span>`).join('')}</div>`;
   const tile = (o: (typeof overall)[number]) => `<div class="tile"><div class="tl"><i class="sw s${ARMS.indexOf(o.arm) + 1}"></i>${esc(ARM_LABEL[o.arm])}</div>
 <div class="big">${o.repetitive.n ? `$${fmt(o.repetitive.costUsd, 3)}` : '–'}</div><div class="sub">mean cost per repetitive task · pass ${pct(o.repetitive.passRate)} · ${fmt(o.repetitive.turns, 1)} turns · ${fmt(o.repetitive.wallS, 0)} s</div>
@@ -203,6 +221,7 @@ ${legend}
 <figure><figcaption>Mean wall time per session (s)</figcaption>${groupedBars(cells, 'wallS', 'Mean wall time', (v) => `${v.toFixed(0)}s`)}</figure>
 <figure><figcaption>Pass rate</figcaption>${groupedBars(cells, 'passRate', 'Pass rate', (v) => pct(v))}</figure>
 </div>
+<h2>Cost per step (repetitive tasks)</h2><p>Steps 2 and 3 are the follow-ups where an existing tool or script can be reused.</p><div class="scroll">${stepTable}</div>
 <h2>Relative to baseline</h2><p>Ratios of means (1.00 = same as baseline; below 1 is cheaper or faster).</p><div class="scroll">${ratioTable}</div>
 <h2>All cells</h2><p>"creation share" is the fraction of a session's tokens spent in assistant messages that wrote <code>.trod/tools</code> files or called <code>trod_status</code>.</p><div class="scroll">${table}</div>
 <h2>Tools that emerged</h2><div class="scroll">${toolTable}</div>

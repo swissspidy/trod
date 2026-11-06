@@ -1,0 +1,15 @@
+{
+  "name": "log_report",
+  "description": "Reads every svc-*.log in a directory and writes report.json keyed by file name with {errors, topCode, p95} (malformed lines ignored; nearest-rank p95). Returns a summary of files processed.",
+  "whenToUse": "Whenever service logs need the per-file error/topCode/p95 report, including new daily logs.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "dir": { "type": "string", "description": "Logs directory relative to project root", "default": "logs" },
+      "out": { "type": "string", "description": "Output path relative to project root", "default": "report.json" }
+    },
+    "additionalProperties": false
+  },
+  "timeoutMs": 30000,
+  "provenance": { "reason": "log report needed now and for daily new logs" }
+}

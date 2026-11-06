@@ -1,0 +1,52 @@
+{
+  "name": "fetch_api_data",
+  "description": "Fetches all users (paginated) and every user's orders from the JSON API, retrying 429s via Retry-After. Saves raw data to the given dataPath ({users, ordersByUser}) and writes totals.json (sum of completed order amounts per user id) to totalsPath. Returns counts.",
+  "whenToUse": "To download the full users/orders dataset and compute completed totals; the saved data file can answer later questions.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "baseUrl": {
+        "type": "string",
+        "description": "e.g. http://127.0.0.1:39623/api"
+      },
+      "dataPath": {
+        "type": "string",
+        "description": "Raw data output path relative to project root"
+      },
+      "totalsPath": {
+        "type": "string",
+        "description": "totals.json path relative to project root"
+      },
+      "countStatus": {
+        "type": "string",
+        "description": "Optional: order status to count per user"
+      },
+      "countsPath": {
+        "type": "string",
+        "description": "Optional: output path for per-user counts of countStatus"
+      },
+      "sumStatus": {
+        "type": "string",
+        "description": "Optional: status whose amounts are summed per user"
+      },
+      "sinceDate": {
+        "type": "string",
+        "description": "Optional: only orders with createdAt >= this YYYY-MM-DD"
+      },
+      "sumPath": {
+        "type": "string",
+        "description": "Optional: output path for per-user sums of sumStatus (zero sums omitted)"
+      }
+    },
+    "required": [
+      "baseUrl",
+      "dataPath",
+      "totalsPath"
+    ],
+    "additionalProperties": false
+  },
+  "timeoutMs": 300000,
+  "provenance": {
+    "reason": "paginated fetch + per-user orders with 429 retry"
+  }
+}

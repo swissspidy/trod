@@ -1,0 +1,21 @@
+{
+  "name": "api_sync",
+  "description": "Fetches all users (paginated) and each user's orders from the JSON API with 429 retry, saves raw data to <outDir>/api_data.json and writes <outDir>/totals.json (completed-order sums per user id). Returns counts.",
+  "whenToUse": "To pull/refresh the users+orders API data and totals; raw data is cached in api_data.json for later questions.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "baseUrl": { "type": "string", "description": "e.g. http://127.0.0.1:42335/api" },
+      "outDir": { "type": "string", "description": "absolute output directory" },
+      "countStatus": { "type": "string", "description": "optional: also write per-user count of orders with this status" },
+      "sumStatus": { "type": "string", "description": "optional: also write per-user sums of amounts for this status (users with 0 omitted)" },
+      "sinceDate": { "type": "string", "description": "optional YYYY-MM-DD; only orders created on/after this date count for sumStatus" },
+      "sumFile": { "type": "string", "description": "optional filename for the sums" },
+      "countFile": { "type": "string", "description": "optional filename for the counts (default <status>_counts.json)" }
+    },
+    "required": ["baseUrl", "outDir"],
+    "additionalProperties": false
+  },
+  "timeoutMs": 300000,
+  "provenance": { "reason": "many paginated/per-user requests with rate limiting" }
+}

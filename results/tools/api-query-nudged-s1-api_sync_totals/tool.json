@@ -1,0 +1,14 @@
+{
+  "name": "api_sync_totals",
+  "description": "Fetches all users (paginated) and each user's orders from the local JSON API with 429/Retry-After retry, caches raw data to api_cache.json in the project dir, and writes totals.json (sum of completed order amounts per user id). Returns counts.",
+  "whenToUse": "To pull/refresh the API data; later questions can read api_cache.json instead of re-fetching.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "baseUrl": { "type": "string", "description": "API base URL", "default": "http://127.0.0.1:45321/api" }
+    },
+    "additionalProperties": false
+  },
+  "timeoutMs": 300000,
+  "provenance": { "reason": "paginated API plus per-user orders with rate limiting" }
+}
