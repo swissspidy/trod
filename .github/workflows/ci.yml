@@ -33,5 +33,9 @@ jobs:
       # docs/spike.md), so they must match the sources.
       - run: pnpm build
       - name: Bundles are up to date
-        run: git diff --exit-code -- plugin/ || (echo "::error::plugin/ bundles are stale: run pnpm build and commit" && exit 1)
+        run: |
+          if ! git diff --exit-code -- plugin/; then
+            echo "::error::plugin/ bundles are stale. Run pnpm build and commit them."
+            exit 1
+          fi
       - run: pnpm test
