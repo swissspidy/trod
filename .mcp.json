@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "trodroot": {
+      "command": "node",
+      "args": ["plugin/spike-server.mjs"]
+    }
+  }
+}
