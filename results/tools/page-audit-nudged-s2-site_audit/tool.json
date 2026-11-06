@@ -1,0 +1,16 @@
+{
+  "name": "site_audit",
+  "description": "Audits every page linked from <base>/index.html (status, title, h1Count, sorted distinct broken link hrefs) and writes the JSON to outPath. Returns a short summary.",
+  "whenToUse": "When asked to (re-)audit the small local website into audit.json.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "base": { "type": "string", "description": "e.g. http://127.0.0.1:45097" },
+      "outPath": { "type": "string", "description": "absolute path of audit.json to write" }
+    },
+    "required": ["base", "outPath"],
+    "additionalProperties": false
+  },
+  "timeoutMs": 120000,
+  "provenance": { "reason": "audit 30 pages, repeated on future deploys" }
+}

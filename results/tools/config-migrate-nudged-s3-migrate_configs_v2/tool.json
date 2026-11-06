@@ -1,0 +1,14 @@
+{
+  "name": "migrate_configs_v2",
+  "description": "Rewrites every *.json service config in a directory in place from v1 to v2 format (service{name,port}, boolean debug, hosts array, timeoutMs). Skips files already version 2. Returns counts and per-file errors.",
+  "whenToUse": "When migrating v1 service config files to v2; reusable in other environments.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "dir": { "type": "string", "description": "Directory of configs, relative to the project root", "default": "configs" }
+    },
+    "additionalProperties": false
+  },
+  "timeoutMs": 30000,
+  "provenance": { "reason": "v1->v2 config migration, to be repeated in other environments" }
+}

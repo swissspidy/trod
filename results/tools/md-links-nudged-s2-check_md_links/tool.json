@@ -1,0 +1,15 @@
+{
+  "name": "check_md_links",
+  "description": "Scans all .md files under a docs dir for broken relative links (missing files or missing #fragment headings, ignoring fenced code and http/https/mailto), writes broken.json (sorted, unique '<file>: <target>' strings) and returns the count and list.",
+  "whenToUse": "When asked to find broken relative Markdown links in docs/; re-run after docs change.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "docs": { "type": "string", "description": "Docs dir relative to project root", "default": "docs" },
+      "out": { "type": "string", "description": "Output JSON path relative to project root", "default": "broken.json" }
+    },
+    "additionalProperties": false
+  },
+  "timeoutMs": 30000,
+  "provenance": { "reason": "docs link check will be requested repeatedly as docs are rewritten" }
+}

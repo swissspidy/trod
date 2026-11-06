@@ -1,0 +1,1482 @@
+{
+  "model": "claude-sonnet-5-5",
+  "runs": 120,
+  "cells": [
+    {
+      "task": "page-audit",
+      "arm": "baseline",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.1355339,
+      "tokens": 141687,
+      "outputTokens": 1581.6666666666667,
+      "turns": 7.333333333333333,
+      "wallS": 20.496333333333332,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "page-audit",
+      "arm": "genesis",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.14652063333333334,
+      "tokens": 146128.33333333334,
+      "outputTokens": 1779.6666666666667,
+      "turns": 7.333333333333333,
+      "wallS": 23.256,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "page-audit",
+      "arm": "nudged",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.23709639999999998,
+      "tokens": 289845.3333333333,
+      "outputTokens": 2819.6666666666665,
+      "turns": 16,
+      "wallS": 38.80566666666667,
+      "toolsCreated": 1,
+      "trodCalls": 3,
+      "callsPerTool": 3,
+      "creationTokens": 62924,
+      "creationShare": 0.21440233161372257,
+      "runsWithTools": 3
+    },
+    {
+      "task": "page-audit",
+      "arm": "library",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.14681876666666668,
+      "tokens": 155226,
+      "outputTokens": 1799,
+      "turns": 8,
+      "wallS": 24.419999999999998,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "csv-clean",
+      "arm": "baseline",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.14815180000000003,
+      "tokens": 150131,
+      "outputTokens": 1931,
+      "turns": 7.666666666666667,
+      "wallS": 25.429333333333336,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "csv-clean",
+      "arm": "genesis",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.18386533333333333,
+      "tokens": 179617.66666666666,
+      "outputTokens": 2858,
+      "turns": 9.666666666666666,
+      "wallS": 32.406666666666666,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "csv-clean",
+      "arm": "nudged",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.2797457666666667,
+      "tokens": 300573,
+      "outputTokens": 3847.6666666666665,
+      "turns": 15.333333333333334,
+      "wallS": 38.39233333333333,
+      "toolsCreated": 1,
+      "trodCalls": 3,
+      "callsPerTool": 3,
+      "creationTokens": 37301.666666666664,
+      "creationShare": 0.12574825399154063,
+      "runsWithTools": 3
+    },
+    {
+      "task": "csv-clean",
+      "arm": "library",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.12932239999999998,
+      "tokens": 180851.66666666666,
+      "outputTokens": 1183.3333333333333,
+      "turns": 10.333333333333334,
+      "wallS": 20.462999999999997,
+      "toolsCreated": 0,
+      "trodCalls": 3,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "bulk-refactor",
+      "arm": "baseline",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.14545133333333335,
+      "tokens": 186439.33333333334,
+      "outputTokens": 1927.6666666666667,
+      "turns": 10,
+      "wallS": 22.688,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "bulk-refactor",
+      "arm": "genesis",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.152738,
+      "tokens": 200141.33333333334,
+      "outputTokens": 1977.6666666666667,
+      "turns": 10.333333333333334,
+      "wallS": 28.262,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "bulk-refactor",
+      "arm": "nudged",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.25229929999999995,
+      "tokens": 324095.6666666667,
+      "outputTokens": 3157,
+      "turns": 17.333333333333332,
+      "wallS": 40.940000000000005,
+      "toolsCreated": 1,
+      "trodCalls": 3,
+      "callsPerTool": 3,
+      "creationTokens": 42963.666666666664,
+      "creationShare": 0.13374455203368,
+      "runsWithTools": 3
+    },
+    {
+      "task": "bulk-refactor",
+      "arm": "library",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.15348119999999998,
+      "tokens": 211155,
+      "outputTokens": 1934.3333333333333,
+      "turns": 11.666666666666666,
+      "wallS": 28.282,
+      "toolsCreated": 0,
+      "trodCalls": 1.3333333333333333,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "api-query",
+      "arm": "baseline",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.1018418,
+      "tokens": 117099.66666666667,
+      "outputTokens": 1504.3333333333333,
+      "turns": 6.666666666666667,
+      "wallS": 34.166333333333334,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "api-query",
+      "arm": "genesis",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.09895886666666664,
+      "tokens": 106012,
+      "outputTokens": 1475.6666666666667,
+      "turns": 6,
+      "wallS": 32.67066666666667,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "api-query",
+      "arm": "nudged",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.24034729999999996,
+      "tokens": 326021.3333333333,
+      "outputTokens": 3711.6666666666665,
+      "turns": 19,
+      "wallS": 47.599333333333334,
+      "toolsCreated": 1,
+      "trodCalls": 3,
+      "callsPerTool": 3,
+      "creationTokens": 88000.66666666667,
+      "creationShare": 0.2690128617784969,
+      "runsWithTools": 3
+    },
+    {
+      "task": "api-query",
+      "arm": "library",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.09179506666666666,
+      "tokens": 104993.33333333333,
+      "outputTokens": 1113,
+      "turns": 6,
+      "wallS": 29.673,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "browser-check",
+      "arm": "baseline",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.13158056666666665,
+      "tokens": 163683.66666666666,
+      "outputTokens": 1211.3333333333333,
+      "turns": 8.666666666666666,
+      "wallS": 35.724,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "browser-check",
+      "arm": "genesis",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.1404055333333333,
+      "tokens": 178784.66666666666,
+      "outputTokens": 1268,
+      "turns": 9.333333333333334,
+      "wallS": 37.196666666666665,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "browser-check",
+      "arm": "nudged",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.2425611,
+      "tokens": 315900,
+      "outputTokens": 2657.3333333333335,
+      "turns": 17,
+      "wallS": 60.07266666666666,
+      "toolsCreated": 1,
+      "trodCalls": 4,
+      "callsPerTool": 4,
+      "creationTokens": 100511,
+      "creationShare": 0.3186956992503048,
+      "runsWithTools": 3
+    },
+    {
+      "task": "browser-check",
+      "arm": "library",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.1295888,
+      "tokens": 156786,
+      "outputTokens": 1304.6666666666667,
+      "turns": 8.333333333333334,
+      "wallS": 34.84166666666667,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "log-analysis",
+      "arm": "baseline",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.12278053333333334,
+      "tokens": 131907,
+      "outputTokens": 1653.6666666666667,
+      "turns": 7.333333333333333,
+      "wallS": 19.205000000000002,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "log-analysis",
+      "arm": "genesis",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.1534337,
+      "tokens": 171299.33333333334,
+      "outputTokens": 1811,
+      "turns": 9.333333333333334,
+      "wallS": 24.167,
+      "toolsCreated": 0.3333333333333333,
+      "trodCalls": 1,
+      "callsPerTool": 3,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 1
+    },
+    {
+      "task": "log-analysis",
+      "arm": "nudged",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.20131966666666667,
+      "tokens": 228557.66666666666,
+      "outputTokens": 2198.6666666666665,
+      "turns": 13,
+      "wallS": 25.205333333333332,
+      "toolsCreated": 1,
+      "trodCalls": 3,
+      "callsPerTool": 3,
+      "creationTokens": 41276.333333333336,
+      "creationShare": 0.18078120973599807,
+      "runsWithTools": 3
+    },
+    {
+      "task": "log-analysis",
+      "arm": "library",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.1428354,
+      "tokens": 176769.66666666666,
+      "outputTokens": 1284,
+      "turns": 9.666666666666666,
+      "wallS": 21.628,
+      "toolsCreated": 0,
+      "trodCalls": 2,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "md-links",
+      "arm": "baseline",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.1325738,
+      "tokens": 129731.66666666667,
+      "outputTokens": 1846.3333333333333,
+      "turns": 7,
+      "wallS": 21.989,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "md-links",
+      "arm": "genesis",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.13461686666666664,
+      "tokens": 143529.33333333334,
+      "outputTokens": 1701.6666666666667,
+      "turns": 7.666666666666667,
+      "wallS": 23.25133333333333,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "md-links",
+      "arm": "nudged",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.23271083333333334,
+      "tokens": 230412,
+      "outputTokens": 3017,
+      "turns": 12.666666666666666,
+      "wallS": 34.394666666666666,
+      "toolsCreated": 1,
+      "trodCalls": 3,
+      "callsPerTool": 3,
+      "creationTokens": 42981,
+      "creationShare": 0.18376331699648288,
+      "runsWithTools": 3
+    },
+    {
+      "task": "md-links",
+      "arm": "library",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.09211846666666668,
+      "tokens": 126348.33333333333,
+      "outputTokens": 520.3333333333334,
+      "turns": 7,
+      "wallS": 13.491999999999999,
+      "toolsCreated": 0,
+      "trodCalls": 3,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "config-migrate",
+      "arm": "baseline",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.13003793333333333,
+      "tokens": 135674.33333333334,
+      "outputTokens": 1525.6666666666667,
+      "turns": 7,
+      "wallS": 19.88733333333333,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "config-migrate",
+      "arm": "genesis",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.14275426666666668,
+      "tokens": 137397,
+      "outputTokens": 1998.3333333333333,
+      "turns": 7,
+      "wallS": 21.879666666666665,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "config-migrate",
+      "arm": "nudged",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.24258293333333336,
+      "tokens": 298978.6666666667,
+      "outputTokens": 2656.3333333333335,
+      "turns": 15.666666666666666,
+      "wallS": 30.356333333333335,
+      "toolsCreated": 1,
+      "trodCalls": 3,
+      "callsPerTool": 3,
+      "creationTokens": 37696.666666666664,
+      "creationShare": 0.1259606764066536,
+      "runsWithTools": 3
+    },
+    {
+      "task": "config-migrate",
+      "arm": "library",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.1349738,
+      "tokens": 191914.66666666666,
+      "outputTokens": 1715,
+      "turns": 11.333333333333334,
+      "wallS": 24.756333333333334,
+      "toolsCreated": 0,
+      "trodCalls": 3,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "control-bugfix",
+      "arm": "baseline",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.0243695,
+      "tokens": 49716,
+      "outputTokens": 584.3333333333334,
+      "turns": 4,
+      "wallS": 6.28,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "control-bugfix",
+      "arm": "genesis",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.024439500000000003,
+      "tokens": 50299,
+      "outputTokens": 546,
+      "turns": 3.6666666666666665,
+      "wallS": 7.177666666666667,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "control-bugfix",
+      "arm": "nudged",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.025051600000000004,
+      "tokens": 50759,
+      "outputTokens": 558.3333333333334,
+      "turns": 4,
+      "wallS": 7.662333333333333,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "control-bugfix",
+      "arm": "library",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.024792033333333335,
+      "tokens": 50244.333333333336,
+      "outputTokens": 579.3333333333334,
+      "turns": 4,
+      "wallS": 7.494,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "control-question",
+      "arm": "baseline",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.019334800000000003,
+      "tokens": 48715,
+      "outputTokens": 202.33333333333334,
+      "turns": 3,
+      "wallS": 4.241333333333333,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "control-question",
+      "arm": "genesis",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.019852733333333334,
+      "tokens": 49416.333333333336,
+      "outputTokens": 188.33333333333334,
+      "turns": 3,
+      "wallS": 4.999333333333333,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "control-question",
+      "arm": "nudged",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.020169833333333335,
+      "tokens": 49779.333333333336,
+      "outputTokens": 191,
+      "turns": 3,
+      "wallS": 5.155,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "control-question",
+      "arm": "library",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.021117999999999998,
+      "tokens": 55257.333333333336,
+      "outputTokens": 225.33333333333334,
+      "turns": 3.3333333333333335,
+      "wallS": 5.445,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    }
+  ],
+  "overall": [
+    {
+      "arm": "baseline",
+      "all": {
+        "n": 30,
+        "passRate": 1,
+        "costUsd": 0.10916559666666666,
+        "costSd": 0.046884392933238074,
+        "tokens": 125478.46666666666,
+        "turns": 6.866666666666666,
+        "wallS": 21.010666666666662,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      },
+      "repetitive": {
+        "n": 24,
+        "passRate": 1,
+        "costUsd": 0.1309939583333333,
+        "costSd": 0.016850705710622763,
+        "tokens": 144544.20833333334,
+        "turns": 7.708333333333333,
+        "wallS": 24.948166666666662,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      },
+      "control": {
+        "n": 6,
+        "passRate": 1,
+        "costUsd": 0.021852149999999997,
+        "costSd": 0.002763817901924799,
+        "tokens": 49215.5,
+        "turns": 3.5,
+        "wallS": 5.260666666666666,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      }
+    },
+    {
+      "arm": "genesis",
+      "all": {
+        "n": 30,
+        "passRate": 1,
+        "costUsd": 0.11975854333333334,
+        "costSd": 0.056762464420022016,
+        "tokens": 136262.5,
+        "turns": 7.333333333333333,
+        "wallS": 23.5267,
+        "toolsCreated": 1,
+        "trodCalls": 3,
+        "runsWithTools": 1
+      },
+      "repetitive": {
+        "n": 24,
+        "passRate": 1,
+        "costUsd": 0.14416165,
+        "costSd": 0.03088749383519372,
+        "tokens": 157863.70833333334,
+        "turns": 8.333333333333334,
+        "wallS": 27.886250000000004,
+        "toolsCreated": 1,
+        "trodCalls": 3,
+        "runsWithTools": 1
+      },
+      "control": {
+        "n": 6,
+        "passRate": 1,
+        "costUsd": 0.02214611666666667,
+        "costSd": 0.0025726449886579127,
+        "tokens": 49857.666666666664,
+        "turns": 3.3333333333333335,
+        "wallS": 6.088500000000001,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      }
+    },
+    {
+      "arm": "nudged",
+      "all": {
+        "n": 30,
+        "passRate": 1,
+        "costUsd": 0.19738847333333337,
+        "costSd": 0.09175382460025167,
+        "tokens": 241492.2,
+        "turns": 13.3,
+        "wallS": 32.858366666666676,
+        "toolsCreated": 24,
+        "trodCalls": 75,
+        "runsWithTools": 24
+      },
+      "repetitive": {
+        "n": 24,
+        "passRate": 1,
+        "costUsd": 0.24108291250000002,
+        "costSd": 0.025540394734110607,
+        "tokens": 289297.9583333333,
+        "turns": 15.75,
+        "wallS": 39.47079166666668,
+        "toolsCreated": 24,
+        "trodCalls": 75,
+        "runsWithTools": 24
+      },
+      "control": {
+        "n": 6,
+        "passRate": 1,
+        "costUsd": 0.022610716666666666,
+        "costSd": 0.0027023430828943,
+        "tokens": 50269.166666666664,
+        "turns": 3.5,
+        "wallS": 6.408666666666666,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      }
+    },
+    {
+      "arm": "library",
+      "all": {
+        "n": 30,
+        "passRate": 1,
+        "costUsd": 0.10668439333333334,
+        "costSd": 0.048366043314149246,
+        "tokens": 140954.63333333333,
+        "turns": 7.966666666666667,
+        "wallS": 21.049500000000005,
+        "toolsCreated": 0,
+        "trodCalls": 37,
+        "runsWithTools": 0
+      },
+      "repetitive": {
+        "n": 24,
+        "passRate": 1,
+        "costUsd": 0.1276167375,
+        "costSd": 0.025733263039647014,
+        "tokens": 163005.58333333334,
+        "turns": 9.041666666666666,
+        "wallS": 24.6945,
+        "toolsCreated": 0,
+        "trodCalls": 37,
+        "runsWithTools": 0
+      },
+      "control": {
+        "n": 6,
+        "passRate": 1,
+        "costUsd": 0.022955016666666665,
+        "costSd": 0.0023986387534738677,
+        "tokens": 52750.833333333336,
+        "turns": 3.6666666666666665,
+        "wallS": 6.469499999999999,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      }
+    }
+  ],
+  "ratios": [
+    {
+      "task": "page-audit",
+      "kind": "repetitive",
+      "genesis": {
+        "cost": 1.0810626222172706,
+        "turns": 1,
+        "wall": 1.1346419684821676
+      },
+      "nudged": {
+        "cost": 1.7493512693134334,
+        "turns": 2.181818181818182,
+        "wall": 1.8932979882580625
+      },
+      "library": {
+        "cost": 1.0832623178899645,
+        "turns": 1.090909090909091,
+        "wall": 1.191432613963473
+      }
+    },
+    {
+      "task": "csv-clean",
+      "kind": "repetitive",
+      "genesis": {
+        "cost": 1.241060407860946,
+        "turns": 1.2608695652173911,
+        "wall": 1.2743812919463087
+      },
+      "nudged": {
+        "cost": 1.8882373799485839,
+        "turns": 2,
+        "wall": 1.5097656249999998
+      },
+      "library": {
+        "cost": 0.8729046828995662,
+        "turns": 1.3478260869565217,
+        "wall": 0.8047006082214764
+      }
+    },
+    {
+      "task": "bulk-refactor",
+      "kind": "repetitive",
+      "genesis": {
+        "cost": 1.0500969396407505,
+        "turns": 1.0333333333333334,
+        "wall": 1.2456805359661496
+      },
+      "nudged": {
+        "cost": 1.7345959931615151,
+        "turns": 1.7333333333333332,
+        "wall": 1.8044781382228494
+      },
+      "library": {
+        "cost": 1.0552065524780336,
+        "turns": 1.1666666666666665,
+        "wall": 1.246562059238364
+      }
+    },
+    {
+      "task": "api-query",
+      "kind": "repetitive",
+      "genesis": {
+        "cost": 0.9716920426255884,
+        "turns": 0.8999999999999999,
+        "wall": 0.9562239631606163
+      },
+      "nudged": {
+        "cost": 2.360006402086373,
+        "turns": 2.85,
+        "wall": 1.3931648113640134
+      },
+      "library": {
+        "cost": 0.9013496095578305,
+        "turns": 0.8999999999999999,
+        "wall": 0.868486521819725
+      }
+    },
+    {
+      "task": "browser-check",
+      "kind": "repetitive",
+      "genesis": {
+        "cost": 1.0670689212718087,
+        "turns": 1.076923076923077,
+        "wall": 1.0412234538872094
+      },
+      "nudged": {
+        "cost": 1.8434416733778065,
+        "turns": 1.9615384615384617,
+        "wall": 1.6815772776471467
+      },
+      "library": {
+        "cost": 0.9848627596223051,
+        "turns": 0.9615384615384617,
+        "wall": 0.9753013846900311
+      }
+    },
+    {
+      "task": "log-analysis",
+      "kind": "repetitive",
+      "genesis": {
+        "cost": 1.2496581977164676,
+        "turns": 1.272727272727273,
+        "wall": 1.25837021608956
+      },
+      "nudged": {
+        "cost": 1.6396708924541783,
+        "turns": 1.7727272727272727,
+        "wall": 1.312435997570077
+      },
+      "library": {
+        "cost": 1.1633391395378636,
+        "turns": 1.3181818181818181,
+        "wall": 1.1261650611819838
+      }
+    },
+    {
+      "task": "md-links",
+      "kind": "repetitive",
+      "genesis": {
+        "cost": 1.0154107875512857,
+        "turns": 1.0952380952380953,
+        "wall": 1.0574074916246001
+      },
+      "nudged": {
+        "cost": 1.7553304901370659,
+        "turns": 1.8095238095238095,
+        "wall": 1.564176027407643
+      },
+      "library": {
+        "cost": 0.6948466941934732,
+        "turns": 1,
+        "wall": 0.6135795170312428
+      }
+    },
+    {
+      "task": "config-migrate",
+      "kind": "repetitive",
+      "genesis": {
+        "cost": 1.0977894142683495,
+        "turns": 1,
+        "wall": 1.1001810197445612
+      },
+      "nudged": {
+        "cost": 1.865478227122445,
+        "turns": 2.238095238095238,
+        "wall": 1.5264154738359428
+      },
+      "library": {
+        "cost": 1.0379571294324887,
+        "turns": 1.619047619047619,
+        "wall": 1.2448292045187894
+      }
+    },
+    {
+      "task": "control-bugfix",
+      "kind": "control",
+      "genesis": {
+        "cost": 1.0028724430127824,
+        "turns": 0.9166666666666666,
+        "wall": 1.142940552016985
+      },
+      "nudged": {
+        "cost": 1.0279899054145554,
+        "turns": 1,
+        "wall": 1.220116772823779
+      },
+      "library": {
+        "cost": 1.017338613157157,
+        "turns": 1,
+        "wall": 1.193312101910828
+      }
+    },
+    {
+      "task": "control-question",
+      "kind": "control",
+      "genesis": {
+        "cost": 1.0267876230079096,
+        "turns": 1,
+        "wall": 1.1787173844702923
+      },
+      "nudged": {
+        "cost": 1.0431881029714987,
+        "turns": 1,
+        "wall": 1.2154196793461176
+      },
+      "library": {
+        "cost": 1.0922274861907024,
+        "turns": 1.1111111111111112,
+        "wall": 1.283794404275385
+      }
+    }
+  ],
+  "stepCost": [
+    {
+      "arm": "baseline",
+      "steps": [
+        0.03475274583333333,
+        0.044176387500000004,
+        0.05206482500000001
+      ]
+    },
+    {
+      "arm": "genesis",
+      "steps": [
+        0.03862755,
+        0.04841847083333334,
+        0.05711562916666666
+      ]
+    },
+    {
+      "arm": "nudged",
+      "steps": [
+        0.06846722083333334,
+        0.0808036625,
+        0.09181202916666668
+      ]
+    },
+    {
+      "arm": "library",
+      "steps": [
+        0.03361997916666667,
+        0.04271195416666667,
+        0.05128480416666666
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "run": "api-query/nudged-s1",
+      "task": "api-query",
+      "arm": "nudged",
+      "tool": "api_sync_totals",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 6,
+      "avgMs": 2465
+    },
+    {
+      "run": "api-query/nudged-s2",
+      "task": "api-query",
+      "arm": "nudged",
+      "tool": "api_sync",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 4,
+      "avgMs": 2473
+    },
+    {
+      "run": "api-query/nudged-s3",
+      "task": "api-query",
+      "arm": "nudged",
+      "tool": "fetch_api_data",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 2,
+      "avgMs": 2474
+    },
+    {
+      "run": "browser-check/nudged-s1",
+      "task": "browser-check",
+      "arm": "nudged",
+      "tool": "scrape_products",
+      "calls": 4,
+      "errors": 0,
+      "revisions": 3,
+      "avgMs": 6134
+    },
+    {
+      "run": "browser-check/nudged-s2",
+      "task": "browser-check",
+      "arm": "nudged",
+      "tool": "scrape_products",
+      "calls": 4,
+      "errors": 0,
+      "revisions": 3,
+      "avgMs": 3144
+    },
+    {
+      "run": "browser-check/nudged-s3",
+      "task": "browser-check",
+      "arm": "nudged",
+      "tool": "check_products",
+      "calls": 4,
+      "errors": 0,
+      "revisions": 1,
+      "avgMs": 9528
+    },
+    {
+      "run": "bulk-refactor/library-s1",
+      "task": "bulk-refactor",
+      "arm": "library",
+      "tool": "migrate_logger",
+      "calls": 4,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 41
+    },
+    {
+      "run": "bulk-refactor/nudged-s1",
+      "task": "bulk-refactor",
+      "arm": "nudged",
+      "tool": "migrate_logger",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 52
+    },
+    {
+      "run": "bulk-refactor/nudged-s2",
+      "task": "bulk-refactor",
+      "arm": "nudged",
+      "tool": "migrate_logger",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 39
+    },
+    {
+      "run": "bulk-refactor/nudged-s3",
+      "task": "bulk-refactor",
+      "arm": "nudged",
+      "tool": "migrate_logger",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 58
+    },
+    {
+      "run": "config-migrate/library-s1",
+      "task": "config-migrate",
+      "arm": "library",
+      "tool": "migrate_configs_v2",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 45
+    },
+    {
+      "run": "config-migrate/library-s2",
+      "task": "config-migrate",
+      "arm": "library",
+      "tool": "migrate_configs_v2",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 49
+    },
+    {
+      "run": "config-migrate/library-s3",
+      "task": "config-migrate",
+      "arm": "library",
+      "tool": "migrate_configs_v2",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 45
+    },
+    {
+      "run": "config-migrate/nudged-s1",
+      "task": "config-migrate",
+      "arm": "nudged",
+      "tool": "migrate_configs_v2",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 49
+    },
+    {
+      "run": "config-migrate/nudged-s2",
+      "task": "config-migrate",
+      "arm": "nudged",
+      "tool": "migrate_configs_v2",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 46
+    },
+    {
+      "run": "config-migrate/nudged-s3",
+      "task": "config-migrate",
+      "arm": "nudged",
+      "tool": "migrate_configs_v2",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 51
+    },
+    {
+      "run": "csv-clean/library-s1",
+      "task": "csv-clean",
+      "arm": "library",
+      "tool": "clean_orders",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 52
+    },
+    {
+      "run": "csv-clean/library-s2",
+      "task": "csv-clean",
+      "arm": "library",
+      "tool": "clean_orders",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 58
+    },
+    {
+      "run": "csv-clean/library-s3",
+      "task": "csv-clean",
+      "arm": "library",
+      "tool": "clean_orders",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 47
+    },
+    {
+      "run": "csv-clean/nudged-s1",
+      "task": "csv-clean",
+      "arm": "nudged",
+      "tool": "clean_orders",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 49
+    },
+    {
+      "run": "csv-clean/nudged-s2",
+      "task": "csv-clean",
+      "arm": "nudged",
+      "tool": "clean_orders",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 1,
+      "avgMs": 68
+    },
+    {
+      "run": "csv-clean/nudged-s3",
+      "task": "csv-clean",
+      "arm": "nudged",
+      "tool": "clean_orders",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 56
+    },
+    {
+      "run": "log-analysis/genesis-s1",
+      "task": "log-analysis",
+      "arm": "genesis",
+      "tool": "log_report",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 41
+    },
+    {
+      "run": "log-analysis/library-s1",
+      "task": "log-analysis",
+      "arm": "library",
+      "tool": "log_report",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 58
+    },
+    {
+      "run": "log-analysis/library-s3",
+      "task": "log-analysis",
+      "arm": "library",
+      "tool": "log_report",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 60
+    },
+    {
+      "run": "log-analysis/nudged-s1",
+      "task": "log-analysis",
+      "arm": "nudged",
+      "tool": "log_report",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 53
+    },
+    {
+      "run": "log-analysis/nudged-s2",
+      "task": "log-analysis",
+      "arm": "nudged",
+      "tool": "log_report",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 61
+    },
+    {
+      "run": "log-analysis/nudged-s3",
+      "task": "log-analysis",
+      "arm": "nudged",
+      "tool": "log_report",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 58
+    },
+    {
+      "run": "md-links/library-s1",
+      "task": "md-links",
+      "arm": "library",
+      "tool": "md_broken_links",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 54
+    },
+    {
+      "run": "md-links/library-s2",
+      "task": "md-links",
+      "arm": "library",
+      "tool": "md_broken_links",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 48
+    },
+    {
+      "run": "md-links/library-s3",
+      "task": "md-links",
+      "arm": "library",
+      "tool": "md_broken_links",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 44
+    },
+    {
+      "run": "md-links/nudged-s1",
+      "task": "md-links",
+      "arm": "nudged",
+      "tool": "md_broken_links",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 47
+    },
+    {
+      "run": "md-links/nudged-s2",
+      "task": "md-links",
+      "arm": "nudged",
+      "tool": "check_md_links",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 55
+    },
+    {
+      "run": "md-links/nudged-s3",
+      "task": "md-links",
+      "arm": "nudged",
+      "tool": "md_broken_links",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 125
+    },
+    {
+      "run": "page-audit/nudged-s1",
+      "task": "page-audit",
+      "arm": "nudged",
+      "tool": "audit_site",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 177
+    },
+    {
+      "run": "page-audit/nudged-s2",
+      "task": "page-audit",
+      "arm": "nudged",
+      "tool": "site_audit",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 169
+    },
+    {
+      "run": "page-audit/nudged-s3",
+      "task": "page-audit",
+      "arm": "nudged",
+      "tool": "audit_site",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 167
+    }
+  ]
+}

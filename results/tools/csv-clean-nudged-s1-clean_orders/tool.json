@@ -1,0 +1,16 @@
+{
+  "name": "clean_orders",
+  "description": "Cleans every orders-*.csv (or given files) from an input dir into an output dir with the same names (id,date,customer,amount; sorted, deduped, ISO dates). Returns per-file rows in/out and dropped counts.",
+  "whenToUse": "Whenever raw order CSV exports need cleaning, including newly arrived ones.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "inDir": { "type": "string", "description": "default data/raw" },
+      "outDir": { "type": "string", "description": "default data/clean" },
+      "files": { "type": "array", "items": { "type": "string" }, "description": "file names; default all *.csv" }
+    },
+    "additionalProperties": false
+  },
+  "timeoutMs": 30000,
+  "provenance": { "reason": "8 raw CSVs now, more exports will arrive" }
+}

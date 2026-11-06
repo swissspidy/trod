@@ -1,0 +1,15 @@
+{
+  "name": "md_broken_links",
+  "description": "Scans all .md files under a docs dir for broken relative links (missing file or missing heading fragment, GitHub-style slugs), ignoring fenced code blocks and http/https/mailto. Writes the sorted unique JSON array of '<file>: <target>' to an output file and returns it with counts.",
+  "whenToUse": "Whenever the docs broken-link check is requested; prefer over ad-hoc scripts.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "docsDir": { "type": "string", "description": "Docs dir relative to project root", "default": "docs" },
+      "out": { "type": "string", "description": "Output JSON path relative to project root", "default": "broken.json" }
+    },
+    "additionalProperties": false
+  },
+  "timeoutMs": 30000,
+  "provenance": { "reason": "docs link check will be requested repeatedly as docs are rewritten" }
+}

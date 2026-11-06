@@ -1,0 +1,15 @@
+{
+  "name": "clean_orders",
+  "description": "Cleans every orders-*.csv (or the listed files) from data/raw into data/clean with the same name: normalized header, ISO dates, capitalized customers, 2-decimal amounts, dedup by id, sorted by id. Returns per-file row counts (in, out, dropped, duplicates).",
+  "whenToUse": "Whenever raw order CSV exports need cleaning, including newly arrived files; omit files to process all of data/raw.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "dir": { "type": "string", "description": "Source directory relative to project root; default data/raw" },
+      "files": { "type": "array", "items": { "type": "string" }, "description": "File names inside data/raw; default all *.csv" }
+    },
+    "additionalProperties": false
+  },
+  "timeoutMs": 30000,
+  "provenance": { "reason": "clean 8 messy CSVs now and more exports later" }
+}

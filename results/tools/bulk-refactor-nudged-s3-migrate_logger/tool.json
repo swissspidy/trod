@@ -1,0 +1,15 @@
+{
+  "name": "migrate_logger",
+  "description": "Migrates all .js/.mjs files in a directory (recursive) from log(level, ...) to logger.<level>(...), updates the logger import, and renames formatId to formatID. Returns changed files and any leftover log( usages needing manual review.",
+  "whenToUse": "When migrating a directory of modules off the deprecated log() API.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "dir": { "type": "string", "description": "Directory relative to the project root, e.g. src/modules" }
+    },
+    "required": ["dir"],
+    "additionalProperties": false
+  },
+  "timeoutMs": 30000,
+  "provenance": { "reason": "24 modules now, more directories later" }
+}

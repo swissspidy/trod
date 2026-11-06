@@ -5,7 +5,7 @@ writes a tool definition with its normal Write tool. trod picks it up, validates
 `notifications/tools/list_changed`, so the agent can call the new tool in the same session.
 
 It is an experiment: do agents that build their own tools mid-task get cheaper or faster than plain Bash?
-See [`experiments/`](experiments/) and the results in [`results/`](results/).
+See [`experiments/`](experiments/) and the results in [`results/`](results/README.md). **Headline (Sonnet 5.5, 120 sessions):** agents almost never built tools unprompted. When required to, sessions cost 1.84× plain Bash, because a parameterized script on disk is already a tool. Tools carried over from an earlier session broke even overall and saved 31% on the fiddliest task.
 
 ## A tool
 
