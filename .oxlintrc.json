@@ -1,5 +1,5 @@
 {
   "plugins": ["typescript", "unicorn", "oxc", "import", "node", "promise"],
   "categories": { "correctness": "error" },
-  "ignorePatterns": ["plugin/server/**", "plugin/bin/**", "plugin/spike-server.mjs", "results/**", "experiments/tasks/**/fixture/**"]
+  "ignorePatterns": ["plugin/server/**", "plugin/bin/**", "plugin/spike-server.mjs", "results/**", "results-*/**", "site/**", "experiments/tasks/**/fixture/**"]
 }

@@ -1,5 +1,8 @@
 # Results: do self-made tools pay off?
 
+> Round 1 (trod 0.1). Rounds 2 and 3 fixed the overheads found here and found where tools do pay off: see
+> [results-2/README.md](../results-2/README.md).
+
 **Short answer: not on these tasks, with this model.** Sonnet 5.5 solved all 120 sessions in every arm. Given
 trod, it almost never built a tool on its own (1 of 24 repetitive sessions). When it was required to build tools,
 sessions cost **1.84× as much** as plain Bash, even though every tool was reused 3–4 times. Tools carried over from

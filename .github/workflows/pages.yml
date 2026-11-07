@@ -4,7 +4,7 @@ name: Pages
 on:
   push:
     branches: [main]
-    paths: ["results/**", ".github/workflows/pages.yml"]
+    paths: ["results/**", "results-*/**", "site/**", ".github/workflows/pages.yml"]
   workflow_dispatch:
 
 permissions:
@@ -25,16 +25,19 @@ jobs:
           persist-credentials: false
       - name: Assemble site
         run: |
-          mkdir -p _site
-          # Every results*/report.html becomes a page; the first round is the index.
-          cp results/report.html _site/index.html
+          # site/index.html is the landing page; results/ is round 1, results-<n>[-x]/ are round-<n>[-x].
+          mkdir -p _site/round-1
+          cp site/index.html _site/index.html
+          cp results/report.html _site/round-1/index.html
           for d in results-*/; do
             [ -f "$d/report.html" ] || continue
-            name="${d%/}"
+            name="round-${d#results-}"
+            name="${name%/}"
             mkdir -p "_site/$name"
             cp "$d/report.html" "_site/$name/index.html"
           done
           touch _site/.nojekyll
+          find _site -type f | sort
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
 
