@@ -108,7 +108,8 @@ try {
   let json;
   try { json = JSON.stringify(value); } catch (e) { json = JSON.stringify(String(value)); }
   writeSync(3, '{"ok":true,"value":' + (json ?? 'null') + '}');
-  process.exit(0);
+  // Let un-awaited work (e.g. a fire-and-forget file write) finish; force the exit only if something lingers.
+  setTimeout(() => process.exit(0), 5000).unref();
 } catch (err) {
   send({ ok: false, error: err && err.stack ? String(err.stack) : String(err) });
   process.exit(1);
@@ -163,7 +164,7 @@ try {
   let json;
   try { json = JSON.stringify(value); } catch { json = JSON.stringify(String(value)); }
   writeSync(3, '{"ok":true,"calls":' + JSON.stringify(calls) + ',"value":' + (json ?? 'null') + '}');
-  process.exit(0);
+  setTimeout(() => process.exit(0), 5000).unref();
 } catch (err) {
   send({ ok: false, error: err && err.stack ? String(err.stack) : String(err) });
   process.exit(1);

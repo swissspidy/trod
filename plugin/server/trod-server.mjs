@@ -17142,7 +17142,8 @@ try {
   let json;
   try { json = JSON.stringify(value); } catch (e) { json = JSON.stringify(String(value)); }
   writeSync(3, '{"ok":true,"value":' + (json ?? 'null') + '}');
-  process.exit(0);
+  // Let un-awaited work (e.g. a fire-and-forget file write) finish; force the exit only if something lingers.
+  setTimeout(() => process.exit(0), 5000).unref();
 } catch (err) {
   send({ ok: false, error: err && err.stack ? String(err.stack) : String(err) });
   process.exit(1);
@@ -17191,7 +17192,7 @@ try {
   let json;
   try { json = JSON.stringify(value); } catch { json = JSON.stringify(String(value)); }
   writeSync(3, '{"ok":true,"calls":' + JSON.stringify(calls) + ',"value":' + (json ?? 'null') + '}');
-  process.exit(0);
+  setTimeout(() => process.exit(0), 5000).unref();
 } catch (err) {
   send({ ok: false, error: err && err.stack ? String(err.stack) : String(err) });
   process.exit(1);
@@ -17846,22 +17847,23 @@ function signature(schema) {
   const req = new Set(schema.required ?? []);
   return Object.entries(props).map(([k, v]) => `${k}${req.has(k) ? "" : "?"}: ${v.enum ? v.enum.map((x) => JSON.stringify(x)).join("|") : Array.isArray(v.type) ? v.type.join("|") : v.type ?? "any"}`).join(", ");
 }
-function libraryCards(tools, stats, maxChars = 6e3) {
+var LIBRARY_INSTRUCTIONS = `trod: tools for this project. Call a tool with trod_run {"tool": "<name>", "input": {\u2026}}, or call several and compute the answer in ONE call with trod_eval {"code": "const r = await tools.<name>({\u2026}); return \u2026"} (only the returned value comes back; fs, fsp, path, projectDir are available). New tools: write .trod/tools/<name>.mjs (export const meta = { description, whenToUse, inputSchema }; export default async (input, ctx) => result).`;
+var INSTRUCTIONS_BUDGET = 3800;
+function libraryCards(tools, stats, maxChars = INSTRUCTIONS_BUDGET - LIBRARY_INSTRUCTIONS.length) {
   const lib = tools.filter((t) => t.source === "library" && t.ok && t.def).sort((a, b) => a.def.name.localeCompare(b.def.name));
   if (!lib.length) return "";
-  const lines = [
-    "",
-    "LIBRARY: these tools were built and verified in earlier sessions for this project. Rely on them instead of rediscovering the same API or format details; you do not need to read their source. Call one with trod_run, or several at once inside trod_eval as tools.<name>(input)."
-  ];
+  const header = '\nLIBRARY (built and verified in earlier sessions; rely on it instead of rediscovering API or format details; no need to read the source). Full documentation of all library tools in one call: trod_status {"name": "library"}.';
+  const perTool = Math.max(160, Math.floor((maxChars - header.length) / lib.length) - 2);
+  const clip = (s, n) => s.length <= n ? s : s.slice(0, Math.max(0, n - 1)) + "\u2026";
+  const lines = [header];
   for (const t of lib) {
     const d = t.def;
-    const ex = d.examples?.length ? ` Verified: its ${d.examples.length} example(s) passed when it was promoted.` : "";
     const s = stats.get(d.name);
-    const use = s && s.calls ? ` Used ${s.calls}\xD7 in ${s.sessions} earlier session(s), ${s.errors} error(s).` : "";
-    lines.push(`- ${d.name}(${signature(d.inputSchema)}): ${d.description.trim()} When: ${d.whenToUse.trim()}${ex}${use}`);
+    const evidence = [d.examples?.length ? "verified" : "", s && s.calls ? `used ${s.calls}\xD7 in ${s.sessions} session(s), ${s.errors} error(s)` : ""].filter(Boolean).join("; ");
+    const head = `- ${d.name}(${signature(d.inputSchema)})${evidence ? ` [${evidence}]` : ""}: `;
+    lines.push(head + clip(`${d.description.trim()} When: ${d.whenToUse.trim()}`, perTool - head.length));
   }
-  const text = lines.join("\n");
-  return text.length > maxChars ? text.slice(0, maxChars) + "\n(\u2026 more in trod_status)" : text;
+  return lines.join("\n");
 }
 function sessionIdFromEnv(env) {
   return env.TROD_SESSION_ID || env.CLAUDE_CODE_SESSION_ID || env.CLAUDE_SESSION_ID || void 0;
@@ -17925,7 +17927,7 @@ var TrodServer = class {
     });
     const stats = new Map(computeStats(readLogs(this.paths.logsDir)).tools.map((t) => [t.tool, t]));
     const cards = libraryCards([...this.registry.active.values()], stats);
-    if (cards) this.server._instructions = SERVER_INSTRUCTIONS + "\n" + cards;
+    if (cards) this.server._instructions = LIBRARY_INSTRUCTIONS + cards;
     this.watch();
   }
   /** Marks the server connected; list_changed notifications are only sent after that. */
@@ -18087,7 +18089,7 @@ var TrodServer = class {
   status(name) {
     const rel = (p) => path5.relative(this.paths.projectDir, p) || ".";
     if (name) {
-      const matches = [...this.registry.folders.values()].filter((t) => t.folder === name || t.def?.name === name);
+      const matches = [...this.registry.folders.values()].filter((t) => name === "library" ? t.source === "library" : t.folder === name || t.def?.name === name);
       if (!matches.length) return `trod: no tool or folder named "${name}". Call trod_status without arguments for the list.`;
       return matches.map((t) => {
         const live = t.ok && this.registry.active.get(t.def.name) === t;

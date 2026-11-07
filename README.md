@@ -5,10 +5,11 @@ writes a tool definition with its normal Write tool. trod picks it up, validates
 `notifications/tools/list_changed`, so the agent can call the new tool in the same session.
 
 It is an experiment: do agents that build their own tools mid-task get cheaper or faster than plain Bash?
-See [`experiments/`](experiments/) and the results in [`results/`](results/README.md). **Findings so far** ([round 1](results/README.md), [rounds 2 and 3](results-2/README.md)): building tools *mid-task*
-does not beat writing a script, because a script on disk is already a tool. Tools pay off as an **asset**: a library
-built once cut later fresh sessions' tokens by 26% with no failures (break-even after about 12 sessions), and tools
-built by Sonnet cut Haiku's tokens by 36% (4.4× on a code-analysis task).
+See [`experiments/`](experiments/) and the results in [`results/`](results/README.md). **Findings so far** ([round 1](results/README.md), [rounds 2 and 3](results-2/README.md), [round 4](results-4/README.md),
+[site](https://swissspidy.github.io/trod/)): building tools *mid-task* does not beat writing a script. A library
+**forged once** by a strong model is a different story. With `trod forge`, library cards and code mode, Haiku using an
+Opus-forged library got every answer right in all 9 runs (Sonnet from scratch: 6 of 9), at 5–14% of Sonnet's cost.
+Each forge pays for itself after about 12–22 sessions.
 
 ## A tool
 
