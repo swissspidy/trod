@@ -6,10 +6,14 @@ writes a tool definition with its normal Write tool. trod picks it up, validates
 
 It is an experiment: do agents that build their own tools mid-task get cheaper or faster than plain Bash?
 See [`experiments/`](experiments/) and the results in [`results/`](results/README.md). **Findings so far** ([round 1](results/README.md), [rounds 2 and 3](results-2/README.md), [round 4](results-4/README.md),
-[site](https://swissspidy.github.io/trod/)): building tools *mid-task* does not beat writing a script. A library
-**forged once** by a strong model is a different story. With `trod forge`, library cards and code mode, Haiku using an
-Opus-forged library got every answer right in all 9 runs (Sonnet from scratch: 6 of 9), at 5–14% of Sonnet's cost.
-Each forge pays for itself after about 12–22 sessions.
+[round 5](results-5/README.md), [site](https://swissspidy.github.io/trod/)):
+- **Mid-task tools:** building tools *mid-task* does not beat writing a script.
+- **Unfamiliar environments:** a library **forged once** by a strong model pays off where an environment holds
+  knowledge the model cannot guess. Across three such environments (an internal API, an unseen codebase, a signed
+  support API), Haiku with an Opus-forged library got every answer right in all 9 runs (Sonnet from scratch: 6 of 9),
+  at 5–14% of Sonnet's cost.
+- **SWE-bench:** on SWE-bench Verified (Django), the same approach changed nothing, because the models already know
+  how to work in Django.
 
 ## A tool
 
