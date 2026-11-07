@@ -24,6 +24,7 @@ import { parseArgs } from 'node:util';
 import { TASKS } from '../tasks/index.ts';
 import { sweTasks } from '../swe/swe.ts';
 import { appWorldTasks, datasetIds } from '../appworld/appworld.ts';
+import { birdTasks, birdTestSample } from '../bird/bird.ts';
 import type { FixtureState, Task } from '../lib/types.ts';
 import { collectMetrics, type RunRecord, type StepOutcome } from './metrics.ts';
 
@@ -80,7 +81,10 @@ const pool =
     ? sweTasks()
     : values.suite?.startsWith('appworld:')
       ? appWorldTasks(datasetIds(values.suite.slice('appworld:'.length)), path.basename(values.out ?? 'appworld'), process.env.AW_FORGE_TASK ?? '82e2fac_1')
-      : TASKS;
+      : // bird:test: BIRD dev questions from the test split, BIRD_PER_DB (default 10) per database (experiments/bird).
+        values.suite === 'bird:test'
+        ? birdTasks(birdTestSample(Number(process.env.BIRD_PER_DB ?? 10)))
+        : TASKS;
 if (values.suite && !pool.length) {
   console.error(`suite ${values.suite}: no instances (run experiments/swe/setup.sh, or set SWE_HOME)`);
   process.exit(1);
