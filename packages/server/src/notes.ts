@@ -61,8 +61,19 @@ export function readChecks(file: string): { checks: NoteCheck[]; errors: string[
   const errors: string[] = [];
   raw.forEach((c, i) => {
     const ok = c && typeof c === 'object' && typeof c.claim === 'string' && typeof c.tool === 'string' && c.expect && typeof c.expect === 'object';
-    if (ok) checks.push(c as NoteCheck);
-    else errors.push(`${CHECKS_FILE}[${i}]: needs {claim, tool, input?, expect: {contains|matches|equals…}}`);
+    if (!ok) {
+      errors.push(`${CHECKS_FILE}[${i}]: needs {claim, tool, input?, expect: {contains|matches|equals…}}`);
+      return;
+    }
+    if (c.expect.matches !== undefined) {
+      try {
+        new RegExp(String(c.expect.matches));
+      } catch (e) {
+        errors.push(`${CHECKS_FILE}[${i}] ("${c.claim}"): invalid matches pattern (${(e as Error).message})`);
+        return;
+      }
+    }
+    checks.push(c as NoteCheck);
   });
   return { checks, errors };
 }

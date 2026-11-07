@@ -47,6 +47,14 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
     out(USAGE);
     return command || values.help ? 0 : 1;
   }
+  if (values.link && values['no-link']) {
+    out('trod: --link and --no-link contradict each other');
+    return 1;
+  }
+  if ((values.link && command !== 'notes') || (values['no-link'] && command !== 'forge')) {
+    out(`trod ${command}: ${values.link ? '--link only applies to trod notes' : '--no-link only applies to trod forge'}`);
+    return 1;
+  }
   const paths = trodPaths(values.dir ? path.resolve(values.dir) : resolveProjectDir());
 
   switch (command) {

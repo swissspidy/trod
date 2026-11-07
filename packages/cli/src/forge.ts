@@ -120,9 +120,11 @@ export async function forge(opts: ForgeOptions): Promise<ForgeResult> {
     out(`  notes: ${notes.chars} chars${notes.tooLong ? ` (over ${NOTES_MAX_CHARS}: trim them, they are in every session's context)` : ''}, ${passed}/${notes.checks.length} check(s) passed`);
     for (const c of notes.checks.filter((c) => !c.ok)) out(`    failed check "${c.claim}" (${c.tool}): ${c.error}`);
     for (const e of notes.errors) out(`    ${e}`);
-    if (opts.linkNotes !== false) {
+    const failed = notes.checks.some((c) => !c.ok) || notes.errors.length > 0;
+    if (failed) out('  notes NOT linked into CLAUDE.md: fix or remove the failing claims and their checks, then run `trod notes --link`');
+    else if (opts.linkNotes !== false) {
       notesLinkedNow = linkNotes(paths);
-      if (notesLinkedNow) out(`  linked .trod/notes.md into CLAUDE.md (${NOTES_IMPORT})`);
+      if (notesLinkedNow) out(`  linked .trod/notes.md into CLAUDE.md (${NOTES_IMPORT})${notes.checks.length ? '' : ' (no checks: nothing in them is verified)'}`);
     }
   }
   return { exitCode, promoted, rejected, unverified, notes: notes.exists ? { ...notes, linked: notes.linked || notesLinkedNow } : undefined, costUsd: result?.total_cost_usd, turns: result?.num_turns, usage: result?.usage };

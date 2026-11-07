@@ -86,6 +86,10 @@ export async function startSw(task: string, variation: number): Promise<SwEnv> {
     };
     child.stdout.on('data', onData);
     child.stderr.on('data', onData);
+    child.on('error', (err) => {
+      clearTimeout(timer);
+      reject(new Error(`ScienceWorld ${task}/${variation} could not start: ${err.message}`));
+    });
     child.on('exit', (code) => {
       clearTimeout(timer);
       reject(new Error(`ScienceWorld ${task}/${variation} exited (${code}): ${log.slice(-300)}`));
@@ -131,13 +135,14 @@ export function sciworldTasks(sample: { task: string; variation: number }[]): Ta
         if (notes && existsSync(notes)) cpSync(notes, path.join(work, 'CLAUDE.md'), { dereference: true });
         return { task, variation };
       },
-      serve: async ({ work }: TaskContext) => {
-        const env = await startSw(task, variation);
+      serve: async ({ work }: TaskContext, forForge?: boolean) => {
+        // A forge (the runner's forged arm) must never see a test variation: give it a train one.
+        const env = await startSw(task, forForge ? (variations()[task]?.train[0] ?? 0) : variation);
         envs.set(work, env);
         const info = (await (await fetch(`${env.baseUrl}/task`)).json()) as { description: string; start: string };
         return { baseUrl: env.baseUrl, close: () => env.close(), info };
       },
-      env: () => ({ PATH: `${BIN}:${process.env.PATH ?? ''}` }),
+      env: ({ work }: TaskContext) => ({ PATH: `${BIN}:${process.env.PATH ?? ''}`, SW_WORK: work }),
       steps: [
         {
           prompt: (ctx: TaskContext) => PROMPT(ctx.info),

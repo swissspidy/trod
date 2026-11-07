@@ -9,14 +9,14 @@
   EOF
   sw --task        the task description and the action templates
 
-The environment's URL is read from ./.service/base-url.
+The environment's URL is read from $SW_WORK/.service/base-url (the run's work dir), else ./.service/base-url.
 """
 import json
 import os
 import sys
 import urllib.request
 
-url = open(os.path.join(os.getcwd(), ".service", "base-url")).read().strip()
+url = open(os.path.join(os.environ.get("SW_WORK") or os.getcwd(), ".service", "base-url")).read().strip()
 if sys.argv[1:] == ["--task"]:
     with urllib.request.urlopen(url + "/task", timeout=60) as res:
         t = json.load(res)

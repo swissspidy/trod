@@ -8,7 +8,7 @@
  * Only train variations are used; test variations never enter the forge.
  */
 import { spawn, spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { startSw, SW_HOME, variations } from './sciworld.ts';
@@ -45,33 +45,44 @@ async function forge(task: string, train: number[]): Promise<void> {
   writeFileSync(path.join(home, '.claude', '.claude.json'), JSON.stringify({ hasCompletedOnboarding: true }));
   const gold = spawnSync(path.join(SW_HOME, 'venv', 'bin', 'python'), [path.join(import.meta.dirname, 'gold.py'), task, String(train[0]), String(train[1])], { encoding: 'utf8', maxBuffer: 1 << 26 });
   writeFileSync(path.join(work, 'gold.json'), JSON.stringify(JSON.parse(gold.stdout.trim().split('\n').at(-1) ?? '[]'), null, 1));
+  rmSync(path.join(work, 'NOTES.md'), { force: true });
   const live = await startSw(task, train[2]!);
-  writeFileSync(path.join(work, '.service', 'base-url'), live.baseUrl + '\n');
-  const user = values['as-user'];
-  if (user) spawnSync('chown', ['-R', `${user}:`, dir]);
-  const args = ['-p', PROMPT(task), '--model', values.model!, '--output-format', 'stream-json', '--verbose', '--max-budget-usd', '5', '--strict-mcp-config', '--allowedTools', 'Bash,Read,Write,Edit,Glob,Grep', '--disallowedTools', 'WebFetch,WebSearch,Task,Agent'];
-  const e = env(home);
-  const [cmd, cargs] = user ? ['runuser', ['-u', user, '--', 'env', '-i', ...Object.entries(e).map(([k, v]) => `${k}=${v}`), 'claude', ...args]] : ['claude', args];
+  let stream = '';
+  let exitCode: number | null = null;
   const t0 = Date.now();
-  const stream = await new Promise<string>((resolve) => {
-    const child = spawn(cmd as string, cargs as string[], { cwd: work, env: user ? undefined : e, stdio: ['ignore', 'pipe', 'pipe'] });
-    let text = '';
-    child.stdout.on('data', (c: Buffer) => (text += c));
-    child.stderr.on('data', (c: Buffer) => (text += c));
-    const timer = setTimeout(() => child.kill('SIGKILL'), 1800_000);
-    child.on('close', () => {
-      clearTimeout(timer);
-      resolve(text);
+  try {
+    writeFileSync(path.join(work, '.service', 'base-url'), live.baseUrl + '\n');
+    const user = values['as-user'];
+    if (user) spawnSync('chown', ['-R', `${user}:`, dir]);
+    const args = ['-p', PROMPT(task), '--model', values.model!, '--output-format', 'stream-json', '--verbose', '--max-budget-usd', '5', '--strict-mcp-config', '--allowedTools', 'Bash,Read,Write,Edit,Glob,Grep', '--disallowedTools', 'WebFetch,WebSearch,Task,Agent'];
+    const e = env(home);
+    const [cmd, cargs] = user ? ['runuser', ['-u', user, '--', 'env', '-i', ...Object.entries(e).map(([k, v]) => `${k}=${v}`), 'claude', ...args]] : ['claude', args];
+    [stream, exitCode] = await new Promise<[string, number | null]>((resolve, reject) => {
+      const child = spawn(cmd as string, cargs as string[], { cwd: work, env: user ? undefined : e, stdio: ['ignore', 'pipe', 'pipe'] });
+      let text = '';
+      child.stdout.on('data', (c: Buffer) => (text += c));
+      child.stderr.on('data', (c: Buffer) => (text += c));
+      const timer = setTimeout(() => child.kill('SIGKILL'), 1800_000);
+      child.on('error', (err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+      child.on('close', (code) => {
+        clearTimeout(timer);
+        resolve([text, code]);
+      });
     });
-  });
-  live.close();
+  } finally {
+    live.close();
+  }
   writeFileSync(path.join(dir, 'stream.jsonl'), stream);
   const res = stream.split('\n').filter((l) => l.includes('"type":"result"')).map((l) => JSON.parse(l)).at(-1) ?? {};
   const notes = path.join(work, 'NOTES.md');
-  const ok = existsSync(notes);
+  // Publish only notes from a session that finished cleanly; a failed attempt is not cached, so a rerun retries it.
+  const ok = exitCode === 0 && res.subtype === 'success' && !res.is_error && existsSync(notes);
   if (ok) copyFileSync(notes, path.join(NOTES_DIR, `${task}.md`));
-  const info = { task, ok, chars: ok ? statSync(notes).size : 0, costUsd: res.total_cost_usd ?? 0, turns: res.num_turns ?? 0, wallMs: Date.now() - t0, goldVariations: train.slice(0, 2), liveVariation: train[2], model: values.model };
-  writeFileSync(path.join(dir, 'result.json'), JSON.stringify(info, null, 2));
+  const info = { task, ok, exitCode, chars: ok ? statSync(notes).size : 0, costUsd: res.total_cost_usd ?? 0, turns: res.num_turns ?? 0, wallMs: Date.now() - t0, goldVariations: train.slice(0, 2), liveVariation: train[2], model: values.model };
+  if (ok) writeFileSync(path.join(dir, 'result.json'), JSON.stringify(info, null, 2));
   console.log(JSON.stringify(info));
 }
 

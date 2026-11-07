@@ -15828,8 +15828,19 @@ function readChecks(file) {
   const errors = [];
   raw.forEach((c, i) => {
     const ok = c && typeof c === "object" && typeof c.claim === "string" && typeof c.tool === "string" && c.expect && typeof c.expect === "object";
-    if (ok) checks.push(c);
-    else errors.push(`${CHECKS_FILE}[${i}]: needs {claim, tool, input?, expect: {contains|matches|equals\u2026}}`);
+    if (!ok) {
+      errors.push(`${CHECKS_FILE}[${i}]: needs {claim, tool, input?, expect: {contains|matches|equals\u2026}}`);
+      return;
+    }
+    if (c.expect.matches !== void 0) {
+      try {
+        new RegExp(String(c.expect.matches));
+      } catch (e) {
+        errors.push(`${CHECKS_FILE}[${i}] ("${c.claim}"): invalid matches pattern (${e.message})`);
+        return;
+      }
+    }
+    checks.push(c);
   });
   return { checks, errors };
 }
@@ -15972,9 +15983,11 @@ ${opts.brief}`;
     out(`  notes: ${notes.chars} chars${notes.tooLong ? ` (over ${NOTES_MAX_CHARS}: trim them, they are in every session's context)` : ""}, ${passed}/${notes.checks.length} check(s) passed`);
     for (const c of notes.checks.filter((c2) => !c2.ok)) out(`    failed check "${c.claim}" (${c.tool}): ${c.error}`);
     for (const e of notes.errors) out(`    ${e}`);
-    if (opts.linkNotes !== false) {
+    const failed = notes.checks.some((c) => !c.ok) || notes.errors.length > 0;
+    if (failed) out("  notes NOT linked into CLAUDE.md: fix or remove the failing claims and their checks, then run `trod notes --link`");
+    else if (opts.linkNotes !== false) {
       notesLinkedNow = linkNotes(paths);
-      if (notesLinkedNow) out(`  linked .trod/notes.md into CLAUDE.md (${NOTES_IMPORT})`);
+      if (notesLinkedNow) out(`  linked .trod/notes.md into CLAUDE.md (${NOTES_IMPORT})${notes.checks.length ? "" : " (no checks: nothing in them is verified)"}`);
     }
   }
   return { exitCode, promoted, rejected, unverified, notes: notes.exists ? { ...notes, linked: notes.linked || notesLinkedNow } : void 0, costUsd: result?.total_cost_usd, turns: result?.num_turns, usage: result?.usage };
@@ -16024,6 +16037,14 @@ async function main(argv, out = console.log) {
   if (values.help || !command) {
     out(USAGE);
     return command || values.help ? 0 : 1;
+  }
+  if (values.link && values["no-link"]) {
+    out("trod: --link and --no-link contradict each other");
+    return 1;
+  }
+  if (values.link && command !== "notes" || values["no-link"] && command !== "forge") {
+    out(`trod ${command}: ${values.link ? "--link only applies to trod notes" : "--no-link only applies to trod forge"}`);
+    return 1;
   }
   const paths = trodPaths(values.dir ? path7.resolve(values.dir) : resolveProjectDir());
   switch (command) {

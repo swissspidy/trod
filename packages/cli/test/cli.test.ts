@@ -134,3 +134,22 @@ describe('trod notes', () => {
     expect(res.out).toContain('"y" (nope): no such tool');
   });
 });
+
+describe('trod notes: validation', () => {
+  it('reports an invalid matches pattern as a check-file error instead of aborting', async () => {
+    const dir = project();
+    mkdirSync(path.join(dir, '.trod', 'library'), { recursive: true });
+    writeFileSync(path.join(dir, '.trod', 'library', 'codes.mjs'), "export const meta = { description: 'Returns codes in use.', whenToUse: 'Codes.', inputSchema: { type: 'object' } };\nexport default async () => 'A B';\n");
+    writeFileSync(path.join(dir, '.trod', 'notes.md'), '- codes are A and B\n');
+    writeFileSync(path.join(dir, '.trod', 'notes.checks.json'), JSON.stringify([{ claim: 'codes', tool: 'codes', expect: { matches: '[' } }]));
+    const res = await run(['notes', '--dir', dir]);
+    expect(res.code).toBe(1);
+    expect(res.out).toContain('invalid matches pattern');
+  });
+
+  it('rejects contradicting or misplaced link flags', async () => {
+    const dir = project();
+    expect((await run(['notes', '--link', '--no-link', '--dir', dir])).code).toBe(1);
+    expect((await run(['verify', '--link', '--dir', dir])).out).toContain('--link only applies to trod notes');
+  });
+});
