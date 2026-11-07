@@ -25,6 +25,7 @@ import { TASKS } from '../tasks/index.ts';
 import { sweTasks } from '../swe/swe.ts';
 import { appWorldTasks, datasetIds } from '../appworld/appworld.ts';
 import { birdTasks, birdTestSample } from '../bird/bird.ts';
+import { sciworldTasks, swTestSample } from '../sciworld/sciworld.ts';
 import type { FixtureState, Task } from '../lib/types.ts';
 import { collectMetrics, type RunRecord, type StepOutcome } from './metrics.ts';
 import { linkNotes, trodPaths } from '../../packages/server/src/index.ts';
@@ -85,7 +86,10 @@ const pool =
       : // bird:test: BIRD dev questions from the test split, BIRD_PER_DB (default 10) per database (experiments/bird).
         values.suite === 'bird:test'
         ? birdTasks(birdTestSample(Number(process.env.BIRD_PER_DB ?? 10)))
-        : TASKS;
+        : // sciworld:test: ScienceWorld test variations, SW_PER_TASK (default 2) per task type (experiments/sciworld).
+          values.suite === 'sciworld:test'
+          ? sciworldTasks(swTestSample(Number(process.env.SW_PER_TASK ?? 2)))
+          : TASKS;
 if (values.suite && !pool.length) {
   console.error(`suite ${values.suite}: no instances (run experiments/swe/setup.sh, or set SWE_HOME)`);
   process.exit(1);
