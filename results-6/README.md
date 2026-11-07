@@ -33,13 +33,13 @@ published agents that topped out around 50% task goal completion in 2024.
 | v2, test_challenge | 53/60 | 51/60 | 13/20 | 13/20 | 337k → 379k |
 | **all test runs** | **211/240 (87.9%)** | **209/240 (87.1%)** | | | **+12%** |
 
-TGC = task goal completion, SGC = scenarios with all three variants solved. Each run costs about half a cent.
+TGC = task goal completion, SGC = scenarios with all three variants solved. Test runs averaged $0.0071 each.
 
 ## What we learned
 
 1. **Haiku 5.5 is near AppWorld's ceiling.** 88% TGC from scratch, against roughly 49% for the best 2024 agents in the
    paper. The APIs are self-documenting (`api_docs`), and a current small model just reads the docs. There is little
-   left for tools to fix, and nothing to save: a run costs $0.005.
+   left for tools to fix, and nothing to save: a run costs less than a cent.
 2. **The remaining failures are conventions, not capability.** They cluster in the same scenarios in both arms and all
    variants (Splitwise trips from a note, "roommates", friend sync, shopping-list orders): readings of an ambiguous
    instruction that differ from the grader's.
@@ -59,9 +59,13 @@ conventions, and those reach the model only if it reads them.
 ```sh
 pip install appworld && appworld install && appworld download data   # in a venv under AW_HOME
 useradd agent; useradd awenv   # see experiments/appworld/appworld.ts for the permissions
+# Use the published v2 library instead of forging a new one: the runner skips the forge when forge.json exists.
+mkdir -p results/runs/aw-forge/appworld/work/.trod/library
+cp results-6/forged-library/*.mjs results/runs/aw-forge/appworld/work/.trod/library/
+cp results-6/forge-2.json results/runs/aw-forge/appworld/forge.json
 AW_HOME=/opt/appworld AW_SERVER_USER=awenv node experiments/runner/run.ts --suite appworld:test_normal \
   --sample experiments/appworld/sample-test-normal.json --arms baseline,forged --model claude-haiku-5-5 \
-  --as-user agent --forge-dir results/runs/aw-forge --out results/runs/aw-normal
+  --as-user agent --seeds 1 --forge-dir results/runs/aw-forge --out results/runs/aw-normal
 ```
 
 `runs.jsonl` and `summary.json` hold the per-run numbers (no task text: AppWorld data may only be redistributed
