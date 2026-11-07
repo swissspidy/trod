@@ -41,3 +41,6 @@ them as free text.
 - Only claims that a library tool can observe are checkable; the rest is as trustworthy as the forge that wrote it.
   The forge prompt asks to check each claim against the environment while writing.
 - Editing `CLAUDE.md` is a visible change to a user file; it is a single appended import line under its own heading.
+- Evidence since: on ScienceWorld (round 8) forged notes took Haiku from 52% to 89% solved. On AppWorld through
+  `trod forge` (round 6c), the first forged notes missed domain rules because they described the tools instead, so
+  the forge prompt now keeps notes to environment knowledge. Tools on top of good notes added nothing there.

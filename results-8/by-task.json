@@ -1,0 +1,182 @@
+{
+ "boil": {
+  "baseline": "1/6",
+  "notes": "2/6",
+  "baselineScore": 80,
+  "notesScore": 84
+ },
+ "change-the-state-of-matter-of": {
+  "baseline": "6/6",
+  "notes": "6/6",
+  "baselineScore": 100,
+  "notesScore": 100
+ },
+ "chemistry-mix": {
+  "baseline": "5/6",
+  "notes": "6/6",
+  "baselineScore": 83,
+  "notesScore": 100
+ },
+ "chemistry-mix-paint-secondary-color": {
+  "baseline": "6/6",
+  "notes": "6/6",
+  "baselineScore": 100,
+  "notesScore": 100
+ },
+ "chemistry-mix-paint-tertiary-color": {
+  "baseline": "1/6",
+  "notes": "6/6",
+  "baselineScore": 17,
+  "notesScore": 100
+ },
+ "find-animal": {
+  "baseline": "4/6",
+  "notes": "6/6",
+  "baselineScore": 93,
+  "notesScore": 100
+ },
+ "find-living-thing": {
+  "baseline": "6/6",
+  "notes": "6/6",
+  "baselineScore": 100,
+  "notesScore": 100
+ },
+ "find-non-living-thing": {
+  "baseline": "6/6",
+  "notes": "6/6",
+  "baselineScore": 100,
+  "notesScore": 100
+ },
+ "find-plant": {
+  "baseline": "6/6",
+  "notes": "6/6",
+  "baselineScore": 100,
+  "notesScore": 100
+ },
+ "freeze": {
+  "baseline": "0/6",
+  "notes": "0/6",
+  "baselineScore": 54,
+  "notesScore": 54
+ },
+ "grow-fruit": {
+  "baseline": "1/6",
+  "notes": "6/6",
+  "baselineScore": 46,
+  "notesScore": 100
+ },
+ "grow-plant": {
+  "baseline": "5/6",
+  "notes": "6/6",
+  "baselineScore": 89,
+  "notesScore": 100
+ },
+ "identify-life-stages-1": {
+  "baseline": "0/6",
+  "notes": "6/6",
+  "baselineScore": 17,
+  "notesScore": 100
+ },
+ "identify-life-stages-2": {
+  "baseline": "0/6",
+  "notes": "6/6",
+  "baselineScore": 29,
+  "notesScore": 100
+ },
+ "inclined-plane-determine-angle": {
+  "baseline": "6/6",
+  "notes": "6/6",
+  "baselineScore": 100,
+  "notesScore": 100
+ },
+ "inclined-plane-friction-named-surfaces": {
+  "baseline": "5/6",
+  "notes": "6/6",
+  "baselineScore": 88,
+  "notesScore": 100
+ },
+ "inclined-plane-friction-unnamed-surfaces": {
+  "baseline": "4/6",
+  "notes": "6/6",
+  "baselineScore": 70,
+  "notesScore": 100
+ },
+ "lifespan-longest-lived": {
+  "baseline": "6/6",
+  "notes": "6/6",
+  "baselineScore": 100,
+  "notesScore": 100
+ },
+ "lifespan-longest-lived-then-shortest-lived": {
+  "baseline": "3/6",
+  "notes": "3/6",
+  "baselineScore": 50,
+  "notesScore": 50
+ },
+ "lifespan-shortest-lived": {
+  "baseline": "3/6",
+  "notes": "3/6",
+  "baselineScore": 50,
+  "notesScore": 50
+ },
+ "measure-melting-point-known-substance": {
+  "baseline": "3/6",
+  "notes": "6/6",
+  "baselineScore": 70,
+  "notesScore": 100
+ },
+ "measure-melting-point-unknown-substance": {
+  "baseline": "1/6",
+  "notes": "6/6",
+  "baselineScore": 75,
+  "notesScore": 100
+ },
+ "melt": {
+  "baseline": "5/6",
+  "notes": "6/6",
+  "baselineScore": 96,
+  "notesScore": 100
+ },
+ "mendelian-genetics-known-plant": {
+  "baseline": "0/6",
+  "notes": "3/6",
+  "baselineScore": 8,
+  "notesScore": 67
+ },
+ "mendelian-genetics-unknown-plant": {
+  "baseline": "0/6",
+  "notes": "5/6",
+  "baselineScore": 14,
+  "notesScore": 86
+ },
+ "power-component": {
+  "baseline": "1/6",
+  "notes": "6/6",
+  "baselineScore": 76,
+  "notesScore": 100
+ },
+ "power-component-renewable-vs-nonrenewable-energy": {
+  "baseline": "1/6",
+  "notes": "6/6",
+  "baselineScore": 61,
+  "notesScore": 100
+ },
+ "test-conductivity": {
+  "baseline": "3/6",
+  "notes": "6/6",
+  "baselineScore": 74,
+  "notesScore": 100
+ },
+ "test-conductivity-of-unknown-substances": {
+  "baseline": "0/6",
+  "notes": "6/6",
+  "baselineScore": 34,
+  "notesScore": 100
+ },
+ "use-thermometer": {
+  "baseline": "6/6",
+  "notes": "6/6",
+  "baselineScore": 100,
+  "notesScore": 100
+ }
+}

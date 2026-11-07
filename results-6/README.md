@@ -83,6 +83,29 @@ APIs, so tools add little, but the grader's conventions cannot be guessed, and a
 them to every session. trod's forge should be able to emit notes as well as tools (for example into `CLAUDE.md` or the
 server instructions), and the library-cards budget should leave room for them.
 
+## Round 6c: through `trod forge` (trod 0.4)
+
+The product path: `trod forge` (trod 0.4, [ADR 0004](../docs/adr/0004-verified-notes.md)) with the same experience
+digest wrote 9 tools and 3.8 KB of `.trod/notes.md` with 17 checks, **all 17 passing** against the live environment,
+and linked the notes into `CLAUDE.md` ($3.03, 73 turns). Haiku on the same 120 tasks:
+
+| condition | TGC |
+|---|---|
+| baseline | 105/120 (87.5%) |
+| round 6b notes only | **114/120 (95.0%)** |
+| `trod forge` tools + `trod forge` notes | 105/120 (87.5%) |
+| `trod forge` tools + round 6b notes | 110/120 (91.7%) |
+
+The forged notes and tools did not reproduce round 6b. Two causes, from the failures:
+- **The notes spent their budget on the tools.** Much of the 3.8 KB explained how to use the forged tools, and
+  domain rules that round 6b's notes had were missing. One example is that approving a Venmo request needs a
+  `payment_card_id` when the balance is too low; all three variants of that scenario failed on it. trod's forge
+  prompt now tells it to keep notes to environment knowledge and leave tool usage to the tool descriptions.
+- **Tools on top of good notes cost a little.** Round 6b's notes with a library scored 110/120 in both round 6b and
+  6c, against 114 without one. That is not significant on its own (p = 0.29 here), but it is consistent.
+
+So on AppWorld the knowledge is the asset, and its content matters more than its packaging.
+
 ## Reproduce
 
 ```sh
