@@ -38,6 +38,11 @@ Write's own result. Two permanent tools never change, so the prompt cache stays 
 - `trod_run {tool, input}` calls any trod tool right away, with nothing to load
   ([ADR 0002](docs/adr/0002-tool-loading-and-the-prompt-cache.md)).
 - `trod_status` shows the registry, the load errors and per-tool usage.
+- `trod_eval {code}` runs JavaScript with every trod tool as a function (`await tools.x({…})`): fetch, combine and
+  compute in one call ([ADR 0003](docs/adr/0003-forge-library-cards-and-code-mode.md)).
+
+Library tools (`.trod/library`) are listed in the server's instructions with their evidence (examples passed at
+promotion, usage in earlier sessions), so a fresh session can rely on them from its first turn.
 
 ## Install
 
@@ -66,6 +71,9 @@ which is meant for ephemeral cloud containers. See [ADR 0001](docs/adr/0001-tool
 
 - New tools land in `.trod/tools/` (ignored by git): session tools.
 - `trod promote <name>` moves one to `.trod/library/` (committed). The library loads at startup.
+- `trod forge --brief @env.md [--model claude-opus-5-5]` runs a dedicated tool-building session (headless Claude
+  Code) against an environment and promotes every tool whose examples pass: build the library once with a strong
+  model, use it in every later session.
 - `trod stats` summarizes `.trod/logs/*.jsonl`: tools created, called, reused, errors.
 - `trod check` validates every tool folder without running anything.
 

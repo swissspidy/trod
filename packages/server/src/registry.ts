@@ -24,7 +24,7 @@ export interface RegistryChange {
 export function describeForClient(def: ToolDefinition, tool?: Pick<LoadedTool, 'source' | 'examples'>): string {
   let text = `${def.description.trim()}\n\nWhen to use: ${def.whenToUse.trim()}`;
   if (tool?.source === 'library') {
-    const verified = tool.examples && !tool.examples.skipped && tool.examples.passed ? ` Its ${tool.examples.passed} example(s) passed just now.` : '';
+    const verified = '';
     text += `\n\nLibrary tool, promoted from an earlier session.${verified} Call it directly; there is no need to read its source.`;
   }
   return text;
@@ -155,7 +155,9 @@ export class Registry {
     const cached = this.cache.get(cacheKey);
     if (cached && cached.hash === hashTool(dir)) return cached;
     const fresh = await loadToolEntry(dir, source, { execAllowed: this.opts.execAllowed, env: this.opts.env });
-    if (fresh.ok) await this.runExamples(fresh);
+    // Library tools were verified (examples passed) when they were promoted. Re-running their examples here would
+    // delay startup, and Claude Code starts the session without a server that is not ready within a few seconds.
+    if (fresh.ok && source !== 'library') await this.runExamples(fresh);
     this.cache.set(cacheKey, fresh);
     return fresh;
   }

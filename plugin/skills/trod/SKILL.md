@@ -85,6 +85,20 @@ stdin, result on stdout).
 3. **Change it in place** when the task changes: add a parameter rather than creating `foo_v2`. Code-only changes
    take effect on the next call.
 
+## Code mode: `trod_eval`
+
+`trod_eval {"code": "…"}` runs the body of an async function in which every trod tool is a function:
+
+```js
+const items = await tools.inventory_items({ warehouse: 'BER' });
+const low = items.filter((i) => i.qty < i.reorderPoint).map((i) => i.sku);
+await fsp.writeFile(path.join(projectDir, 'reorder.json'), JSON.stringify({ skus: low }));
+return { count: low.length };
+```
+
+Fetch, combine, compute and write in **one** call. Only the returned value enters the conversation, so large
+intermediate data stays out of your context. `fs`, `fsp`, `path` and `projectDir` are available.
+
 ## Library tools
 
 Tools in `.trod/library/` were built and promoted in earlier sessions, and their examples pass at startup. Their

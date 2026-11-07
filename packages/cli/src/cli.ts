@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { forge } from './forge.ts';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { computeStats, formatStats, listToolEntries, loadToolEntry, promoteTool, readLogs, resolveProjectDir, runToolExamples, trodPaths } from '@trod/server';
@@ -10,6 +12,9 @@ Usage:
   trod check               Validate every tool folder (static checks, no execution)
   trod list                List session and library tools
   trod hook                PostToolUse hook: report whether a just-written tool is valid (JSON on stdin)
+  trod forge --brief <text|@file> [--model <id>]
+                           Run a dedicated tool-building session (headless Claude Code), then promote every tool
+                           whose examples pass to .trod/library
 
 Options:
   --dir <path>             Project directory (default: TROD_PROJECT_DIR, CLAUDE_PROJECT_DIR or cwd)
@@ -25,6 +30,11 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       logs: { type: 'string' },
       json: { type: 'boolean', default: false },
       help: { type: 'boolean', short: 'h', default: false },
+      brief: { type: 'string' },
+      model: { type: 'string' },
+      server: { type: 'string' },
+      budget: { type: 'string' },
+      stream: { type: 'string' },
     },
   });
   const [command, ...rest] = positionals;
@@ -63,6 +73,17 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
         }
       }
       return command === 'check' && bad ? 1 : 0;
+    }
+    case 'forge': {
+      if (!values.brief) {
+        out('trod forge: --brief is required (text, or @path/to/brief.md)');
+        return 1;
+      }
+      const brief = values.brief.startsWith('@') ? readFileSync(values.brief.slice(1), 'utf8') : values.brief;
+      const res = await forge({ projectDir: paths.projectDir, brief, model: values.model, server: values.server, maxBudgetUsd: values.budget, streamFile: values.stream, out });
+      out(`forge: ${res.promoted.length} tool(s) promoted${res.unverified.length ? ` (${res.unverified.length} without examples)` : ''}, ${res.rejected.length} rejected${res.costUsd !== undefined ? `, $${res.costUsd.toFixed(3)}, ${res.turns} turns` : ''}`);
+      if (values.json) out(JSON.stringify(res, null, 2));
+      return res.promoted.length ? 0 : 1;
     }
     case 'hook': {
       const msg = await hookMessage(await readStdin());

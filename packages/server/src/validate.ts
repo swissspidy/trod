@@ -10,7 +10,7 @@ import type { ExampleExpectation, LoadedTool, RunnerKind, ToolDefinition, ToolSo
 const execFileAsync = promisify(execFile);
 
 export const NAME_PATTERN = /^[a-z][a-z0-9_]{1,47}$/;
-export const RESERVED_NAMES = new Set(['trod_status', 'trod_run']);
+export const RESERVED_NAMES = new Set(['trod_status', 'trod_run', 'trod_eval']);
 const KNOWN_KEYS = new Set(['name', 'description', 'inputSchema', 'whenToUse', 'examples', 'timeoutMs', 'provenance']);
 
 // Ajv's default export shape differs between its CJS and ESM builds.

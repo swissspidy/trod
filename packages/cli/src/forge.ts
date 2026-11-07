@@ -1,0 +1,110 @@
+import { spawn } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { promoteTool, trodPaths } from '@trod/server';
+
+/**
+ * `trod forge`: a dedicated tool-building session. A headless Claude Code session studies an environment (a brief
+ * plus the project's files), builds robust, general trod tools with examples and tests them; then every tool whose
+ * examples pass is promoted to .trod/library. Later sessions find the library in their instructions (library cards)
+ * and can call it directly or from trod_eval.
+ */
+export const FORGE_PROMPT = `You are a toolsmith. You are not solving a task: you are building tools that future sessions will rely on.
+
+Future sessions start fresh, with no memory of this one. They will see the tools you build listed in their instructions (name, signature, description, whenToUse, whether the examples pass) and call them, usually several at once from trod_eval as tools.<name>(input). They will not read your source. So:
+
+1. Study the environment described below and in the project's files. Probe it until you understand every quirk: authentication, pagination, rate limits (back off on 429), formats (dates, numbers, units), soft-deleted or reversed records, anything a newcomer would get wrong.
+2. Build a few general capability tools as single files in .trod/tools/<name>.mjs (export const meta = { description, whenToUse, inputSchema, examples, timeoutMs }; export default async (input, ctx) => result). A capability returns clean, normalized records with useful filters; it does not compute one particular answer. Encode every quirk inside the tool.
+3. Write description and whenToUse so that a newcomer can use the tool correctly without reading code: say what it returns (field names, units, what is excluded) and which quirks it handles. These texts are the only documentation future sessions get.
+4. Give every tool at least one example that exercises the real environment and checks something stable (expect.contains or expect.matches). Tools whose examples fail are discarded.
+5. Test each tool with trod_run, and test combining them with trod_eval, like a future session would.
+
+Do not write answer files. When finished, reply with a short list of the tools and DONE.`;
+
+export interface ForgeOptions {
+  projectDir: string;
+  brief: string;
+  model?: string;
+  /** Path of the bundled trod server; defaults to the one next to this CLI. */
+  server?: string;
+  env?: NodeJS.ProcessEnv;
+  maxBudgetUsd?: string;
+  timeoutMs?: number;
+  /** Where to write the session's stream-json output. */
+  streamFile?: string;
+  out?: (s: string) => void;
+}
+
+export interface ForgeResult {
+  exitCode: number | null;
+  promoted: string[];
+  rejected: { name: string; reason: string }[];
+  /** Promoted without examples. */
+  unverified: string[];
+  costUsd?: number;
+  turns?: number;
+  usage?: Record<string, number>;
+}
+
+export function defaultServerPath(): string {
+  // Bundled CLI: plugin/bin/trod -> plugin/server/trod-server.mjs.
+  return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'server', 'trod-server.mjs');
+}
+
+export async function forge(opts: ForgeOptions): Promise<ForgeResult> {
+  const out = opts.out ?? (() => {});
+  const paths = trodPaths(opts.projectDir);
+  const env = { ...(opts.env ?? process.env), TROD_ALLOW_EXEC: '1', TROD_PROJECT_DIR: opts.projectDir };
+  const scratch = mkdtempSync(path.join(tmpdir(), 'trod-forge-'));
+  const mcpConfig = path.join(scratch, 'mcp.json');
+  writeFileSync(mcpConfig, JSON.stringify({ mcpServers: { trod: { command: process.execPath, args: [opts.server ?? defaultServerPath()] } } }));
+  const prompt = `${FORGE_PROMPT}\n\n## The environment\n\n${opts.brief}`;
+  const args = [
+    '-p', prompt,
+    '--output-format', 'stream-json', '--verbose',
+    '--mcp-config', mcpConfig, '--strict-mcp-config',
+    '--allowedTools', 'Bash,Read,Write,Edit,Glob,Grep,TodoWrite,mcp__trod__*',
+    '--disallowedTools', 'WebFetch,WebSearch,Task,Agent',
+    ...(opts.model ? ['--model', opts.model] : []),
+    ...(opts.maxBudgetUsd ? ['--max-budget-usd', opts.maxBudgetUsd] : []),
+  ];
+  const streamFile = opts.streamFile ?? path.join(scratch, 'forge.jsonl');
+  mkdirSync(path.dirname(streamFile), { recursive: true });
+  out(`forging tools in ${opts.projectDir}${opts.model ? ` with ${opts.model}` : ''} …`);
+  const exitCode = await new Promise<number | null>((resolve) => {
+    const child = spawn('claude', args, { cwd: opts.projectDir, env, stdio: ['ignore', 'pipe', 'inherit'] });
+    let buf = '';
+    child.stdout.on('data', (c: Buffer) => (buf += c.toString('utf8')));
+    const timer = setTimeout(() => child.kill('SIGKILL'), opts.timeoutMs ?? 30 * 60_000);
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      writeFileSync(streamFile, buf);
+      resolve(code);
+    });
+  });
+  const result = readFileSync(streamFile, 'utf8')
+    .split('\n')
+    .filter((l) => l.includes('"type":"result"'))
+    .map((l) => JSON.parse(l))
+    .at(-1);
+
+  const promoted: string[] = [];
+  const rejected: { name: string; reason: string }[] = [];
+  const unverified: string[] = [];
+  const entries = existsSync(paths.toolsDir) ? readdirSync(paths.toolsDir).filter((f) => !f.startsWith('.')) : [];
+  for (const entry of entries) {
+    const name = entry.replace(/\.mjs$/, '');
+    try {
+      const res = await promoteTool(paths, name, new Date(), { execAllowed: true, env });
+      if (!res.examplesPassed) unverified.push(name);
+      promoted.push(name);
+      out(`  promoted ${name}${res.examplesPassed ? ` (${res.examplesPassed} example(s) passed)` : ' (no examples)'}`);
+    } catch (err) {
+      rejected.push({ name, reason: (err as Error).message.split('\n').slice(0, 3).join(' ') });
+      out(`  rejected ${name}: ${(err as Error).message.split('\n')[0]}`);
+    }
+  }
+  return { exitCode, promoted, rejected, unverified, costUsd: result?.total_cost_usd, turns: result?.num_turns, usage: result?.usage };
+}

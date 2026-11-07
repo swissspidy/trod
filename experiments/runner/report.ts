@@ -8,9 +8,9 @@ import { parseArgs } from 'node:util';
 import { TASKS } from '../tasks/index.ts';
 import type { RunRecord } from './metrics.ts';
 
-const ARMS = ['baseline', 'scripts', 'genesis', 'nudged', 'library', 'toolsmith'] as const;
+const ARMS = ['baseline', 'scripts', 'genesis', 'nudged', 'library', 'toolsmith', 'forged'] as const;
 type Arm = (typeof ARMS)[number];
-const ARM_LABEL: Record<Arm, string> = { baseline: 'Baseline (Bash only)', scripts: 'Scripts (Bash only, work dir persists)', genesis: 'Genesis (trod available)', nudged: 'Nudged (told to build trod tools)', library: 'Library (tools from an earlier session)', toolsmith: 'Toolsmith (library built once up front)' };
+const ARM_LABEL: Record<Arm, string> = { baseline: 'Baseline (Bash only)', scripts: 'Scripts (Bash only, work dir persists)', genesis: 'Genesis (trod available)', nudged: 'Nudged (told to build trod tools)', library: 'Library (tools from an earlier session)', toolsmith: 'Toolsmith (library built once up front)', forged: 'Forged (trod forge library, cards, trod_eval)' };
 
 export interface Cell {
   task: string;
@@ -116,7 +116,7 @@ export function aggregate(records: RunRecord[]) {
       task: t.id,
       kind: t.kind,
       ...Object.fromEntries(
-        (['scripts', 'genesis', 'nudged', 'library', 'toolsmith'] as const).map((arm) => {
+        (['scripts', 'genesis', 'nudged', 'library', 'toolsmith', 'forged'] as const).map((arm) => {
           const c = cells.find((x) => x.task === t.id && x.arm === arm);
           return [arm, base && c ? { tokens: c.tokens / base.tokens, cost: c.costUsd / base.costUsd, turns: c.turns / base.turns, wall: c.wallS / base.wallS } : null];
         }),
@@ -224,15 +224,15 @@ export function renderHtml(agg: ReturnType<typeof aggregate>, meta: { model: str
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(meta.title)}</title>
 <style>
-:root{color-scheme:light;--surface:#fcfcfb;--surface-2:#f3f2ef;--text:#0b0b0b;--text-2:#52514e;--muted:#8a8984;--grid:#e6e5e0;--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300}
-@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){color-scheme:dark;--surface:#1a1a19;--surface-2:#242422;--text:#f0efec;--text-2:#c3c2b7;--muted:#8f8e86;--grid:#33332f;--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300}}
-:root[data-theme="dark"]{color-scheme:dark;--surface:#1a1a19;--surface-2:#242422;--text:#f0efec;--text-2:#c3c2b7;--muted:#8f8e86;--grid:#33332f;--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300}
+:root{color-scheme:light;--surface:#fcfcfb;--surface-2:#f3f2ef;--text:#0b0b0b;--text-2:#52514e;--muted:#8a8984;--grid:#e6e5e0;--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--s7:#6250d6}
+@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){color-scheme:dark;--surface:#1a1a19;--surface-2:#242422;--text:#f0efec;--text-2:#c3c2b7;--muted:#8f8e86;--grid:#33332f;--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300;--s7:#9085e9}}
+:root[data-theme="dark"]{color-scheme:dark;--surface:#1a1a19;--surface-2:#242422;--text:#f0efec;--text-2:#c3c2b7;--muted:#8f8e86;--grid:#33332f;--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#008300;--s7:#9085e9}
 *{box-sizing:border-box}body{margin:0;background:var(--surface);color:var(--text);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
 main{max-width:1000px;margin:0 auto;padding:32px 16px 64px}h1{font-size:28px;margin:0 0 4px}h2{font-size:19px;margin:40px 0 8px}p,li{color:var(--text-2);max-width:72ch}
 .meta{color:var(--muted);font-size:13px}.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin:20px 0}
 .tile{background:var(--surface-2);border-radius:10px;padding:14px 16px}.tl{font-size:13px;color:var(--text-2);display:flex;align-items:center;gap:6px}.big{font-size:30px;font-weight:600;margin:4px 0}.sub{font-size:12.5px;color:var(--text-2)}
 .legend{display:flex;flex-wrap:wrap;gap:16px;font-size:13px;color:var(--text-2);margin:8px 0}.legend span{display:flex;align-items:center;gap:6px}
-.sw{display:inline-block;width:10px;height:10px;border-radius:3px}.sw.s1,.s1{background:var(--s1);fill:var(--s1)}.sw.s2,.s2{background:var(--s2);fill:var(--s2)}.sw.s3,.s3{background:var(--s3);fill:var(--s3)}.sw.s4,.s4{background:var(--s4);fill:var(--s4)}.sw.s5,.s5{background:var(--s5);fill:var(--s5)}.sw.s6,.s6{background:var(--s6);fill:var(--s6)}
+.sw{display:inline-block;width:10px;height:10px;border-radius:3px}.sw.s1,.s1{background:var(--s1);fill:var(--s1)}.sw.s2,.s2{background:var(--s2);fill:var(--s2)}.sw.s3,.s3{background:var(--s3);fill:var(--s3)}.sw.s4,.s4{background:var(--s4);fill:var(--s4)}.sw.s5,.s5{background:var(--s5);fill:var(--s5)}.sw.s6,.s6{background:var(--s6);fill:var(--s6)}.sw.s7,.s7{background:var(--s7);fill:var(--s7)}
 .charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:20px}.chart{width:100%;height:auto;display:block}.chart .grid{stroke:var(--grid);stroke-width:1}
 .chart text{font-size:10.5px;fill:var(--text-2)}.chart .tick{fill:var(--muted)}.chart .cat{fill:var(--text)}.chart .val{fill:var(--text-2);font-size:9.5px}.chart .hit{fill:transparent}.chart .mark:hover path{opacity:.8}
 figure{margin:0}figcaption{font-weight:600;font-size:14px;margin-bottom:4px}

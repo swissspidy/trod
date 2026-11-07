@@ -23,7 +23,7 @@ describe.skipIf(!existsSync(bundle))('bundled server over stdio', () => {
     await client.connect(transport);
     try {
       const names = (await client.listTools()).tools.map((t) => t.name);
-      expect(names).toEqual(['trod_status', 'trod_run', 'lib_tool']);
+      expect(names).toEqual(['trod_status', 'trod_run', 'trod_eval', 'lib_tool']);
       const res = await client.callTool({ name: 'lib_tool', arguments: { x: 'ok' } });
       expect((res.content as { text: string }[])[0]!.text).toBe('lib:ok');
     } finally {

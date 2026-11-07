@@ -1,6 +1,12 @@
 import { spawn } from 'node:child_process';
 import type { RunResult, RunnerKind } from './types.ts';
 
+export interface InnerCall {
+  tool: string;
+  ms: number;
+  ok: boolean;
+}
+
 export const DEFAULT_TIMEOUT_MS = 120_000;
 export const MAX_TIMEOUT_MS = 600_000;
 export const DEFAULT_MAX_OUTPUT_CHARS = 25_000;
@@ -109,7 +115,64 @@ try {
 }
 `;
 
+/**
+ * Code mode (trod_eval): runs an async function body in which every trod tool is a function, so one call can fetch,
+ * combine and compute without the intermediate data entering the agent's context. Input on stdin:
+ * { code, tools: [{ name, runner, runPath, dir }] }. Reports the inner tool calls for the logs.
+ */
+export const EVAL_RUNNER = `
+import { pathToFileURL } from 'node:url';
+import { writeSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as fsp from 'node:fs/promises';
+import path from 'node:path';
+let raw = '';
+process.stdin.setEncoding('utf8');
+for await (const chunk of process.stdin) raw += chunk;
+const calls = [];
+const send = (msg) => writeSync(3, JSON.stringify({ ...msg, calls }));
+try {
+  const { code, tools: list } = JSON.parse(raw);
+  const projectDir = process.env.TROD_PROJECT_DIR;
+  const tools = {};
+  for (const t of list) {
+    tools[t.name] = async (input = {}) => {
+      const started = Date.now();
+      let ok = true;
+      try {
+        if (t.runner === 'sh') {
+          const out = execFileSync('bash', [t.runPath], { input: JSON.stringify(input), cwd: projectDir, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+          try { return JSON.parse(out); } catch { return out; }
+        }
+        const mod = await import(pathToFileURL(t.runPath).href);
+        const fn = typeof mod.default === 'function' ? mod.default : mod.run;
+        return await fn(input, { projectDir, toolDir: t.dir, toolName: t.name, sessionId: process.env.TROD_SESSION_ID || undefined, log: (...a) => console.error(...a) });
+      } catch (err) {
+        ok = false;
+        throw err;
+      } finally {
+        calls.push({ tool: t.name, ms: Date.now() - started, ok });
+      }
+    };
+  }
+  const AsyncFunction = (async () => {}).constructor;
+  const fn = new AsyncFunction('tools', 'fs', 'fsp', 'path', 'projectDir', code);
+  let value = await fn(tools, fs, fsp, path, projectDir);
+  if (value === undefined) value = null;
+  let json;
+  try { json = JSON.stringify(value); } catch { json = JSON.stringify(String(value)); }
+  writeSync(3, '{"ok":true,"calls":' + JSON.stringify(calls) + ',"value":' + (json ?? 'null') + '}');
+  process.exit(0);
+} catch (err) {
+  send({ ok: false, error: err && err.stack ? String(err.stack) : String(err) });
+  process.exit(1);
+}
+`;
+
 export interface ExecuteOptions {
+  /** A custom Node runner script (code mode); speaks the same fd 3 protocol as run.mjs tools. */
+  script?: string;
   runner: RunnerKind;
   runPath: string;
   toolDir: string;
@@ -146,8 +209,9 @@ export function executeTool(opts: ExecuteOptions): Promise<RunResult> {
     },
   });
 
-  const [command, args] =
-    opts.runner === 'mjs'
+  const [command, args] = opts.script
+    ? [process.execPath, ['--input-type=module', '-e', opts.script]]
+    : opts.runner === 'mjs'
       ? [process.execPath, ['--input-type=module', '-e', MJS_RUNNER]]
       : ['bash', [opts.runPath]];
 
@@ -181,7 +245,7 @@ export function executeTool(opts: ExecuteOptions): Promise<RunResult> {
       killTree();
     }, timeoutMs);
 
-    const finish = (partial: { ok: boolean; value?: unknown; text: string; error?: string }) => {
+    const finish = (partial: { ok: boolean; value?: unknown; text: string; error?: string; calls?: InnerCall[] }) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
@@ -195,6 +259,7 @@ export function executeTool(opts: ExecuteOptions): Promise<RunResult> {
         outputChars: partial.text.length,
         durationMs: Math.round(performance.now() - started),
         timedOut,
+        ...(partial.calls ? { calls: partial.calls } : {}),
       });
     };
 
@@ -207,8 +272,8 @@ export function executeTool(opts: ExecuteOptions): Promise<RunResult> {
         finish({ ok: false, error: msg, text: msg + (stderr ? `\nstderr:\n${tail(stderr)}` : '') });
         return;
       }
-      if (opts.runner === 'mjs') {
-        let msg: { ok: boolean; value?: unknown; error?: string } | undefined;
+      if (opts.runner === 'mjs' || opts.script) {
+        let msg: { ok: boolean; value?: unknown; error?: string; calls?: InnerCall[] } | undefined;
         try {
           msg = fd3 ? JSON.parse(fd3) : undefined;
         } catch {
@@ -218,12 +283,12 @@ export function executeTool(opts: ExecuteOptions): Promise<RunResult> {
           let value = msg.value;
           // A tool that printed its answer instead of returning it.
           if ((value === null || value === undefined) && stdout.trim()) value = stdout;
-          finish({ ok: true, value, text: formatValue(value) });
+          finish({ ok: true, value, text: formatValue(value), calls: msg.calls });
           return;
         }
         const error = msg?.error ?? `tool process exited with ${signal ?? `code ${code}`}`;
         const extra = [stderr && `stderr:\n${tail(stderr)}`, stdout && `stdout:\n${tail(stdout)}`].filter(Boolean).join('\n');
-        finish({ ok: false, error: error.split('\n')[0], text: `Error: ${error}${extra ? '\n' + extra : ''}` });
+        finish({ ok: false, error: error.split('\n')[0], text: `Error: ${error}${extra ? '\n' + extra : ''}`, calls: msg?.calls });
         return;
       }
       if (code === 0) {
