@@ -8,6 +8,8 @@
  * By default the agent does NOT get BIRD's per-question "evidence" (the human-written domain hint, e.g. how a rate is
  * defined): that is exactly the knowledge an agent cannot guess. BIRD_EVIDENCE=1 adds it as a reference arm.
  * BIRD_NOTES=<dir> copies <dir>/<db_id>.md into the work dir as CLAUDE.md (notes forged from the train split).
+ * BIRD_MEMORY=1 puts the database's train-split questions (with hint and reference SQL) in ./past_questions.json and
+ * points to it from CLAUDE.md: raw experience instead of distilled notes.
  *
  * Layout (BIRD_HOME, default /opt/bird): db/<db_id>/<db_id>.sqlite + db/<db_id>/database_description/ (readable by the
  * agent's user) and data/dev.json (questions, evidence, gold SQL; root only).
@@ -17,7 +19,7 @@
  */
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, cpSync, existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { CheckResult, Task, TaskContext } from '../lib/types.ts';
@@ -110,8 +112,16 @@ export function birdTasks(questions: BirdQuestion[]): Task[] {
           symlinkSync(target, path.join(work, link));
         }
         const notes = process.env.BIRD_NOTES ? path.join(process.env.BIRD_NOTES, `${q.db_id}.md`) : '';
+        rmSync(path.join(work, 'CLAUDE.md'), { force: true });
+        rmSync(path.join(work, 'past_questions.json'), { force: true });
         if (notes && existsSync(notes)) cpSync(notes, path.join(work, 'CLAUDE.md'), { dereference: true });
-        else rmSync(path.join(work, 'CLAUDE.md'), { force: true });
+        if (process.env.BIRD_MEMORY) {
+          // Raw experience: this database's train-split questions with their expert hint and reference SQL.
+          const past = birdSplit().train.filter((t) => t.db_id === q.db_id).map((t) => ({ question: t.question, hint: t.evidence, sql: t.SQL }));
+          writeFileSync(path.join(work, 'past_questions.json'), JSON.stringify(past, null, 1));
+          const pointer = `\n## Past questions\n\n./past_questions.json holds ${past.length} solved past questions about this database, each with a domain expert's hint and the reference SQL. Search it (e.g. grep -i for the question's key terms) for similar questions: their hints define terms and formulas, and their SQL shows the expected tables, joins and output shape.\n`;
+          appendFileSync(path.join(work, 'CLAUDE.md'), pointer);
+        }
         // Only the id: the run directory is readable by the agent, so the gold SQL must never be written to it.
         return { question_id: q.question_id, db_id: q.db_id, difficulty: q.difficulty };
       },
