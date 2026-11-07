@@ -15300,7 +15300,7 @@ function trodPaths(projectDir) {
 }
 
 // packages/server/src/server.ts
-import { existsSync as existsSync4, mkdirSync as mkdirSync2, watch } from "node:fs";
+import { existsSync as existsSync3, mkdirSync as mkdirSync2, watch } from "node:fs";
 import path5 from "node:path";
 
 // node_modules/.pnpm/@modelcontextprotocol+sdk@1.32.2_zod@4.6.7/node_modules/@modelcontextprotocol/sdk/dist/esm/server/zod-compat.js
@@ -17291,25 +17291,26 @@ var CallLog = class {
 };
 
 // packages/server/src/registry.ts
-import { existsSync as existsSync3, readdirSync as readdirSync2, statSync } from "node:fs";
+import { statSync } from "node:fs";
 import path4 from "node:path";
 
 // packages/server/src/validate.ts
 var import_ajv2 = __toESM(require_ajv(), 1);
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync as existsSync2, readFileSync as readFileSync2 } from "node:fs";
+import { existsSync as existsSync2, readdirSync as readdirSync2, readFileSync as readFileSync2 } from "node:fs";
 import path3 from "node:path";
 import { promisify } from "node:util";
 var execFileAsync = promisify(execFile);
 var NAME_PATTERN = /^[a-z][a-z0-9_]{1,47}$/;
-var RESERVED_NAMES = /* @__PURE__ */ new Set(["trod_status"]);
+var RESERVED_NAMES = /* @__PURE__ */ new Set(["trod_status", "trod_run"]);
 var KNOWN_KEYS = /* @__PURE__ */ new Set(["name", "description", "inputSchema", "whenToUse", "examples", "timeoutMs", "provenance"]);
 var mod = import_ajv2.default;
 var Ajv2 = mod.default ?? mod;
 var ajv = new Ajv2({ allErrors: true, strict: false });
 function hashTool(dir) {
   const h = createHash("sha256");
+  if (dir.endsWith(".mjs")) return h.update(existsSync2(dir) ? readFileSync2(dir) : "").digest("hex");
   for (const file of ["tool.json", "run.mjs", "run.sh"]) {
     const p = path3.join(dir, file);
     h.update(file + "\0");
@@ -17452,20 +17453,76 @@ function checkExpectation(expect, text, value) {
   }
   return void 0;
 }
+var META_READER = `
+import { pathToFileURL } from 'node:url';
+const mod = await import(pathToFileURL(process.argv[1]).href);
+if (typeof mod.default !== 'function') throw new Error('the file must default-export a function: export default async (input, ctx) => result');
+if (!mod.meta || typeof mod.meta !== 'object') throw new Error('the file must export meta: export const meta = { description, whenToUse, inputSchema }');
+process.stdout.write(JSON.stringify(mod.meta));
+`;
+async function loadToolFile(file, source, opts) {
+  const folder = path3.basename(file, ".mjs");
+  const tool = { folder, dir: path3.dirname(file), source, hash: hashTool(file), ok: false, errors: [], warnings: [], runner: "mjs", runPath: file };
+  const syntax = await checkSyntax("mjs", file);
+  if (syntax) {
+    tool.errors.push(syntax);
+    return tool;
+  }
+  if (!opts.execAllowed) {
+    tool.errors.push("single-file tools (<name>.mjs) are loaded by importing them, which needs TROD_ALLOW_EXEC=1");
+    return tool;
+  }
+  let meta2;
+  try {
+    const { stdout } = await execFileAsync(process.execPath, ["--input-type=module", "-e", META_READER, file], {
+      cwd: path3.dirname(file),
+      env: scrubEnv(opts.env ?? process.env),
+      timeout: 1e4
+    });
+    meta2 = JSON.parse(stdout);
+  } catch (err) {
+    const e = err;
+    const msg = (e.stderr || e.message).trim().split("\n").find((l) => /Error/.test(l)) ?? (e.stderr || e.message).trim().split("\n")[0];
+    tool.errors.push(`could not load ${path3.basename(file)}: ${msg}`);
+    return tool;
+  }
+  const raw = { name: folder, ...meta2 };
+  const { errors, warnings, def } = checkDefinition(raw, folder);
+  tool.errors.push(...errors);
+  tool.warnings.push(...warnings.filter((w) => !w.startsWith('unknown key "name"')));
+  if (def) {
+    tool.def = def;
+    def.examples?.forEach((ex, i) => {
+      for (const msg of validateInput(def, ex.input)) tool.errors.push(`examples[${i}]: ${msg}`);
+    });
+  }
+  tool.ok = tool.errors.length === 0;
+  return tool;
+}
+function loadToolEntry(entry, source, opts) {
+  return entry.endsWith(".mjs") ? loadToolFile(entry, source, opts) : loadToolFolder(entry, source);
+}
+function listToolEntries(root) {
+  if (!existsSync2(root)) return [];
+  return readdirSync2(root, { withFileTypes: true }).filter((d) => !d.name.startsWith(".") && (d.isDirectory() || d.isFile() && d.name.endsWith(".mjs"))).map((d) => path3.join(root, d.name)).sort();
+}
 
 // packages/server/src/registry.ts
-function listFolders(root) {
-  if (!existsSync3(root)) return [];
-  return readdirSync2(root, { withFileTypes: true }).filter((d) => d.isDirectory() && !d.name.startsWith(".")).map((d) => path4.join(root, d.name)).sort();
-}
-function describeForClient(def) {
-  return `${def.description.trim()}
+function describeForClient(def, tool) {
+  let text = `${def.description.trim()}
 
 When to use: ${def.whenToUse.trim()}`;
+  if (tool?.source === "library") {
+    const verified = tool.examples && !tool.examples.skipped && tool.examples.passed ? ` Its ${tool.examples.passed} example(s) passed just now.` : "";
+    text += `
+
+Library tool, promoted from an earlier session.${verified} Call it directly; there is no need to read its source.`;
+  }
+  return text;
 }
 function listingSignature(tools) {
   return JSON.stringify(
-    [...tools.values()].map((t) => [t.def.name, describeForClient(t.def), t.def.inputSchema]).sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+    [...tools.values()].map((t) => [t.def.name, describeForClient(t.def, t), t.def.inputSchema]).sort((a, b) => String(a[0]).localeCompare(String(b[0])))
   );
 }
 var Registry = class {
@@ -17483,7 +17540,15 @@ var Registry = class {
   fingerprint() {
     const parts = [];
     for (const root of [this.opts.paths.libraryDir, this.opts.paths.toolsDir]) {
-      for (const dir of listFolders(root)) {
+      for (const dir of listToolEntries(root)) {
+        if (dir.endsWith(".mjs")) {
+          try {
+            const s = statSync(dir);
+            parts.push(`${dir}:${s.size}:${s.mtimeMs}`);
+          } catch {
+          }
+          continue;
+        }
         for (const file of ["tool.json", "run.mjs", "run.sh"]) {
           try {
             const s = statSync(path4.join(dir, file));
@@ -17513,9 +17578,14 @@ var Registry = class {
       ["session", paths.toolsDir]
     ];
     for (const [source, root] of roots) {
-      for (const dir of listFolders(root)) {
-        const key = `${source}/${path4.basename(dir)}`;
-        folders.set(key, await this.loadCached(dir, source));
+      for (const dir of listToolEntries(root)) {
+        const key = `${source}/${path4.basename(dir, ".mjs")}`;
+        const tool = await this.loadCached(dir, source);
+        if (folders.has(key)) {
+          folders.set(`${key}.mjs`, { ...tool, ok: false, errors: [`both ${path4.basename(dir, ".mjs")}/ and ${path4.basename(dir)} exist; keep one`] });
+          continue;
+        }
+        folders.set(key, tool);
       }
     }
     const active = /* @__PURE__ */ new Map();
@@ -17552,48 +17622,50 @@ var Registry = class {
     return { added, updated, removed, invalid, listChanged: listingSignature(active) !== beforeSignature };
   }
   async loadCached(dir, source) {
-    const fresh = await loadToolFolder(dir, source);
     const cacheKey = `${source}:${dir}`;
     const cached2 = this.cache.get(cacheKey);
-    if (cached2 && cached2.hash === fresh.hash) return cached2;
+    if (cached2 && cached2.hash === hashTool(dir)) return cached2;
+    const fresh = await loadToolEntry(dir, source, { execAllowed: this.opts.execAllowed, env: this.opts.env });
     if (fresh.ok) await this.runExamples(fresh);
     this.cache.set(cacheKey, fresh);
     return fresh;
   }
-  /** Runs a tool's examples as a smoke test. A failing example makes the tool invalid. */
-  async runExamples(tool) {
-    const examples = tool.def?.examples ?? [];
-    if (!examples.length) return;
-    if (!this.opts.execAllowed) {
-      tool.examples = { passed: 0, failed: 0, failures: [], skipped: "execution is disabled (TROD_ALLOW_EXEC is not 1)" };
-      return;
-    }
-    const report = { passed: 0, failed: 0, failures: [] };
-    for (const [i, ex] of examples.entries()) {
-      const res = await executeTool({
-        runner: tool.runner,
-        runPath: tool.runPath,
-        toolDir: tool.dir,
-        toolName: tool.def.name,
-        projectDir: this.opts.paths.projectDir,
-        input: ex.input,
-        timeoutMs: tool.def.timeoutMs,
-        sessionId: this.opts.sessionId,
-        env: this.opts.env
-      });
-      const failure2 = res.ok ? checkExpectation(ex.expect, res.text, res.value) : `threw: ${res.error ?? res.text.slice(0, 500)}`;
-      if (failure2) {
-        report.failed++;
-        report.failures.push(`examples[${i}]${ex.description ? ` (${ex.description})` : ""}: ${failure2}`);
-      } else report.passed++;
-    }
-    tool.examples = report;
-    if (report.failed) {
-      tool.ok = false;
-      tool.errors.push(...report.failures);
-    }
+  runExamples(tool) {
+    return runToolExamples(tool, { projectDir: this.opts.paths.projectDir, execAllowed: this.opts.execAllowed, sessionId: this.opts.sessionId, env: this.opts.env });
   }
 };
+async function runToolExamples(tool, opts) {
+  const examples = tool.def?.examples ?? [];
+  if (!examples.length) return;
+  if (!opts.execAllowed) {
+    tool.examples = { passed: 0, failed: 0, failures: [], skipped: "execution is disabled (TROD_ALLOW_EXEC is not 1)" };
+    return;
+  }
+  const report = { passed: 0, failed: 0, failures: [] };
+  for (const [i, ex] of examples.entries()) {
+    const res = await executeTool({
+      runner: tool.runner,
+      runPath: tool.runPath,
+      toolDir: tool.dir,
+      toolName: tool.def.name,
+      projectDir: opts.projectDir,
+      input: ex.input,
+      timeoutMs: tool.def.timeoutMs,
+      sessionId: opts.sessionId,
+      env: opts.env
+    });
+    const failure2 = res.ok ? checkExpectation(ex.expect, res.text, res.value) : `threw: ${res.error ?? res.text.slice(0, 500)}`;
+    if (failure2) {
+      report.failed++;
+      report.failures.push(`examples[${i}]${ex.description ? ` (${ex.description})` : ""}: ${failure2}`);
+    } else report.passed++;
+  }
+  tool.examples = report;
+  if (report.failed) {
+    tool.ok = false;
+    tool.errors.push(...report.failures);
+  }
+}
 
 // packages/server/src/server.ts
 var VERSION = "0.1.0";
@@ -17606,8 +17678,30 @@ var STATUS_TOOL = {
       name: { type: "string", description: "A tool or folder name to show in detail." }
     },
     additionalProperties: false
-  }
+  },
+  _meta: { "anthropic/alwaysLoad": true }
 };
+var RUN_TOOL = {
+  name: "trod_run",
+  description: `Runs a trod tool (from .trod/tools or .trod/library) by name, right after you wrote it, with no need to load it first. "input" must match that tool's inputSchema. Returns the tool's result.`,
+  inputSchema: {
+    type: "object",
+    properties: {
+      tool: { type: "string", description: 'The trod tool name (file or folder name, e.g. "fetch_ticket").' },
+      input: { type: "object", description: "The input for that tool." }
+    },
+    required: ["tool"],
+    additionalProperties: false
+  },
+  _meta: { "anthropic/alwaysLoad": true }
+};
+var SERVER_INSTRUCTIONS = `trod turns a file into a tool you can call. When you are about to write a helper script you will run more than once (a repeated lookup, an authenticated or paginated request, a parser, a browser step), write it as a trod tool instead: same effort, cheaper and safer to call.
+
+Write .trod/tools/<name>.mjs (Node ESM, built-ins only):
+  export const meta = { description: 'what it returns', whenToUse: 'when to call it', inputSchema: { type: 'object', properties: { \u2026 }, required: [ \u2026 ] } };
+  export default async (input, ctx) => result;   // return only what you need: compact objects or text
+Design for batches: let one call take a list (e.g. queries: [...]) and return all answers, and send independent calls in parallel in one message; every extra turn costs. The Write result says whether the tool is live or shows the errors. Then call it with trod_run {"tool": "<name>", "input": { \u2026 }}: no loading needed, also in later turns. Change the file in place when needs change. Tools in .trod/library are verified tools from earlier sessions: call them directly (trod_status lists them). The trod skill has details.`;
+var RESERVED = /* @__PURE__ */ new Set([STATUS_TOOL.name, RUN_TOOL.name]);
 function sessionIdFromEnv(env) {
   return env.TROD_SESSION_ID || env.CLAUDE_CODE_SESSION_ID || env.CLAUDE_SESSION_ID || void 0;
 }
@@ -17640,7 +17734,7 @@ var TrodServer = class {
       { name: "trod", version: VERSION },
       {
         capabilities: { tools: { listChanged: true } },
-        instructions: "trod turns folders in .trod/tools/<name>/ (tool.json + run.mjs or run.sh) into live tools. Write a tool with the Write tool, then call trod_status to confirm it registered. See the trod skill for the format."
+        instructions: SERVER_INSTRUCTIONS
       }
     );
     this.server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: this.listTools() }));
@@ -17649,10 +17743,10 @@ var TrodServer = class {
   listTools() {
     const dynamic = [...this.registry.active.values()].sort((a, b) => a.def.name.localeCompare(b.def.name)).map((t) => ({
       name: t.def.name,
-      description: describeForClient(t.def),
+      description: describeForClient(t.def, t),
       inputSchema: t.def.inputSchema
     }));
-    return [STATUS_TOOL, ...dynamic];
+    return [STATUS_TOOL, RUN_TOOL, ...dynamic];
   }
   async start() {
     mkdirSync2(this.paths.toolsDir, { recursive: true });
@@ -17681,7 +17775,7 @@ var TrodServer = class {
       this.schedule();
     };
     try {
-      if (existsSync4(this.paths.trodDir)) this.watcher = watch(this.paths.trodDir, { recursive: true }, onEvent);
+      if (existsSync3(this.paths.trodDir)) this.watcher = watch(this.paths.trodDir, { recursive: true }, onEvent);
     } catch {
     }
     const pollMs = this.opts.pollMs ?? 1e3;
@@ -17722,6 +17816,12 @@ var TrodServer = class {
   }
   async callTool(name, args) {
     if (name === STATUS_TOOL.name) return { content: [{ type: "text", text: this.status(typeof args.name === "string" ? args.name : void 0) }] };
+    if (name === RUN_TOOL.name) {
+      const target = typeof args.tool === "string" ? args.tool : "";
+      if (!target || RESERVED.has(target)) return { isError: true, content: [{ type: "text", text: 'trod_run: "tool" must name a trod tool (see trod_status).' }] };
+      const input = args.input && typeof args.input === "object" ? args.input : {};
+      return this.callTool(target, input);
+    }
     let tool = this.registry.active.get(name);
     if (!tool && this.registry.fingerprint() !== this.lastFingerprint) {
       await this.refresh();

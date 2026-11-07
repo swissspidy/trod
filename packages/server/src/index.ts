@@ -2,8 +2,8 @@ export { executeTool, scrubEnv, truncateOutput, DEFAULT_TIMEOUT_MS, MAX_TIMEOUT_
 export { CallLog, readLogs, type LogRecord, type CallRecord, type ToolEventRecord } from './logs.ts';
 export { resolveProjectDir, trodPaths } from './paths.ts';
 export { promoteTool, type PromoteResult } from './promote.ts';
-export { Registry, describeForClient, type RegistryChange } from './registry.ts';
-export { TrodServer, STATUS_TOOL, VERSION, sessionIdFromEnv } from './server.ts';
+export { Registry, describeForClient, runToolExamples, type RegistryChange } from './registry.ts';
+export { TrodServer, STATUS_TOOL, RUN_TOOL, VERSION, sessionIdFromEnv } from './server.ts';
 export { computeStats, formatStats, type StatsSummary, type ToolStats } from './stats.ts';
-export { checkDefinition, checkExpectation, loadToolFolder, validateInput, NAME_PATTERN } from './validate.ts';
+export { checkDefinition, checkExpectation, listToolEntries, loadToolEntry, loadToolFile, loadToolFolder, validateInput, NAME_PATTERN } from './validate.ts';
 export type * from './types.ts';

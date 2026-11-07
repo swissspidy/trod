@@ -1,16 +1,16 @@
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import AjvModule, { type ValidateFunction } from 'ajv';
-import { MAX_TIMEOUT_MS } from './executor.ts';
+import { MAX_TIMEOUT_MS, scrubEnv } from './executor.ts';
 import type { ExampleExpectation, LoadedTool, RunnerKind, ToolDefinition, ToolSource } from './types.ts';
 
 const execFileAsync = promisify(execFile);
 
 export const NAME_PATTERN = /^[a-z][a-z0-9_]{1,47}$/;
-export const RESERVED_NAMES = new Set(['trod_status']);
+export const RESERVED_NAMES = new Set(['trod_status', 'trod_run']);
 const KNOWN_KEYS = new Set(['name', 'description', 'inputSchema', 'whenToUse', 'examples', 'timeoutMs', 'provenance']);
 
 // Ajv's default export shape differs between its CJS and ESM builds.
@@ -22,6 +22,7 @@ export const ajv: AjvInstance = new Ajv({ allErrors: true, strict: false });
 
 export function hashTool(dir: string): string {
   const h = createHash('sha256');
+  if (dir.endsWith('.mjs')) return h.update(existsSync(dir) ? readFileSync(dir) : '').digest('hex');
   for (const file of ['tool.json', 'run.mjs', 'run.sh']) {
     const p = path.join(dir, file);
     h.update(file + '\0');
@@ -184,4 +185,77 @@ export function checkExpectation(expect: ExampleExpectation | undefined, text: s
     if (!ok) return `output ${JSON.stringify(value)?.slice(0, 200)} does not equal ${JSON.stringify(expect.equals)?.slice(0, 200)}`;
   }
   return undefined;
+}
+
+export interface LoadOptions {
+  /** Single-file tools need execution to read their meta export. */
+  execAllowed: boolean;
+  env?: NodeJS.ProcessEnv;
+}
+
+/** Imports a single-file tool in a subprocess and prints its `meta` export as JSON. */
+const META_READER = `
+import { pathToFileURL } from 'node:url';
+const mod = await import(pathToFileURL(process.argv[1]).href);
+if (typeof mod.default !== 'function') throw new Error('the file must default-export a function: export default async (input, ctx) => result');
+if (!mod.meta || typeof mod.meta !== 'object') throw new Error('the file must export meta: export const meta = { description, whenToUse, inputSchema }');
+process.stdout.write(JSON.stringify(mod.meta));
+`;
+
+/**
+ * A single-file tool: .trod/tools/<name>.mjs with `export const meta = { description, whenToUse, inputSchema, … }`
+ * and `export default async (input, ctx) => result`. One Write creates it.
+ */
+export async function loadToolFile(file: string, source: ToolSource, opts: LoadOptions): Promise<LoadedTool> {
+  const folder = path.basename(file, '.mjs');
+  const tool: LoadedTool = { folder, dir: path.dirname(file), source, hash: hashTool(file), ok: false, errors: [], warnings: [], runner: 'mjs', runPath: file };
+  const syntax = await checkSyntax('mjs', file);
+  if (syntax) {
+    tool.errors.push(syntax);
+    return tool;
+  }
+  if (!opts.execAllowed) {
+    tool.errors.push('single-file tools (<name>.mjs) are loaded by importing them, which needs TROD_ALLOW_EXEC=1');
+    return tool;
+  }
+  let meta: unknown;
+  try {
+    const { stdout } = await execFileAsync(process.execPath, ['--input-type=module', '-e', META_READER, file], {
+      cwd: path.dirname(file),
+      env: scrubEnv(opts.env ?? process.env),
+      timeout: 10_000,
+    });
+    meta = JSON.parse(stdout);
+  } catch (err) {
+    const e = err as { stderr?: string; message: string };
+    const msg = (e.stderr || e.message).trim().split('\n').find((l) => /Error/.test(l)) ?? (e.stderr || e.message).trim().split('\n')[0];
+    tool.errors.push(`could not load ${path.basename(file)}: ${msg}`);
+    return tool;
+  }
+  const raw = { name: folder, ...(meta as Record<string, unknown>) };
+  const { errors, warnings, def } = checkDefinition(raw, folder);
+  tool.errors.push(...errors);
+  tool.warnings.push(...warnings.filter((w) => !w.startsWith('unknown key "name"')));
+  if (def) {
+    tool.def = def;
+    def.examples?.forEach((ex, i) => {
+      for (const msg of validateInput(def, ex.input)) tool.errors.push(`examples[${i}]: ${msg}`);
+    });
+  }
+  tool.ok = tool.errors.length === 0;
+  return tool;
+}
+
+/** Loads a tool entry: a folder (tool.json + run file) or a single .mjs file. */
+export function loadToolEntry(entry: string, source: ToolSource, opts: LoadOptions): Promise<LoadedTool> {
+  return entry.endsWith('.mjs') ? loadToolFile(entry, source, opts) : loadToolFolder(entry, source);
+}
+
+/** Tool entries under a root: folders and *.mjs files, sorted. */
+export function listToolEntries(root: string): string[] {
+  if (!existsSync(root)) return [];
+  return readdirSync(root, { withFileTypes: true })
+    .filter((d) => !d.name.startsWith('.') && (d.isDirectory() || (d.isFile() && d.name.endsWith('.mjs'))))
+    .map((d) => path.join(root, d.name))
+    .sort();
 }

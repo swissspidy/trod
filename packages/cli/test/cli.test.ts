@@ -50,3 +50,18 @@ describe('trod cli', () => {
     expect(JSON.parse((await run(['stats', '--json', '--dir', dir])).out).calls).toBe(1);
   });
 });
+
+describe('trod hook', () => {
+  it('ignores files outside .trod and reports validity for tools', async () => {
+    const { hookMessage } = await import('../src/cli.ts');
+    const dir = project();
+    const env = { TROD_ALLOW_EXEC: '1', PATH: process.env.PATH };
+    expect(await hookMessage(JSON.stringify({ tool_input: { file_path: path.join(dir, 'README.md') } }), env)).toBeUndefined();
+    const ok = await hookMessage(JSON.stringify({ tool_input: { file_path: path.join(dir, '.trod/tools/say_hi/run.mjs') } }), env);
+    expect(ok).toMatch(/"say_hi" is valid and live/);
+    writeFileSync(path.join(dir, '.trod', 'tools', 'broken.mjs'), 'export default (( =>');
+    const bad = await hookMessage(JSON.stringify({ tool_input: { file_path: path.join(dir, '.trod/tools/broken.mjs') } }), env);
+    expect(bad).toMatch(/"broken" is NOT registered/);
+    expect(await hookMessage('not json', env)).toBeUndefined();
+  });
+});

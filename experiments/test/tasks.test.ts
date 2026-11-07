@@ -4,6 +4,7 @@ import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { _codeQa } from '../tasks/code-qa.ts';
 import { TASKS } from '../tasks/index.ts';
 
 const work = () => mkdtempSync(path.join(tmpdir(), 'trod-task-'));
@@ -59,6 +60,30 @@ const ORACLES: Record<string, (w: string, expected: any, i: number) => void> = {
   'control-bugfix': (w) =>
     put(w, 'src/stats.mjs', 'export function median(v) { const s = [...v].sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; }\n'),
   'control-question': (w, e) => put(w, 'answer.txt', e + '\n'),
+  'ticket-triage': (w, e, i) => put(w, `triage-${i + 1}.json`, JSON.stringify(e[i])),
+  'code-qa': (w, _e, i) => {
+    const { g, steps } = _codeQa.data();
+    const answers: Record<string, unknown> = {};
+    for (const q of steps[i]!) {
+      if (q.kind === 'path') {
+        // BFS for one shortest chain.
+        const prev = new Map<string, string>([[q.from, '']]);
+        const queue = [q.from];
+        while (queue.length) {
+          const x = queue.shift()!;
+          for (const c of g.byId.get(x)!.calls) {
+            if (prev.has(c)) continue;
+            prev.set(c, x);
+            queue.push(c);
+          }
+        }
+        const chain = [q.to];
+        while (chain[0] !== q.from) chain.unshift(prev.get(chain[0]!)!);
+        answers[q.id] = chain;
+      } else answers[q.id] = q.answer;
+    }
+    put(w, `answers-${i + 1}.json`, JSON.stringify(answers));
+  },
 };
 
 describe.each(TASKS.map((t) => [t.id, t] as const))('task %s', (_id, task) => {
@@ -85,7 +110,7 @@ describe.each(TASKS.map((t) => [t.id, t] as const))('task %s', (_id, task) => {
     await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
     const { port } = server.address() as AddressInfo;
     const res = await fetch(`http://127.0.0.1:${port}/index.html`);
-    expect([200, 404, 429]).toContain(res.status);
+    expect([200, 401, 404, 429]).toContain(res.status);
     server.close();
   });
 });

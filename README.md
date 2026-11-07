@@ -9,32 +9,32 @@ See [`experiments/`](experiments/) and the results in [`results/`](results/READM
 
 ## A tool
 
-One folder per tool under `.trod/tools/<name>/`:
+One file, `.trod/tools/<name>.mjs`:
 
-```
-.trod/tools/csv_sum/
-├── tool.json   # name, description, whenToUse, inputSchema, examples, provenance
-└── run.mjs     # export default async (input, ctx) => result      (or run.sh: input JSON on stdin)
-```
-
-```json
-{
-  "name": "csv_sum",
-  "description": "Sums a numeric column of a CSV file and returns the total.",
-  "whenToUse": "When you need a column total of a CSV file.",
-  "inputSchema": {
-    "type": "object",
-    "properties": { "path": { "type": "string" }, "column": { "type": "string" } },
-    "required": ["path", "column"]
+```js
+export const meta = {
+  description: 'Sums a numeric column of a CSV file and returns the total.',
+  whenToUse: 'When you need a column total of a CSV file.',
+  inputSchema: {
+    type: 'object',
+    properties: { path: { type: 'string' }, column: { type: 'string' } },
+    required: ['path', 'column'],
   },
-  "examples": [{ "input": { "path": "data.csv", "column": "a" }, "expect": { "equals": 4 } }],
-  "provenance": { "reason": "summing 30 CSV files" }
-}
+  examples: [{ input: { path: 'data.csv', column: 'a' }, expect: { equals: 4 } }],
+};
+
+export default async ({ path, column }, ctx) => { /* … */ return total; };
 ```
 
-On every change trod checks the definition, the schema, name collisions and the run file's syntax, then runs
-the `examples` as a smoke test. Invalid tools are not registered. The one permanent tool, `trod_status`, shows
-the registry, the load errors and per-tool usage.
+(The folder format, `.trod/tools/<name>/tool.json` plus `run.mjs` or `run.sh`, also works.)
+
+On every change trod checks the definition, the schema, name collisions and the syntax, then runs the
+`examples` as a smoke test. Invalid tools are not registered. A PostToolUse hook reports the result in the
+Write's own result. Two permanent tools never change, so the prompt cache stays valid:
+
+- `trod_run {tool, input}` calls any trod tool right away, with nothing to load
+  ([ADR 0002](docs/adr/0002-tool-loading-and-the-prompt-cache.md)).
+- `trod_status` shows the registry, the load errors and per-tool usage.
 
 ## Install
 

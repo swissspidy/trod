@@ -5,10 +5,12 @@ import bulkRefactor from './bulk-refactor.ts';
 import configMigrate from './config-migrate.ts';
 import controlBugfix from './control-bugfix.ts';
 import controlQuestion from './control-question.ts';
+import codeQa from './code-qa.ts';
 import csvClean from './csv-clean.ts';
 import logAnalysis from './log-analysis.ts';
 import mdLinks from './md-links.ts';
 import pageAudit from './page-audit.ts';
+import ticketTriage from './ticket-triage.ts';
 
 export const TASKS: Task[] = [
   pageAudit,
@@ -21,4 +23,7 @@ export const TASKS: Task[] = [
   configMigrate,
   controlBugfix,
   controlQuestion,
+  // Round 2: per-item reasoning on top of fiddly, repeated lookups.
+  codeQa,
+  ticketTriage,
 ];
