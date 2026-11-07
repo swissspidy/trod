@@ -3263,8 +3263,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path6) {
-      let input = path6;
+    function removeDotSegments(path7) {
+      let input = path7;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3338,11 +3338,11 @@ var require_utils = __commonJS({
       }
       return output.join("");
     }
-    function removeDotSegmentsRelative(path6) {
-      if (path6 === "" || path6[0] === "/") {
-        return removeDotSegments(path6);
+    function removeDotSegmentsRelative(path7) {
+      if (path7 === "" || path7[0] === "/") {
+        return removeDotSegments(path7);
       }
-      const segments = path6.split("/");
+      const segments = path7.split("/");
       const last = segments.length - 1;
       const output = [];
       let trailingDirectory = false;
@@ -3705,8 +3705,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path6 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path6 && path6 !== "/" ? path6 : void 0;
+        const path7 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path7 && path7 !== "/" ? path7 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -7257,8 +7257,14 @@ var require_dist = __commonJS({
 });
 
 // packages/cli/src/cli.ts
+import { readFileSync as readFileSync5 } from "node:fs";
+
+// packages/cli/src/forge.ts
+import { spawn as spawn2 } from "node:child_process";
+import { existsSync as existsSync4, mkdirSync as mkdirSync3, mkdtempSync, readdirSync as readdirSync3, readFileSync as readFileSync4, writeFileSync as writeFileSync2 } from "node:fs";
+import { tmpdir } from "node:os";
 import path5 from "node:path";
-import { parseArgs } from "node:util";
+import { fileURLToPath } from "node:url";
 
 // packages/server/src/executor.ts
 import { spawn } from "node:child_process";
@@ -7368,7 +7374,7 @@ function executeTool(opts) {
       ...opts.sessionId ? { TROD_SESSION_ID: opts.sessionId } : {}
     }
   });
-  const [command, args] = opts.runner === "mjs" ? [process.execPath, ["--input-type=module", "-e", MJS_RUNNER]] : ["bash", [opts.runPath]];
+  const [command, args] = opts.script ? [process.execPath, ["--input-type=module", "-e", opts.script]] : opts.runner === "mjs" ? [process.execPath, ["--input-type=module", "-e", MJS_RUNNER]] : ["bash", [opts.runPath]];
   return new Promise((resolve) => {
     const child = spawn(command, args, {
       cwd: opts.projectDir,
@@ -7410,7 +7416,8 @@ function executeTool(opts) {
         truncated,
         outputChars: partial2.text.length,
         durationMs: Math.round(performance.now() - started),
-        timedOut
+        timedOut,
+        ...partial2.calls ? { calls: partial2.calls } : {}
       });
     };
     child.on("error", (err) => finish({ ok: false, error: err.message, text: `trod: could not start tool: ${err.message}` }));
@@ -7423,7 +7430,7 @@ stderr:
 ${tail(stderr)}` : "") });
         return;
       }
-      if (opts.runner === "mjs") {
+      if (opts.runner === "mjs" || opts.script) {
         let msg;
         try {
           msg = fd3 ? JSON.parse(fd3) : void 0;
@@ -7433,14 +7440,14 @@ ${tail(stderr)}` : "") });
         if (msg?.ok) {
           let value = msg.value;
           if ((value === null || value === void 0) && stdout.trim()) value = stdout;
-          finish({ ok: true, value, text: formatValue(value) });
+          finish({ ok: true, value, text: formatValue(value), calls: msg.calls });
           return;
         }
         const error3 = msg?.error ?? `tool process exited with ${signal ?? `code ${code}`}`;
         const extra = [stderr && `stderr:
 ${tail(stderr)}`, stdout && `stdout:
 ${tail(stdout)}`].filter(Boolean).join("\n");
-        finish({ ok: false, error: error3.split("\n")[0], text: `Error: ${error3}${extra ? "\n" + extra : ""}` });
+        finish({ ok: false, error: error3.split("\n")[0], text: `Error: ${error3}${extra ? "\n" + extra : ""}`, calls: msg?.calls });
         return;
       }
       if (code === 0) {
@@ -7520,7 +7527,7 @@ import path3 from "node:path";
 import { promisify } from "node:util";
 var execFileAsync = promisify(execFile);
 var NAME_PATTERN = /^[a-z][a-z0-9_]{1,47}$/;
-var RESERVED_NAMES = /* @__PURE__ */ new Set(["trod_status", "trod_run"]);
+var RESERVED_NAMES = /* @__PURE__ */ new Set(["trod_status", "trod_run", "trod_eval"]);
 var KNOWN_KEYS = /* @__PURE__ */ new Set(["name", "description", "inputSchema", "whenToUse", "examples", "timeoutMs", "provenance"]);
 var mod = import_ajv.default;
 var Ajv = mod.default ?? mod;
@@ -8028,10 +8035,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path6) {
-  if (!path6)
+function getElementAtPath(obj, path7) {
+  if (!path7)
     return obj;
-  return path6.reduce((acc, key) => acc?.[key], obj);
+  return path7.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -8371,11 +8378,11 @@ function explicitlyAborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path6, issues) {
+function prefixIssues(path7, issues) {
   return issues.map((iss) => {
     var _a3;
     (_a3 = iss).path ?? (_a3.path = []);
-    iss.path.unshift(path6);
+    iss.path.unshift(path7);
     return iss;
   });
 }
@@ -8833,16 +8840,16 @@ function flattenError(error2, mapper = (issue2) => issue2.message) {
 }
 function formatError(error2, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error3, path6 = []) => {
+  const processError = (error3, path7 = []) => {
     for (const issue2 of error3.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path6, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path7, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path6, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path7, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path6, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path7, ...issue2.path]);
       } else {
-        const fullpath = [...path6, ...issue2.path];
+        const fullpath = [...path7, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -15680,35 +15687,6 @@ var ALPHA_NUMERIC = new Set("ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvxyz0
 // node_modules/.pnpm/@modelcontextprotocol+sdk@1.32.2_zod@4.6.7/node_modules/@modelcontextprotocol/sdk/dist/esm/validation/ajv-provider.js
 var import_ajv_formats = __toESM(require_dist(), 1);
 
-// packages/server/src/server.ts
-var STATUS_TOOL = {
-  name: "trod_status",
-  description: 'Shows the trod tool registry: which tools in .trod/tools (session) and .trod/library are live, which failed validation and why (schema, syntax, failing examples), and per-tool usage. Call it after writing or changing a tool to confirm it registered. Pass "name" for one tool in detail.',
-  inputSchema: {
-    type: "object",
-    properties: {
-      name: { type: "string", description: "A tool or folder name to show in detail." }
-    },
-    additionalProperties: false
-  },
-  _meta: { "anthropic/alwaysLoad": true }
-};
-var RUN_TOOL = {
-  name: "trod_run",
-  description: `Runs a trod tool (from .trod/tools or .trod/library) by name, right after you wrote it, with no need to load it first. "input" must match that tool's inputSchema. Returns the tool's result.`,
-  inputSchema: {
-    type: "object",
-    properties: {
-      tool: { type: "string", description: 'The trod tool name (file or folder name, e.g. "fetch_ticket").' },
-      input: { type: "object", description: "The input for that tool." }
-    },
-    required: ["tool"],
-    additionalProperties: false
-  },
-  _meta: { "anthropic/alwaysLoad": true }
-};
-var RESERVED = /* @__PURE__ */ new Set([STATUS_TOOL.name, RUN_TOOL.name]);
-
 // packages/server/src/stats.ts
 function computeStats(records) {
   const tools = /* @__PURE__ */ new Map();
@@ -15786,7 +15764,127 @@ function formatStats(s) {
   return lines.join("\n");
 }
 
+// packages/server/src/server.ts
+var STATUS_TOOL = {
+  name: "trod_status",
+  description: 'Shows the trod tool registry: which tools in .trod/tools (session) and .trod/library are live, which failed validation and why (schema, syntax, failing examples), and per-tool usage. Call it after writing or changing a tool to confirm it registered. Pass "name" for one tool in detail.',
+  inputSchema: {
+    type: "object",
+    properties: {
+      name: { type: "string", description: "A tool or folder name to show in detail." }
+    },
+    additionalProperties: false
+  },
+  _meta: { "anthropic/alwaysLoad": true }
+};
+var RUN_TOOL = {
+  name: "trod_run",
+  description: `Runs a trod tool (from .trod/tools or .trod/library) by name, right after you wrote it, with no need to load it first. "input" must match that tool's inputSchema. Returns the tool's result.`,
+  inputSchema: {
+    type: "object",
+    properties: {
+      tool: { type: "string", description: 'The trod tool name (file or folder name, e.g. "fetch_ticket").' },
+      input: { type: "object", description: "The input for that tool." }
+    },
+    required: ["tool"],
+    additionalProperties: false
+  },
+  _meta: { "anthropic/alwaysLoad": true }
+};
+var EVAL_TOOL = {
+  name: "trod_eval",
+  description: 'Runs JavaScript (the body of an async function) with every trod tool available as an async function: `const items = await tools.inv_items({ warehouse: "BER" })`. Also available: fs, fsp (fs/promises), path, projectDir. Use it to call several tools, combine their results and compute an answer (or write a file) in ONE call; only the value you return comes back, so large intermediate data stays out of the conversation.',
+  inputSchema: {
+    type: "object",
+    properties: { code: { type: "string", description: "Async function body; `return` the result you want to see." } },
+    required: ["code"],
+    additionalProperties: false
+  },
+  _meta: { "anthropic/alwaysLoad": true }
+};
+var RESERVED = /* @__PURE__ */ new Set([STATUS_TOOL.name, RUN_TOOL.name, EVAL_TOOL.name]);
+
+// packages/cli/src/forge.ts
+var FORGE_PROMPT = `You are a toolsmith. You are not solving a task: you are building tools that future sessions will rely on.
+
+Future sessions start fresh, with no memory of this one. They will see the tools you build listed in their instructions (name, signature, description, whenToUse, whether the examples pass) and call them, usually several at once from trod_eval as tools.<name>(input). They will not read your source. So:
+
+1. Study the environment described below and in the project's files. Probe it until you understand every quirk: authentication, pagination, rate limits (back off on 429), formats (dates, numbers, units), soft-deleted or reversed records, anything a newcomer would get wrong.
+2. Build a few general capability tools as single files in .trod/tools/<name>.mjs (export const meta = { description, whenToUse, inputSchema, examples, timeoutMs }; export default async (input, ctx) => result). A capability returns clean, normalized records with useful filters; it does not compute one particular answer. Encode every quirk inside the tool.
+3. Write description and whenToUse so that a newcomer can use the tool correctly without reading code: say what it returns (field names, units, what is excluded) and which quirks it handles. These texts are the only documentation future sessions get.
+4. Give every tool at least one example that exercises the real environment and checks something stable (expect.contains or expect.matches). Tools whose examples fail are discarded.
+5. Test each tool with trod_run, and test combining them with trod_eval, like a future session would.
+
+Do not write answer files. When finished, reply with a short list of the tools and DONE.`;
+function defaultServerPath() {
+  return path5.resolve(path5.dirname(fileURLToPath(import.meta.url)), "..", "server", "trod-server.mjs");
+}
+async function forge(opts) {
+  const out = opts.out ?? (() => {
+  });
+  const paths = trodPaths(opts.projectDir);
+  const env = { ...opts.env ?? process.env, TROD_ALLOW_EXEC: "1", TROD_PROJECT_DIR: opts.projectDir };
+  const scratch = mkdtempSync(path5.join(tmpdir(), "trod-forge-"));
+  const mcpConfig = path5.join(scratch, "mcp.json");
+  writeFileSync2(mcpConfig, JSON.stringify({ mcpServers: { trod: { command: process.execPath, args: [opts.server ?? defaultServerPath()] } } }));
+  const prompt = `${FORGE_PROMPT}
+
+## The environment
+
+${opts.brief}`;
+  const args = [
+    "-p",
+    prompt,
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--mcp-config",
+    mcpConfig,
+    "--strict-mcp-config",
+    "--allowedTools",
+    "Bash,Read,Write,Edit,Glob,Grep,TodoWrite,mcp__trod__*",
+    "--disallowedTools",
+    "WebFetch,WebSearch,Task,Agent",
+    ...opts.model ? ["--model", opts.model] : [],
+    ...opts.maxBudgetUsd ? ["--max-budget-usd", opts.maxBudgetUsd] : []
+  ];
+  const streamFile = opts.streamFile ?? path5.join(scratch, "forge.jsonl");
+  mkdirSync3(path5.dirname(streamFile), { recursive: true });
+  out(`forging tools in ${opts.projectDir}${opts.model ? ` with ${opts.model}` : ""} \u2026`);
+  const exitCode = await new Promise((resolve) => {
+    const child = spawn2("claude", args, { cwd: opts.projectDir, env, stdio: ["ignore", "pipe", "inherit"] });
+    let buf = "";
+    child.stdout.on("data", (c) => buf += c.toString("utf8"));
+    const timer = setTimeout(() => child.kill("SIGKILL"), opts.timeoutMs ?? 30 * 6e4);
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      writeFileSync2(streamFile, buf);
+      resolve(code);
+    });
+  });
+  const result = readFileSync4(streamFile, "utf8").split("\n").filter((l) => l.includes('"type":"result"')).map((l) => JSON.parse(l)).at(-1);
+  const promoted = [];
+  const rejected = [];
+  const unverified = [];
+  const entries = existsSync4(paths.toolsDir) ? readdirSync3(paths.toolsDir).filter((f) => !f.startsWith(".")) : [];
+  for (const entry of entries) {
+    const name = entry.replace(/\.mjs$/, "");
+    try {
+      const res = await promoteTool(paths, name, /* @__PURE__ */ new Date(), { execAllowed: true, env });
+      if (!res.examplesPassed) unverified.push(name);
+      promoted.push(name);
+      out(`  promoted ${name}${res.examplesPassed ? ` (${res.examplesPassed} example(s) passed)` : " (no examples)"}`);
+    } catch (err) {
+      rejected.push({ name, reason: err.message.split("\n").slice(0, 3).join(" ") });
+      out(`  rejected ${name}: ${err.message.split("\n")[0]}`);
+    }
+  }
+  return { exitCode, promoted, rejected, unverified, costUsd: result?.total_cost_usd, turns: result?.num_turns, usage: result?.usage };
+}
+
 // packages/cli/src/cli.ts
+import path6 from "node:path";
+import { parseArgs } from "node:util";
 var USAGE = `trod: self-morphing tools for Claude Code
 
 Usage:
@@ -15795,6 +15893,9 @@ Usage:
   trod check               Validate every tool folder (static checks, no execution)
   trod list                List session and library tools
   trod hook                PostToolUse hook: report whether a just-written tool is valid (JSON on stdin)
+  trod forge --brief <text|@file> [--model <id>]
+                           Run a dedicated tool-building session (headless Claude Code), then promote every tool
+                           whose examples pass to .trod/library
 
 Options:
   --dir <path>             Project directory (default: TROD_PROJECT_DIR, CLAUDE_PROJECT_DIR or cwd)
@@ -15808,7 +15909,12 @@ async function main(argv, out = console.log) {
       dir: { type: "string" },
       logs: { type: "string" },
       json: { type: "boolean", default: false },
-      help: { type: "boolean", short: "h", default: false }
+      help: { type: "boolean", short: "h", default: false },
+      brief: { type: "string" },
+      model: { type: "string" },
+      server: { type: "string" },
+      budget: { type: "string" },
+      stream: { type: "string" }
     }
   });
   const [command, ...rest] = positionals;
@@ -15816,7 +15922,7 @@ async function main(argv, out = console.log) {
     out(USAGE);
     return command || values.help ? 0 : 1;
   }
-  const paths = trodPaths(values.dir ? path5.resolve(values.dir) : resolveProjectDir());
+  const paths = trodPaths(values.dir ? path6.resolve(values.dir) : resolveProjectDir());
   switch (command) {
     case "promote": {
       const name = rest[0];
@@ -15825,12 +15931,12 @@ async function main(argv, out = console.log) {
         return 1;
       }
       const res = await promoteTool(paths, name);
-      out(`promoted ${name} -> ${path5.relative(paths.projectDir, res.to)}${res.replaced ? " (replaced the previous library version)" : ""}${res.examplesPassed ? `, ${res.examplesPassed} example(s) passed` : ""}`);
+      out(`promoted ${name} -> ${path6.relative(paths.projectDir, res.to)}${res.replaced ? " (replaced the previous library version)" : ""}${res.examplesPassed ? `, ${res.examplesPassed} example(s) passed` : ""}`);
       out("Commit .trod/library/ so later sessions load it.");
       return 0;
     }
     case "stats": {
-      const stats = computeStats(readLogs(values.logs ? path5.resolve(values.logs) : paths.logsDir));
+      const stats = computeStats(readLogs(values.logs ? path6.resolve(values.logs) : paths.logsDir));
       out(values.json ? JSON.stringify(stats, null, 2) : formatStats(stats));
       return 0;
     }
@@ -15846,6 +15952,17 @@ async function main(argv, out = console.log) {
         }
       }
       return command === "check" && bad ? 1 : 0;
+    }
+    case "forge": {
+      if (!values.brief) {
+        out("trod forge: --brief is required (text, or @path/to/brief.md)");
+        return 1;
+      }
+      const brief = values.brief.startsWith("@") ? readFileSync5(values.brief.slice(1), "utf8") : values.brief;
+      const res = await forge({ projectDir: paths.projectDir, brief, model: values.model, server: values.server, maxBudgetUsd: values.budget, streamFile: values.stream, out });
+      out(`forge: ${res.promoted.length} tool(s) promoted${res.unverified.length ? ` (${res.unverified.length} without examples)` : ""}, ${res.rejected.length} rejected${res.costUsd !== void 0 ? `, $${res.costUsd.toFixed(3)}, ${res.turns} turns` : ""}`);
+      if (values.json) out(JSON.stringify(res, null, 2));
+      return res.promoted.length ? 0 : 1;
     }
     case "hook": {
       const msg = await hookMessage(await readStdin());
@@ -15877,7 +15994,7 @@ async function hookMessage(raw, env = process.env) {
   if (!m) return void 0;
   const [, projectDir, kind, first] = m;
   const source = kind === "library" ? "library" : "session";
-  const entry = path5.join(projectDir, ".trod", kind, first);
+  const entry = path6.join(projectDir, ".trod", kind, first);
   const execAllowed = env.TROD_ALLOW_EXEC === "1";
   const tool = await loadToolEntry(entry, source, { execAllowed, env });
   if (tool.ok) await runToolExamples(tool, { projectDir, execAllowed, env });

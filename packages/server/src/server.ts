@@ -2,13 +2,14 @@ import { existsSync, mkdirSync, watch, type FSWatcher } from 'node:fs';
 import path from 'node:path';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { CallToolRequestSchema, ListToolsRequestSchema, type CallToolResult, type Tool } from '@modelcontextprotocol/sdk/types.js';
-import { DEFAULT_MAX_OUTPUT_CHARS, executeTool } from './executor.ts';
-import { CallLog } from './logs.ts';
+import { DEFAULT_MAX_OUTPUT_CHARS, EVAL_RUNNER, MAX_TIMEOUT_MS, executeTool } from './executor.ts';
+import { CallLog, readLogs } from './logs.ts';
+import { computeStats } from './stats.ts';
 import { Registry, describeForClient, type RegistryChange } from './registry.ts';
 import type { LoadedTool, TrodPaths } from './types.ts';
 import { validateInput } from './validate.ts';
 
-export const VERSION = '0.2.0';
+export const VERSION = '0.3.0';
 
 export interface TrodServerOptions {
   paths: TrodPaths;
@@ -74,9 +75,62 @@ export const SERVER_INSTRUCTIONS = `trod turns a file into a tool you can call. 
 Write .trod/tools/<name>.mjs (Node ESM, built-ins only):
   export const meta = { description: 'what it returns', whenToUse: 'when to call it', inputSchema: { type: 'object', properties: { … }, required: [ … ] } };
   export default async (input, ctx) => result;   // return only what you need: compact objects or text
-Build capabilities, not answers: a tool that fetches clean, normalized records (auth, paging, retries and format quirks handled) serves tomorrow's different question; a tool that computes today's answer does not. Design for batches: let one call take a list (e.g. queries: [...]) and return all answers, and send independent calls in parallel in one message; every extra turn costs. The Write result says whether the tool is live or shows the errors. Then call it with trod_run {"tool": "<name>", "input": { … }}: no loading needed, also in later turns. Change the file in place when needs change. Tools in .trod/library are verified tools from earlier sessions: call them directly (trod_status lists them). The trod skill has details.`;
+Build capabilities, not answers: a tool that fetches clean, normalized records (auth, paging, retries and format quirks handled) serves tomorrow's different question; a tool that computes today's answer does not. Design for batches: let one call take a list (e.g. queries: [...]) and return all answers, and send independent calls in parallel in one message; every extra turn costs. The Write result says whether the tool is live or shows the errors. Then call it with trod_run {"tool": "<name>", "input": { … }}: no loading needed, also in later turns. To use several tools and compute an answer in ONE call, use trod_eval with code like "const a = await tools.x({…}); return summarize(a)": only the returned value enters the conversation. Change the file in place when needs change. Tools in .trod/library are verified tools from earlier sessions: call them directly (trod_status lists them). The trod skill has details.`;
 
-export const RESERVED = new Set([STATUS_TOOL.name, RUN_TOOL.name]);
+/**
+ * The third permanent tool: code mode. One call runs an async function body in which every trod tool is a function
+ * (tools.<name>(input)), so fetching, combining and computing happen in one turn and bulky intermediate data never
+ * enters the context.
+ */
+export const EVAL_TOOL: Tool = {
+  name: 'trod_eval',
+  description:
+    'Runs JavaScript (the body of an async function) with every trod tool available as an async function: ' +
+    '`const items = await tools.inv_items({ warehouse: "BER" })`. Also available: fs, fsp (fs/promises), path, projectDir. ' +
+    'Use it to call several tools, combine their results and compute an answer (or write a file) in ONE call; ' +
+    'only the value you return comes back, so large intermediate data stays out of the conversation.',
+  inputSchema: {
+    type: 'object',
+    properties: { code: { type: 'string', description: 'Async function body; `return` the result you want to see.' } },
+    required: ['code'],
+    additionalProperties: false,
+  },
+  _meta: { 'anthropic/alwaysLoad': true },
+};
+
+export const RESERVED = new Set([STATUS_TOOL.name, RUN_TOOL.name, EVAL_TOOL.name]);
+
+/** One-line signature from a JSON Schema: (a: string, b?: number). */
+function signature(schema: Record<string, unknown>): string {
+  const props = (schema.properties ?? {}) as Record<string, { type?: string | string[]; enum?: unknown[] }>;
+  const req = new Set((schema.required as string[] | undefined) ?? []);
+  return Object.entries(props)
+    .map(([k, v]) => `${k}${req.has(k) ? '' : '?'}: ${v.enum ? v.enum.map((x) => JSON.stringify(x)).join('|') : Array.isArray(v.type) ? v.type.join('|') : (v.type ?? 'any')}`)
+    .join(', ');
+}
+
+/**
+ * Library cards: what the committed library offers, with its evidence (examples that passed, usage in earlier
+ * sessions), written into the instructions at startup so a fresh session knows what it can rely on before its first
+ * turn. Fixed for the session, so it does not disturb the prompt cache.
+ */
+export function libraryCards(tools: LoadedTool[], stats: Map<string, { calls: number; errors: number; sessions: number }>, maxChars = 6000): string {
+  const lib = tools.filter((t) => t.source === 'library' && t.ok && t.def).sort((a, b) => a.def!.name.localeCompare(b.def!.name));
+  if (!lib.length) return '';
+  const lines = [
+    '',
+    'LIBRARY: these tools were built and verified in earlier sessions for this project. Rely on them instead of rediscovering the same API or format details; you do not need to read their source. Call one with trod_run, or several at once inside trod_eval as tools.<name>(input).',
+  ];
+  for (const t of lib) {
+    const d = t.def!;
+    const ex = d.examples?.length ? ` Verified: its ${d.examples.length} example(s) passed when it was promoted.` : '';
+    const s = stats.get(d.name);
+    const use = s && s.calls ? ` Used ${s.calls}× in ${s.sessions} earlier session(s), ${s.errors} error(s).` : '';
+    lines.push(`- ${d.name}(${signature(d.inputSchema)}): ${d.description.trim()} When: ${d.whenToUse.trim()}${ex}${use}`);
+  }
+  const text = lines.join('\n');
+  return text.length > maxChars ? text.slice(0, maxChars) + '\n(… more in trod_status)' : text;
+}
 
 export function sessionIdFromEnv(env: NodeJS.ProcessEnv): string | undefined {
   return env.TROD_SESSION_ID || env.CLAUDE_CODE_SESSION_ID || env.CLAUDE_SESSION_ID || undefined;
@@ -127,7 +181,7 @@ export class TrodServer {
         description: describeForClient(t.def!, t),
         inputSchema: t.def!.inputSchema as Tool['inputSchema'],
       }));
-    return [STATUS_TOOL, RUN_TOOL, ...dynamic];
+    return [STATUS_TOOL, RUN_TOOL, EVAL_TOOL, ...dynamic];
   }
 
   async start(): Promise<void> {
@@ -144,6 +198,10 @@ export class TrodServer {
       version: VERSION,
       tools: [...this.registry.active.keys()],
     });
+    // Library cards go into the instructions the client receives at initialize (the server connects after start()).
+    const stats = new Map(computeStats(readLogs(this.paths.logsDir)).tools.map((t) => [t.tool, t]));
+    const cards = libraryCards([...this.registry.active.values()], stats);
+    if (cards) (this.server as unknown as { _instructions?: string })._instructions = SERVER_INSTRUCTIONS + '\n' + cards;
     this.watch();
   }
 
@@ -206,6 +264,7 @@ export class TrodServer {
 
   async callTool(name: string, args: Record<string, unknown>): Promise<CallToolResult> {
     if (name === STATUS_TOOL.name) return { content: [{ type: 'text', text: this.status(typeof args.name === 'string' ? args.name : undefined) }] };
+    if (name === EVAL_TOOL.name) return this.evalCode(typeof args.code === 'string' ? args.code : '');
     if (name === RUN_TOOL.name) {
       const target = typeof args.tool === 'string' ? args.tool : '';
       if (!target || RESERVED.has(target)) return { isError: true, content: [{ type: 'text', text: 'trod_run: "tool" must name a trod tool (see trod_status).' }] };
@@ -286,6 +345,36 @@ export class TrodServer {
       outputChars,
       truncated,
     });
+  }
+
+  /** trod_eval: run code with every live tool exposed as a function. */
+  async evalCode(code: string): Promise<CallToolResult> {
+    if (!code.trim()) return { isError: true, content: [{ type: 'text', text: 'trod_eval: "code" is required.' }] };
+    if (!this.execAllowed) return { isError: true, content: [{ type: 'text', text: 'trod: tool execution is disabled (TROD_ALLOW_EXEC is not 1).' }] };
+    if (this.registry.fingerprint() !== this.lastFingerprint) await this.refresh();
+    const tools = [...this.registry.active.values()].map((t) => ({ name: t.def!.name, runner: t.runner, runPath: t.runPath, dir: t.dir }));
+    const res = await executeTool({
+      script: EVAL_RUNNER,
+      runner: 'mjs',
+      runPath: '',
+      toolDir: this.paths.trodDir,
+      toolName: EVAL_TOOL.name,
+      projectDir: this.paths.projectDir,
+      input: { code, tools },
+      timeoutMs: MAX_TIMEOUT_MS,
+      maxOutputChars: this.maxOutputChars,
+      sessionId: this.sessionId,
+      env: this.env,
+    });
+    const ts = new Date().toISOString();
+    for (const c of res.calls ?? []) {
+      const t = this.registry.active.get(c.tool);
+      if (!t) continue;
+      this.record(t, {}, c.ok, c.ms, 0, false, c.ok ? undefined : 'failed inside trod_eval');
+    }
+    this.log.write({ type: 'call', ts, sessionId: this.sessionId, tool: EVAL_TOOL.name, source: 'session', durationMs: res.durationMs, ok: res.ok, error: res.error, inputChars: code.length, outputChars: res.outputChars, truncated: res.truncated });
+    const text = res.text === '' ? (res.ok ? '(empty result)' : 'Error') : res.text;
+    return { isError: !res.ok, content: [{ type: 'text', text }] };
   }
 
   status(name?: string): string {

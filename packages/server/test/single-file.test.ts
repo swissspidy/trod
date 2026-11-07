@@ -72,7 +72,7 @@ describe('single-file tools', () => {
     servers.push(trod);
     await trod.start();
     const desc = trod.listTools().find((t) => t.name === 'double_it')?.description;
-    expect(desc).toMatch(/Library tool.*1 example\(s\) passed.*no need to read its source/s);
+    expect(desc).toMatch(/Library tool, promoted from an earlier session\..*no need to read its source/s);
   });
 
   it('refuses to promote a tool whose examples fail', async () => {

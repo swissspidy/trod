@@ -70,6 +70,8 @@ export interface RunResult {
   outputChars: number;
   truncated: boolean;
   timedOut: boolean;
+  /** Tool calls made inside trod_eval. */
+  calls?: { tool: string; ms: number; ok: boolean }[];
 }
 
 export interface TrodPaths {

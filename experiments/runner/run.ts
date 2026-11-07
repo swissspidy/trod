@@ -6,6 +6,8 @@
  *   nudged    as genesis, plus an appended system prompt telling the agent to build repeated operations as trod tools
  *   toolsmith as genesis (no nudge), after one dedicated session that builds robust, general tools for the task's
  *             environment (promoted to .trod/library; its cost is reported separately)
+ *   forged    as genesis (no nudge), starting from a library built once per task by `trod forge` (--forge-model,
+ *             shared across seeds and models via --forge-dir); the library is in the instructions as cards
  *   library   as genesis (no nudge), but .trod/library/ starts with the tools a nudged run of the same task built
  *             (--library-from <runs dir>, seed 1): the cross-session reuse that `trod promote` is for
  *
@@ -26,7 +28,7 @@ import { collectMetrics, type RunRecord, type StepOutcome } from './metrics.ts';
 const ROOT = path.resolve(import.meta.dirname, '../..');
 const PLUGIN_DIR = path.join(ROOT, 'plugin');
 
-export type Arm = 'baseline' | 'scripts' | 'genesis' | 'nudged' | 'library' | 'toolsmith';
+export type Arm = 'baseline' | 'scripts' | 'genesis' | 'nudged' | 'library' | 'toolsmith' | 'forged';
 
 /** Appended to the system prompt in the nudged arm. */
 export const NUDGE =
@@ -49,6 +51,8 @@ const { values } = parseArgs({
     // "committed" state carries over: nothing for baseline, the whole work dir for scripts, and .trod/library for
     // the trod arms (the harness promotes every valid session tool between sessions, like `trod promote` + commit).
     mode: { type: 'string', default: 'resume' },
+    'forge-model': { type: 'string', default: 'claude-opus-5-5' },
+    'forge-dir': { type: 'string' },
     // ENABLE_TOOL_SEARCH for every arm; empty keeps Claude Code's default (on). Turning it off loads every tool
     // schema up front (about 13k more tokens per request) and makes each new trod tool invalidate the prompt cache.
     'tool-search': { type: 'string', default: '' },
@@ -96,6 +100,13 @@ function cleanEnv(home: string, extra: Record<string, string>): Record<string, s
     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
     ...extra,
   };
+}
+
+/** The service URL as project config: tools must not hardcode it, because it changes between sessions. */
+function writeServiceUrl(work: string, baseUrl: string | undefined): void {
+  if (!baseUrl) return;
+  mkdirSync(path.join(work, '.service'), { recursive: true });
+  writeFileSync(path.join(work, '.service', 'base-url'), baseUrl + '\n');
 }
 
 async function startFixture(task: Task, expected: unknown, state: FixtureState): Promise<{ server?: Server; baseUrl?: string }> {
@@ -173,6 +184,7 @@ async function newCheckout(task: Task, arm: Arm, work: string, baseUrl: string |
   rmSync(work, { recursive: true, force: true });
   mkdirSync(work, { recursive: true });
   task.setup({ work, baseUrl });
+  writeServiceUrl(work, baseUrl);
   for (let j = 1; j <= i; j++) task.prepareStep?.({ work, baseUrl }, j);
   if (existsSync(keep)) {
     cpSync(keep, path.join(work, '.trod'), { recursive: true });
@@ -182,6 +194,56 @@ async function newCheckout(task: Task, arm: Arm, work: string, baseUrl: string |
 
 function listEntries(dir: string): string[] {
   return existsSync(dir) ? readdirSync(dir).filter((f) => !f.startsWith('.')).map((f) => path.join(dir, f)) : [];
+}
+
+/** One forge per task, shared by every forged run (and by later runner invocations through --forge-dir). */
+const forges = new Map<string, Promise<{ library: string; info: unknown }>>();
+function ensureForge(task: Task): Promise<{ library: string; info: unknown }> {
+  if (!forges.has(task.id)) forges.set(task.id, doForge(task));
+  return forges.get(task.id)!;
+}
+
+async function doForge(task: Task): Promise<{ library: string; info: unknown }> {
+  const dir = path.join(path.resolve(values['forge-dir'] ?? path.join(outDir, '_forge')), task.id);
+  const work = path.join(dir, 'work');
+  const library = path.join(work, '.trod', 'library');
+  const done = path.join(dir, 'forge.json');
+  if (existsSync(done)) return { library, info: JSON.parse(readFileSync(done, 'utf8')) };
+  mkdirSync(work, { recursive: true });
+  const home = path.join(dir, 'home');
+  mkdirSync(path.join(home, '.claude'), { recursive: true });
+  const expected = task.setup({ work });
+  const state = { step: 0 };
+  const { server, baseUrl } = await startFixture(task, expected, state);
+  writeServiceUrl(work, baseUrl);
+  const brief = task.toolsmithBrief?.({ work, baseUrl }) ?? `Future sessions will get tasks like this one (do not solve it):\n\n${task.steps[0]!.prompt({ work, baseUrl })}`;
+  const urlNote = baseUrl ? `\n\nThe service's base URL changes between sessions (today it is ${baseUrl}). Tools must read it from the file .service/base-url in the project directory (ctx.projectDir) instead of hardcoding it or taking it as a required input.` : '';
+  writeFileSync(path.join(dir, 'brief.md'), brief + urlNote);
+  console.log(`forging ${task.id} with ${values['forge-model']} …`);
+  const t0 = Date.now();
+  const output = await new Promise<string>((resolve) => {
+    const child = spawn(process.execPath, [path.join(PLUGIN_DIR, 'bin', 'trod'), 'forge', '--dir', work, '--brief', `@${path.join(dir, 'brief.md')}`, '--model', values['forge-model']!, '--stream', path.join(dir, 'forge.jsonl'), '--json'], {
+      env: cleanEnv(home, {}),
+    });
+    let text = '';
+    child.stdout.on('data', (c: Buffer) => (text += c));
+    child.stderr.on('data', (c: Buffer) => (text += c));
+    child.on('close', () => resolve(text));
+  });
+  server?.close();
+  writeFileSync(path.join(dir, 'forge.log'), output);
+  const json = output.slice(output.indexOf('{\n'));
+  let info: Record<string, unknown> = {};
+  try {
+    info = JSON.parse(json);
+  } catch {
+    info = { error: 'could not parse forge output; see forge.log' };
+  }
+  info.wallMs = Date.now() - t0;
+  info.model = values['forge-model'];
+  writeFileSync(done, JSON.stringify(info, null, 2));
+  console.log(`forged ${task.id}: ${JSON.stringify((info as { promoted?: string[] }).promoted ?? [])}`);
+  return { library, info };
 }
 
 async function runOne(task: Task, arm: Arm, seed: number): Promise<RunRecord> {
@@ -199,10 +261,17 @@ async function runOne(task: Task, arm: Arm, seed: number): Promise<RunRecord> {
     const from = path.resolve(values['library-from'] ?? '', task.id, 'nudged-s1', 'work', '.trod', 'tools');
     if (existsSync(from)) for (const t of readdirSync(from)) cpSync(path.join(from, t), path.join(work, '.trod', 'library', t), { recursive: true });
   }
+  let forgeInfo: unknown;
+  if (arm === 'forged') {
+    const f = await ensureForge(task);
+    forgeInfo = f.info;
+    if (existsSync(f.library)) cpSync(f.library, path.join(work, '.trod', 'library'), { recursive: true });
+  }
   const expected = task.setup({ work });
   writeFileSync(path.join(runDir, 'expected.json'), JSON.stringify(expected, null, 2));
   const state = { step: 0 };
   const { server, baseUrl } = await startFixture(task, expected, state);
+  writeServiceUrl(work, baseUrl);
 
   const sessionTag = `${task.id}-${arm}-s${seed}`;
   const common = ['--output-format', 'stream-json', '--verbose', '--model', values.model!, '--max-budget-usd', values.budget!, '--strict-mcp-config', '--disallowedTools', DENIED.join(',')];
@@ -245,7 +314,8 @@ async function runOne(task: Task, arm: Arm, seed: number): Promise<RunRecord> {
   const deadline = started + Number(values.timeout) * 1000;
   for (const [i, step] of task.steps.entries()) {
     state.step = i;
-    if (i > 0 && (values.mode === 'sessions' || arm === 'toolsmith')) await newCheckout(task, arm, work, baseUrl, i);
+    if (i > 0 && values.mode === 'sessions') await newCheckout(task, arm, work, baseUrl, i);
+    else if (i > 0 && arm === 'toolsmith') await newCheckout(task, arm, work, baseUrl, i);
     else if (i > 0) task.prepareStep?.({ work, baseUrl }, i);
     const prompt = step.prompt({ work, baseUrl });
     writeFileSync(path.join(runDir, `prompt-${i + 1}.txt`), prompt);
@@ -278,6 +348,7 @@ async function runOne(task: Task, arm: Arm, seed: number): Promise<RunRecord> {
   };
   const record: RunRecord & { toolsmith?: unknown } = collectMetrics({ id, task, arm, seed, runDir, work, home, wallMs, exitCode, timedOut, check, steps, model: values.model! });
   if (toolsmith) record.toolsmith = toolsmith;
+  if (forgeInfo) (record as RunRecord & { forge?: unknown }).forge = forgeInfo;
   writeFileSync(path.join(runDir, 'result.json'), JSON.stringify(record, null, 2));
   console.log(
     `${record.check.pass ? 'PASS' : 'FAIL'} ${id.padEnd(34)} score=${record.check.score.toFixed(2)} turns=${record.turns} tokens=${record.tokens.total} cost=$${record.costUsd.toFixed(3)} wall=${Math.round(wallMs / 1000)}s` +

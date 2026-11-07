@@ -43,7 +43,7 @@ async function connect(paths: TrodPaths, env: NodeJS.ProcessEnv = { TROD_ALLOW_E
 describe('TrodServer', () => {
   it('starts with only the two permanent tools', async () => {
     const { names, call } = await connect(tempProject());
-    expect(await names()).toEqual(['trod_status', 'trod_run']);
+    expect(await names()).toEqual(['trod_status', 'trod_run', 'trod_eval']);
     expect((await call('trod_status')).text).toContain('No tools yet');
   });
 
@@ -57,7 +57,7 @@ describe('TrodServer', () => {
       examples: [{ input: { a: 1, b: 2 }, expect: { equals: 3 } }],
     }, { mjs: 'export default async ({ a, b }) => a + b;' });
     await changed;
-    expect(await names()).toEqual(['trod_status', 'trod_run', 'add_nums']);
+    expect(await names()).toEqual(['trod_status', 'trod_run', 'trod_eval', 'add_nums']);
     expect(await call('add_nums', { a: 20, b: 22 })).toEqual({ isError: false, text: '42' });
     const status = (await call('trod_status')).text;
     expect(status).toContain('add_nums [session], examples 1/1, 1 call(s)');
@@ -85,7 +85,7 @@ describe('TrodServer', () => {
     writeTool(paths.toolsDir, 'broken', {}, { mjs: 'export default async ( => 1' });
     writeTool(paths.toolsDir, 'fails_example', { examples: [{ input: { x: 'a' }, expect: { contains: 'zzz' } }] });
     const { names, call } = await connect(paths);
-    expect(await names()).toEqual(['trod_status', 'trod_run']);
+    expect(await names()).toEqual(['trod_status', 'trod_run', 'trod_eval']);
     const status = (await call('trod_status')).text;
     expect(status).toContain('session/broken');
     expect(status).toContain('syntax error in run.mjs');
@@ -113,7 +113,7 @@ describe('TrodServer', () => {
     changed = nextChange();
     rmSync(dir, { recursive: true });
     await changed;
-    expect(await names()).toEqual(['trod_status', 'trod_run']);
+    expect(await names()).toEqual(['trod_status', 'trod_run', 'trod_eval']);
   });
 
   it('finds a tool called right after it was written, before the watcher fired', async () => {
@@ -176,5 +176,37 @@ describe('trod_run', () => {
     expect((await call('trod_run', { tool: 'fresh', input: { x: 1 } })).text).toMatch(/must be string/);
     expect((await call('trod_run', { tool: 'trod_run' })).isError).toBe(true);
     expect((await call('trod_run', { tool: 'nope' })).text).toMatch(/unknown tool/);
+  });
+});
+
+describe('trod_eval and library cards', () => {
+  it('runs code with tools as functions in one call and logs the inner calls', async () => {
+    const paths = tempProject();
+    writeTool(paths.toolsDir, 'double_it', {}, { mjs: 'export default async ({ n }) => n * 2;' });
+    writeTool(paths.toolsDir, 'add_one', {}, { sh: 'n=$(cat | sed -E "s/[^0-9]//g"); echo $((n + 1))' });
+    const { call, trod } = await connect(paths);
+    const res = await call('trod_eval', { code: 'const a = await tools.double_it({ n: 20 }); const b = await tools.add_one({ n: a }); return { a, b };' });
+    expect(res.isError).toBe(false);
+    expect(JSON.parse(res.text)).toEqual({ a: 40, b: 41 });
+    const err = await call('trod_eval', { code: 'throw new Error("nope")' });
+    expect(err.isError).toBe(true);
+    expect(err.text).toContain('nope');
+    expect(trod.status()).toMatch(/double_it \[session\].*1 call/);
+  });
+
+  it('writes library tools with their evidence into the instructions', async () => {
+    const paths = tempProject();
+    writeTool(paths.libraryDir, 'inv_items', {
+      description: 'Fetches all inventory items as clean records.',
+      whenToUse: 'Any question about stock.',
+      inputSchema: { type: 'object', properties: { warehouse: { type: 'string' }, active: { type: 'boolean' } }, required: ['warehouse'] },
+      examples: [{ input: { warehouse: 'X' }, expect: { contains: 'X' } }],
+    }, { mjs: 'export default async ({ warehouse }) => warehouse;' });
+    mkdirSync(paths.logsDir, { recursive: true });
+    writeFileSync(path.join(paths.logsDir, 'old.jsonl'), ['s1', 's2'].map((s) => JSON.stringify({ type: 'call', ts: 't', sessionId: s, tool: 'inv_items', source: 'library', durationMs: 5, ok: true, inputChars: 1, outputChars: 1, truncated: false })).join('\n') + '\n');
+    const { client } = await connect(paths);
+    const instructions = client.getInstructions() ?? '';
+    expect(instructions).toContain('LIBRARY:');
+    expect(instructions).toContain('inv_items(warehouse: string, active?: boolean): Fetches all inventory items as clean records. When: Any question about stock. Verified: its 1 example(s) passed when it was promoted. Used 2× in 2 earlier session(s), 0 error(s).');
   });
 });

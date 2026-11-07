@@ -17148,6 +17148,55 @@ try {
   process.exit(1);
 }
 `;
+var EVAL_RUNNER = `
+import { pathToFileURL } from 'node:url';
+import { writeSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as fsp from 'node:fs/promises';
+import path from 'node:path';
+let raw = '';
+process.stdin.setEncoding('utf8');
+for await (const chunk of process.stdin) raw += chunk;
+const calls = [];
+const send = (msg) => writeSync(3, JSON.stringify({ ...msg, calls }));
+try {
+  const { code, tools: list } = JSON.parse(raw);
+  const projectDir = process.env.TROD_PROJECT_DIR;
+  const tools = {};
+  for (const t of list) {
+    tools[t.name] = async (input = {}) => {
+      const started = Date.now();
+      let ok = true;
+      try {
+        if (t.runner === 'sh') {
+          const out = execFileSync('bash', [t.runPath], { input: JSON.stringify(input), cwd: projectDir, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+          try { return JSON.parse(out); } catch { return out; }
+        }
+        const mod = await import(pathToFileURL(t.runPath).href);
+        const fn = typeof mod.default === 'function' ? mod.default : mod.run;
+        return await fn(input, { projectDir, toolDir: t.dir, toolName: t.name, sessionId: process.env.TROD_SESSION_ID || undefined, log: (...a) => console.error(...a) });
+      } catch (err) {
+        ok = false;
+        throw err;
+      } finally {
+        calls.push({ tool: t.name, ms: Date.now() - started, ok });
+      }
+    };
+  }
+  const AsyncFunction = (async () => {}).constructor;
+  const fn = new AsyncFunction('tools', 'fs', 'fsp', 'path', 'projectDir', code);
+  let value = await fn(tools, fs, fsp, path, projectDir);
+  if (value === undefined) value = null;
+  let json;
+  try { json = JSON.stringify(value); } catch { json = JSON.stringify(String(value)); }
+  writeSync(3, '{"ok":true,"calls":' + JSON.stringify(calls) + ',"value":' + (json ?? 'null') + '}');
+  process.exit(0);
+} catch (err) {
+  send({ ok: false, error: err && err.stack ? String(err.stack) : String(err) });
+  process.exit(1);
+}
+`;
 function tail(text, n = 2e3) {
   return text.length > n ? "\u2026" + text.slice(text.length - n) : text;
 }
@@ -17167,7 +17216,7 @@ function executeTool(opts) {
       ...opts.sessionId ? { TROD_SESSION_ID: opts.sessionId } : {}
     }
   });
-  const [command, args] = opts.runner === "mjs" ? [process.execPath, ["--input-type=module", "-e", MJS_RUNNER]] : ["bash", [opts.runPath]];
+  const [command, args] = opts.script ? [process.execPath, ["--input-type=module", "-e", opts.script]] : opts.runner === "mjs" ? [process.execPath, ["--input-type=module", "-e", MJS_RUNNER]] : ["bash", [opts.runPath]];
   return new Promise((resolve) => {
     const child = spawn(command, args, {
       cwd: opts.projectDir,
@@ -17209,7 +17258,8 @@ function executeTool(opts) {
         truncated,
         outputChars: partial2.text.length,
         durationMs: Math.round(performance.now() - started),
-        timedOut
+        timedOut,
+        ...partial2.calls ? { calls: partial2.calls } : {}
       });
     };
     child.on("error", (err) => finish({ ok: false, error: err.message, text: `trod: could not start tool: ${err.message}` }));
@@ -17222,7 +17272,7 @@ stderr:
 ${tail(stderr)}` : "") });
         return;
       }
-      if (opts.runner === "mjs") {
+      if (opts.runner === "mjs" || opts.script) {
         let msg;
         try {
           msg = fd3 ? JSON.parse(fd3) : void 0;
@@ -17232,14 +17282,14 @@ ${tail(stderr)}` : "") });
         if (msg?.ok) {
           let value = msg.value;
           if ((value === null || value === void 0) && stdout.trim()) value = stdout;
-          finish({ ok: true, value, text: formatValue(value) });
+          finish({ ok: true, value, text: formatValue(value), calls: msg.calls });
           return;
         }
         const error3 = msg?.error ?? `tool process exited with ${signal ?? `code ${code}`}`;
         const extra = [stderr && `stderr:
 ${tail(stderr)}`, stdout && `stdout:
 ${tail(stdout)}`].filter(Boolean).join("\n");
-        finish({ ok: false, error: error3.split("\n")[0], text: `Error: ${error3}${extra ? "\n" + extra : ""}` });
+        finish({ ok: false, error: error3.split("\n")[0], text: `Error: ${error3}${extra ? "\n" + extra : ""}`, calls: msg?.calls });
         return;
       }
       if (code === 0) {
@@ -17289,6 +17339,84 @@ var CallLog = class {
     }
   }
 };
+function readLogs(logsDir) {
+  if (!existsSync(logsDir)) return [];
+  const records = [];
+  for (const file of readdirSync(logsDir).filter((f) => f.endsWith(".jsonl")).sort()) {
+    for (const line of readFileSync(path2.join(logsDir, file), "utf8").split("\n")) {
+      if (!line.trim()) continue;
+      try {
+        records.push(JSON.parse(line));
+      } catch {
+      }
+    }
+  }
+  return records;
+}
+
+// packages/server/src/stats.ts
+function computeStats(records) {
+  const tools = /* @__PURE__ */ new Map();
+  const sessions = /* @__PURE__ */ new Set();
+  const get = (name) => {
+    let t = tools.get(name);
+    if (!t) {
+      t = {
+        tool: name,
+        revisions: 0,
+        calls: 0,
+        errors: 0,
+        repeatCalls: 0,
+        crossSessionCalls: 0,
+        sessions: 0,
+        totalMs: 0,
+        avgMs: 0,
+        outputChars: 0,
+        truncated: 0,
+        sessionSet: /* @__PURE__ */ new Set(),
+        callsInCreator: 0
+      };
+      tools.set(name, t);
+    }
+    return t;
+  };
+  for (const r of records) {
+    if (r.sessionId) sessions.add(r.sessionId);
+    if (r.type === "tool") {
+      if (r.source !== "session") continue;
+      const t = get(r.tool);
+      if (r.event === "added" && !t.createdAt) {
+        t.createdAt = r.ts;
+        t.createdIn = r.sessionId;
+      } else if (r.event === "updated") t.revisions++;
+    } else if (r.type === "call") {
+      const t = get(r.tool);
+      t.calls++;
+      if (!r.ok) t.errors++;
+      t.totalMs += r.durationMs;
+      t.outputChars += r.outputChars;
+      if (r.truncated) t.truncated++;
+      if (r.sessionId) t.sessionSet.add(r.sessionId);
+      if (t.createdIn && r.sessionId && r.sessionId !== t.createdIn) t.crossSessionCalls++;
+      else t.callsInCreator++;
+    }
+  }
+  const list = [...tools.values()].map(({ sessionSet, callsInCreator, ...t }) => ({
+    ...t,
+    sessions: sessionSet.size,
+    repeatCalls: Math.max(0, callsInCreator - 1),
+    avgMs: t.calls ? Math.round(t.totalMs / t.calls) : 0
+  })).sort((a, b) => b.calls - a.calls || a.tool.localeCompare(b.tool));
+  return {
+    sessions: sessions.size,
+    toolsCreated: list.filter((t) => t.createdAt).length,
+    toolsCalled: list.filter((t) => t.calls > 0).length,
+    toolsReused: list.filter((t) => t.calls > 1).length,
+    calls: list.reduce((n, t) => n + t.calls, 0),
+    errors: list.reduce((n, t) => n + t.errors, 0),
+    tools: list
+  };
+}
 
 // packages/server/src/registry.ts
 import { statSync } from "node:fs";
@@ -17303,7 +17431,7 @@ import path3 from "node:path";
 import { promisify } from "node:util";
 var execFileAsync = promisify(execFile);
 var NAME_PATTERN = /^[a-z][a-z0-9_]{1,47}$/;
-var RESERVED_NAMES = /* @__PURE__ */ new Set(["trod_status", "trod_run"]);
+var RESERVED_NAMES = /* @__PURE__ */ new Set(["trod_status", "trod_run", "trod_eval"]);
 var KNOWN_KEYS = /* @__PURE__ */ new Set(["name", "description", "inputSchema", "whenToUse", "examples", "timeoutMs", "provenance"]);
 var mod = import_ajv2.default;
 var Ajv2 = mod.default ?? mod;
@@ -17513,7 +17641,7 @@ function describeForClient(def, tool) {
 
 When to use: ${def.whenToUse.trim()}`;
   if (tool?.source === "library") {
-    const verified = tool.examples && !tool.examples.skipped && tool.examples.passed ? ` Its ${tool.examples.passed} example(s) passed just now.` : "";
+    const verified = "";
     text += `
 
 Library tool, promoted from an earlier session.${verified} Call it directly; there is no need to read its source.`;
@@ -17626,7 +17754,7 @@ var Registry = class {
     const cached2 = this.cache.get(cacheKey);
     if (cached2 && cached2.hash === hashTool(dir)) return cached2;
     const fresh = await loadToolEntry(dir, source, { execAllowed: this.opts.execAllowed, env: this.opts.env });
-    if (fresh.ok) await this.runExamples(fresh);
+    if (fresh.ok && source !== "library") await this.runExamples(fresh);
     this.cache.set(cacheKey, fresh);
     return fresh;
   }
@@ -17668,7 +17796,7 @@ async function runToolExamples(tool, opts) {
 }
 
 // packages/server/src/server.ts
-var VERSION = "0.2.0";
+var VERSION = "0.3.0";
 var STATUS_TOOL = {
   name: "trod_status",
   description: 'Shows the trod tool registry: which tools in .trod/tools (session) and .trod/library are live, which failed validation and why (schema, syntax, failing examples), and per-tool usage. Call it after writing or changing a tool to confirm it registered. Pass "name" for one tool in detail.',
@@ -17700,8 +17828,41 @@ var SERVER_INSTRUCTIONS = `trod turns a file into a tool you can call. When you 
 Write .trod/tools/<name>.mjs (Node ESM, built-ins only):
   export const meta = { description: 'what it returns', whenToUse: 'when to call it', inputSchema: { type: 'object', properties: { \u2026 }, required: [ \u2026 ] } };
   export default async (input, ctx) => result;   // return only what you need: compact objects or text
-Build capabilities, not answers: a tool that fetches clean, normalized records (auth, paging, retries and format quirks handled) serves tomorrow's different question; a tool that computes today's answer does not. Design for batches: let one call take a list (e.g. queries: [...]) and return all answers, and send independent calls in parallel in one message; every extra turn costs. The Write result says whether the tool is live or shows the errors. Then call it with trod_run {"tool": "<name>", "input": { \u2026 }}: no loading needed, also in later turns. Change the file in place when needs change. Tools in .trod/library are verified tools from earlier sessions: call them directly (trod_status lists them). The trod skill has details.`;
-var RESERVED = /* @__PURE__ */ new Set([STATUS_TOOL.name, RUN_TOOL.name]);
+Build capabilities, not answers: a tool that fetches clean, normalized records (auth, paging, retries and format quirks handled) serves tomorrow's different question; a tool that computes today's answer does not. Design for batches: let one call take a list (e.g. queries: [...]) and return all answers, and send independent calls in parallel in one message; every extra turn costs. The Write result says whether the tool is live or shows the errors. Then call it with trod_run {"tool": "<name>", "input": { \u2026 }}: no loading needed, also in later turns. To use several tools and compute an answer in ONE call, use trod_eval with code like "const a = await tools.x({\u2026}); return summarize(a)": only the returned value enters the conversation. Change the file in place when needs change. Tools in .trod/library are verified tools from earlier sessions: call them directly (trod_status lists them). The trod skill has details.`;
+var EVAL_TOOL = {
+  name: "trod_eval",
+  description: 'Runs JavaScript (the body of an async function) with every trod tool available as an async function: `const items = await tools.inv_items({ warehouse: "BER" })`. Also available: fs, fsp (fs/promises), path, projectDir. Use it to call several tools, combine their results and compute an answer (or write a file) in ONE call; only the value you return comes back, so large intermediate data stays out of the conversation.',
+  inputSchema: {
+    type: "object",
+    properties: { code: { type: "string", description: "Async function body; `return` the result you want to see." } },
+    required: ["code"],
+    additionalProperties: false
+  },
+  _meta: { "anthropic/alwaysLoad": true }
+};
+var RESERVED = /* @__PURE__ */ new Set([STATUS_TOOL.name, RUN_TOOL.name, EVAL_TOOL.name]);
+function signature(schema) {
+  const props = schema.properties ?? {};
+  const req = new Set(schema.required ?? []);
+  return Object.entries(props).map(([k, v]) => `${k}${req.has(k) ? "" : "?"}: ${v.enum ? v.enum.map((x) => JSON.stringify(x)).join("|") : Array.isArray(v.type) ? v.type.join("|") : v.type ?? "any"}`).join(", ");
+}
+function libraryCards(tools, stats, maxChars = 6e3) {
+  const lib = tools.filter((t) => t.source === "library" && t.ok && t.def).sort((a, b) => a.def.name.localeCompare(b.def.name));
+  if (!lib.length) return "";
+  const lines = [
+    "",
+    "LIBRARY: these tools were built and verified in earlier sessions for this project. Rely on them instead of rediscovering the same API or format details; you do not need to read their source. Call one with trod_run, or several at once inside trod_eval as tools.<name>(input)."
+  ];
+  for (const t of lib) {
+    const d = t.def;
+    const ex = d.examples?.length ? ` Verified: its ${d.examples.length} example(s) passed when it was promoted.` : "";
+    const s = stats.get(d.name);
+    const use = s && s.calls ? ` Used ${s.calls}\xD7 in ${s.sessions} earlier session(s), ${s.errors} error(s).` : "";
+    lines.push(`- ${d.name}(${signature(d.inputSchema)}): ${d.description.trim()} When: ${d.whenToUse.trim()}${ex}${use}`);
+  }
+  const text = lines.join("\n");
+  return text.length > maxChars ? text.slice(0, maxChars) + "\n(\u2026 more in trod_status)" : text;
+}
 function sessionIdFromEnv(env) {
   return env.TROD_SESSION_ID || env.CLAUDE_CODE_SESSION_ID || env.CLAUDE_SESSION_ID || void 0;
 }
@@ -17746,7 +17907,7 @@ var TrodServer = class {
       description: describeForClient(t.def, t),
       inputSchema: t.def.inputSchema
     }));
-    return [STATUS_TOOL, RUN_TOOL, ...dynamic];
+    return [STATUS_TOOL, RUN_TOOL, EVAL_TOOL, ...dynamic];
   }
   async start() {
     mkdirSync2(this.paths.toolsDir, { recursive: true });
@@ -17762,6 +17923,9 @@ var TrodServer = class {
       version: VERSION,
       tools: [...this.registry.active.keys()]
     });
+    const stats = new Map(computeStats(readLogs(this.paths.logsDir)).tools.map((t) => [t.tool, t]));
+    const cards = libraryCards([...this.registry.active.values()], stats);
+    if (cards) this.server._instructions = SERVER_INSTRUCTIONS + "\n" + cards;
     this.watch();
   }
   /** Marks the server connected; list_changed notifications are only sent after that. */
@@ -17816,6 +17980,7 @@ var TrodServer = class {
   }
   async callTool(name, args) {
     if (name === STATUS_TOOL.name) return { content: [{ type: "text", text: this.status(typeof args.name === "string" ? args.name : void 0) }] };
+    if (name === EVAL_TOOL.name) return this.evalCode(typeof args.code === "string" ? args.code : "");
     if (name === RUN_TOOL.name) {
       const target = typeof args.tool === "string" ? args.tool : "";
       if (!target || RESERVED.has(target)) return { isError: true, content: [{ type: "text", text: 'trod_run: "tool" must name a trod tool (see trod_status).' }] };
@@ -17889,6 +18054,35 @@ var TrodServer = class {
       outputChars,
       truncated
     });
+  }
+  /** trod_eval: run code with every live tool exposed as a function. */
+  async evalCode(code) {
+    if (!code.trim()) return { isError: true, content: [{ type: "text", text: 'trod_eval: "code" is required.' }] };
+    if (!this.execAllowed) return { isError: true, content: [{ type: "text", text: "trod: tool execution is disabled (TROD_ALLOW_EXEC is not 1)." }] };
+    if (this.registry.fingerprint() !== this.lastFingerprint) await this.refresh();
+    const tools = [...this.registry.active.values()].map((t) => ({ name: t.def.name, runner: t.runner, runPath: t.runPath, dir: t.dir }));
+    const res = await executeTool({
+      script: EVAL_RUNNER,
+      runner: "mjs",
+      runPath: "",
+      toolDir: this.paths.trodDir,
+      toolName: EVAL_TOOL.name,
+      projectDir: this.paths.projectDir,
+      input: { code, tools },
+      timeoutMs: MAX_TIMEOUT_MS,
+      maxOutputChars: this.maxOutputChars,
+      sessionId: this.sessionId,
+      env: this.env
+    });
+    const ts = (/* @__PURE__ */ new Date()).toISOString();
+    for (const c of res.calls ?? []) {
+      const t = this.registry.active.get(c.tool);
+      if (!t) continue;
+      this.record(t, {}, c.ok, c.ms, 0, false, c.ok ? void 0 : "failed inside trod_eval");
+    }
+    this.log.write({ type: "call", ts, sessionId: this.sessionId, tool: EVAL_TOOL.name, source: "session", durationMs: res.durationMs, ok: res.ok, error: res.error, inputChars: code.length, outputChars: res.outputChars, truncated: res.truncated });
+    const text = res.text === "" ? res.ok ? "(empty result)" : "Error" : res.text;
+    return { isError: !res.ok, content: [{ type: "text", text }] };
   }
   status(name) {
     const rel = (p) => path5.relative(this.paths.projectDir, p) || ".";
