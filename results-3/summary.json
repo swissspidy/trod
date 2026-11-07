@@ -1,0 +1,630 @@
+{
+  "model": "claude-sonnet-5-5",
+  "runs": 15,
+  "cells": [
+    {
+      "task": "inventory-api",
+      "arm": "baseline",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.20909423333333335,
+      "tokens": 517547.3333333333,
+      "outputTokens": 6977,
+      "turns": 28,
+      "wallS": 87.847,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "inventory-api",
+      "arm": "scripts",
+      "n": 3,
+      "passRate": 0.6666666666666666,
+      "meanScore": 0.9444444444444445,
+      "costUsd": 0.20209576666666665,
+      "tokens": 503846.3333333333,
+      "outputTokens": 6878.666666666667,
+      "turns": 27.666666666666668,
+      "wallS": 83.21633333333334,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "inventory-api",
+      "arm": "genesis",
+      "n": 3,
+      "passRate": 0.6666666666666666,
+      "meanScore": 0.9166666666666666,
+      "costUsd": 0.20645043333333335,
+      "tokens": 547130.6666666666,
+      "outputTokens": 7011,
+      "turns": 28.333333333333332,
+      "wallS": 82.92233333333333,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "inventory-api",
+      "arm": "nudged",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.2923893666666667,
+      "tokens": 678545.3333333334,
+      "outputTokens": 8209.666666666666,
+      "turns": 33.666666666666664,
+      "wallS": 110.69333333333334,
+      "toolsCreated": 3.3333333333333335,
+      "trodCalls": 7.666666666666667,
+      "callsPerTool": 2.3,
+      "creationTokens": 67227.66666666667,
+      "creationShare": 0.09750026471162639,
+      "runsWithTools": 3
+    },
+    {
+      "task": "inventory-api",
+      "arm": "toolsmith",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.16193163333333335,
+      "tokens": 385276.3333333333,
+      "outputTokens": 2956.6666666666665,
+      "turns": 22.333333333333332,
+      "wallS": 103.34366666666666,
+      "toolsCreated": 2,
+      "trodCalls": 6.666666666666667,
+      "callsPerTool": 3.3333333333333335,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 3
+    }
+  ],
+  "overall": [
+    {
+      "arm": "baseline",
+      "all": {
+        "n": 3,
+        "passRate": 1,
+        "meanScore": 1,
+        "tokensPerScore": 517547.3333333333,
+        "costUsd": 0.20909423333333335,
+        "costSd": 0.025532296421852344,
+        "tokens": 517547.3333333333,
+        "turns": 28,
+        "wallS": 87.847,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      },
+      "repetitive": {
+        "n": 3,
+        "passRate": 1,
+        "meanScore": 1,
+        "tokensPerScore": 517547.3333333333,
+        "costUsd": 0.20909423333333335,
+        "costSd": 0.025532296421852344,
+        "tokens": 517547.3333333333,
+        "turns": 28,
+        "wallS": 87.847,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      },
+      "control": {
+        "n": 0,
+        "passRate": 0,
+        "meanScore": 0,
+        "tokensPerScore": 0,
+        "costUsd": 0,
+        "costSd": 0,
+        "tokens": 0,
+        "turns": 0,
+        "wallS": 0,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      }
+    },
+    {
+      "arm": "scripts",
+      "all": {
+        "n": 3,
+        "passRate": 0.6666666666666666,
+        "meanScore": 0.9444444444444445,
+        "tokensPerScore": 533484.3529411764,
+        "costUsd": 0.20209576666666665,
+        "costSd": 0.010838740307957074,
+        "tokens": 503846.3333333333,
+        "turns": 27.666666666666668,
+        "wallS": 83.21633333333334,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      },
+      "repetitive": {
+        "n": 3,
+        "passRate": 0.6666666666666666,
+        "meanScore": 0.9444444444444445,
+        "tokensPerScore": 533484.3529411764,
+        "costUsd": 0.20209576666666665,
+        "costSd": 0.010838740307957074,
+        "tokens": 503846.3333333333,
+        "turns": 27.666666666666668,
+        "wallS": 83.21633333333334,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      },
+      "control": {
+        "n": 0,
+        "passRate": 0,
+        "meanScore": 0,
+        "tokensPerScore": 0,
+        "costUsd": 0,
+        "costSd": 0,
+        "tokens": 0,
+        "turns": 0,
+        "wallS": 0,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      }
+    },
+    {
+      "arm": "genesis",
+      "all": {
+        "n": 3,
+        "passRate": 0.6666666666666666,
+        "meanScore": 0.9166666666666666,
+        "tokensPerScore": 596869.8181818182,
+        "costUsd": 0.20645043333333335,
+        "costSd": 0.011137479729424115,
+        "tokens": 547130.6666666666,
+        "turns": 28.333333333333332,
+        "wallS": 82.92233333333333,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      },
+      "repetitive": {
+        "n": 3,
+        "passRate": 0.6666666666666666,
+        "meanScore": 0.9166666666666666,
+        "tokensPerScore": 596869.8181818182,
+        "costUsd": 0.20645043333333335,
+        "costSd": 0.011137479729424115,
+        "tokens": 547130.6666666666,
+        "turns": 28.333333333333332,
+        "wallS": 82.92233333333333,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      },
+      "control": {
+        "n": 0,
+        "passRate": 0,
+        "meanScore": 0,
+        "tokensPerScore": 0,
+        "costUsd": 0,
+        "costSd": 0,
+        "tokens": 0,
+        "turns": 0,
+        "wallS": 0,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      }
+    },
+    {
+      "arm": "nudged",
+      "all": {
+        "n": 3,
+        "passRate": 1,
+        "meanScore": 1,
+        "tokensPerScore": 678545.3333333334,
+        "costUsd": 0.2923893666666667,
+        "costSd": 0.03714422359416513,
+        "tokens": 678545.3333333334,
+        "turns": 33.666666666666664,
+        "wallS": 110.69333333333334,
+        "toolsCreated": 10,
+        "trodCalls": 23,
+        "runsWithTools": 3
+      },
+      "repetitive": {
+        "n": 3,
+        "passRate": 1,
+        "meanScore": 1,
+        "tokensPerScore": 678545.3333333334,
+        "costUsd": 0.2923893666666667,
+        "costSd": 0.03714422359416513,
+        "tokens": 678545.3333333334,
+        "turns": 33.666666666666664,
+        "wallS": 110.69333333333334,
+        "toolsCreated": 10,
+        "trodCalls": 23,
+        "runsWithTools": 3
+      },
+      "control": {
+        "n": 0,
+        "passRate": 0,
+        "meanScore": 0,
+        "tokensPerScore": 0,
+        "costUsd": 0,
+        "costSd": 0,
+        "tokens": 0,
+        "turns": 0,
+        "wallS": 0,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      }
+    },
+    {
+      "arm": "library",
+      "all": {
+        "n": 0,
+        "passRate": 0,
+        "meanScore": 0,
+        "tokensPerScore": 0,
+        "costUsd": 0,
+        "costSd": 0,
+        "tokens": 0,
+        "turns": 0,
+        "wallS": 0,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      },
+      "repetitive": {
+        "n": 0,
+        "passRate": 0,
+        "meanScore": 0,
+        "tokensPerScore": 0,
+        "costUsd": 0,
+        "costSd": 0,
+        "tokens": 0,
+        "turns": 0,
+        "wallS": 0,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      },
+      "control": {
+        "n": 0,
+        "passRate": 0,
+        "meanScore": 0,
+        "tokensPerScore": 0,
+        "costUsd": 0,
+        "costSd": 0,
+        "tokens": 0,
+        "turns": 0,
+        "wallS": 0,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      }
+    },
+    {
+      "arm": "toolsmith",
+      "all": {
+        "n": 3,
+        "passRate": 1,
+        "meanScore": 1,
+        "tokensPerScore": 385276.3333333333,
+        "costUsd": 0.16193163333333335,
+        "costSd": 0.021844860581915686,
+        "tokens": 385276.3333333333,
+        "turns": 22.333333333333332,
+        "wallS": 103.34366666666666,
+        "toolsCreated": 6,
+        "trodCalls": 20,
+        "runsWithTools": 3
+      },
+      "repetitive": {
+        "n": 3,
+        "passRate": 1,
+        "meanScore": 1,
+        "tokensPerScore": 385276.3333333333,
+        "costUsd": 0.16193163333333335,
+        "costSd": 0.021844860581915686,
+        "tokens": 385276.3333333333,
+        "turns": 22.333333333333332,
+        "wallS": 103.34366666666666,
+        "toolsCreated": 6,
+        "trodCalls": 20,
+        "runsWithTools": 3
+      },
+      "control": {
+        "n": 0,
+        "passRate": 0,
+        "meanScore": 0,
+        "tokensPerScore": 0,
+        "costUsd": 0,
+        "costSd": 0,
+        "tokens": 0,
+        "turns": 0,
+        "wallS": 0,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      }
+    }
+  ],
+  "ratios": [
+    {
+      "task": "inventory-api",
+      "kind": "repetitive",
+      "scripts": {
+        "tokens": 0.9735270590387224,
+        "cost": 0.9665296045945471,
+        "turns": 0.9880952380952381,
+        "wall": 0.9472871393824871
+      },
+      "genesis": {
+        "tokens": 1.0571606332947325,
+        "cost": 0.9873559401526616,
+        "turns": 1.0119047619047619,
+        "wall": 0.9439404115488671
+      },
+      "nudged": {
+        "tokens": 1.311078793437251,
+        "cost": 1.398361695611883,
+        "turns": 1.2023809523809523,
+        "wall": 1.2600695906898738
+      },
+      "library": null,
+      "toolsmith": {
+        "tokens": 0.7444272407934347,
+        "cost": 0.7744433251546711,
+        "turns": 0.7976190476190476,
+        "wall": 1.1764051893253802
+      }
+    }
+  ],
+  "stepCost": [
+    {
+      "arm": "baseline",
+      "steps": [
+        0.05632976666666668,
+        0.04348406666666666,
+        0.052913466666666666,
+        0.056366933333333334
+      ]
+    },
+    {
+      "arm": "scripts",
+      "steps": [
+        0.062015366666666655,
+        0.04390666666666667,
+        0.0497069,
+        0.046466833333333325
+      ]
+    },
+    {
+      "arm": "genesis",
+      "steps": [
+        0.05412603333333332,
+        0.04895630000000001,
+        0.05547386666666668,
+        0.047894233333333334
+      ]
+    },
+    {
+      "arm": "nudged",
+      "steps": [
+        0.06787829999999999,
+        0.07979853333333335,
+        0.07750076666666668,
+        0.06721176666666667
+      ]
+    },
+    {
+      "arm": "toolsmith",
+      "steps": [
+        0.03549206666666667,
+        0.0341548,
+        0.047487499999999995,
+        0.04479726666666667
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "run": "inventory-api/nudged-s1",
+      "task": "inventory-api",
+      "arm": "nudged",
+      "tool": "inv_get",
+      "calls": 5,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 2515
+    },
+    {
+      "run": "inventory-api/nudged-s1",
+      "task": "inventory-api",
+      "arm": "nudged",
+      "tool": "inventory_items",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 4133
+    },
+    {
+      "run": "inventory-api/nudged-s2",
+      "task": "inventory-api",
+      "arm": "nudged",
+      "tool": "inv_items",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 4131
+    },
+    {
+      "run": "inventory-api/nudged-s2",
+      "task": "inventory-api",
+      "arm": "nudged",
+      "tool": "inv_movements",
+      "calls": 1,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 10147
+    },
+    {
+      "run": "inventory-api/nudged-s2",
+      "task": "inventory-api",
+      "arm": "nudged",
+      "tool": "inv_price_changes",
+      "calls": 1,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 4115
+    },
+    {
+      "run": "inventory-api/nudged-s2",
+      "task": "inventory-api",
+      "arm": "nudged",
+      "tool": "inv_reorder",
+      "calls": 1,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 4103
+    },
+    {
+      "run": "inventory-api/nudged-s3",
+      "task": "inventory-api",
+      "arm": "nudged",
+      "tool": "inventory_items",
+      "calls": 5,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 4109
+    },
+    {
+      "run": "inventory-api/nudged-s3",
+      "task": "inventory-api",
+      "arm": "nudged",
+      "tool": "low_stock",
+      "calls": 2,
+      "errors": 0,
+      "revisions": 1,
+      "avgMs": 2083
+    },
+    {
+      "run": "inventory-api/nudged-s3",
+      "task": "inventory-api",
+      "arm": "nudged",
+      "tool": "inventory_movements",
+      "calls": 1,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 10130
+    },
+    {
+      "run": "inventory-api/nudged-s3",
+      "task": "inventory-api",
+      "arm": "nudged",
+      "tool": "price_changes",
+      "calls": 1,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 4126
+    },
+    {
+      "run": "inventory-api/toolsmith-s1",
+      "task": "inventory-api",
+      "arm": "toolsmith",
+      "tool": "items_list",
+      "calls": 5,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 2207
+    },
+    {
+      "run": "inventory-api/toolsmith-s1",
+      "task": "inventory-api",
+      "arm": "toolsmith",
+      "tool": "movements_list",
+      "calls": 2,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 3112
+    },
+    {
+      "run": "inventory-api/toolsmith-s2",
+      "task": "inventory-api",
+      "arm": "toolsmith",
+      "tool": "inv_items",
+      "calls": 5,
+      "errors": 0,
+      "revisions": 1,
+      "avgMs": 4871
+    },
+    {
+      "run": "inventory-api/toolsmith-s2",
+      "task": "inventory-api",
+      "arm": "toolsmith",
+      "tool": "inv_movements",
+      "calls": 1,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 2470
+    },
+    {
+      "run": "inventory-api/toolsmith-s3",
+      "task": "inventory-api",
+      "arm": "toolsmith",
+      "tool": "inv_items",
+      "calls": 4,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 2595
+    },
+    {
+      "run": "inventory-api/toolsmith-s3",
+      "task": "inventory-api",
+      "arm": "toolsmith",
+      "tool": "inv_movements",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 7247
+    }
+  ],
+  "investment": {
+    "n": 3,
+    "tokens": 386186,
+    "costUsd": 0.18570456666666668,
+    "turns": 18,
+    "savedTokensPerSession": 33067.75,
+    "savedCostPerSession": 0.01179065,
+    "breakEvenSessions": 12,
+    "library": [
+      [
+        "items_list.mjs",
+        "movements_list.mjs"
+      ],
+      [
+        "inv_items.mjs"
+      ],
+      [
+        "inv_items.mjs",
+        "inv_movements.mjs"
+      ]
+    ]
+  }
+}
