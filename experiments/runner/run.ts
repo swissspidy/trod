@@ -28,9 +28,8 @@ export type Arm = 'baseline' | 'genesis' | 'nudged' | 'library';
 
 /** Appended to the system prompt in the nudged arm. */
 export const NUDGE =
-  'This environment has trod, which turns files into MCP tools mid-session (see the trod skill; read it first). ' +
-  'Requirement for this session: implement every operation you expect to repeat as a trod tool in .trod/tools/<name>/ ' +
-  'and run it by calling that MCP tool. Do not write helper scripts that you run through Bash for repeated work; Bash is fine for one-off inspection.';
+  'Requirement for this session: whenever you would write a helper script or repeat a multi-step command, ' +
+  'write it as a trod tool (.trod/tools/<name>.mjs) instead and call it with trod_run. Bash is fine for one-off inspection.';
 
 const { values } = parseArgs({
   options: {
@@ -43,6 +42,9 @@ const { values } = parseArgs({
     budget: { type: 'string', default: '3' },
     out: { type: 'string' },
     'library-from': { type: 'string' },
+    // ENABLE_TOOL_SEARCH for every arm; empty keeps Claude Code's default (on). Turning it off loads every tool
+    // schema up front (about 13k more tokens per request) and makes each new trod tool invalidate the prompt cache.
+    'tool-search': { type: 'string', default: '' },
   },
 });
 
@@ -72,6 +74,7 @@ function cleanEnv(home: string, extra: Record<string, string>): Record<string, s
     HOME: home,
     CLAUDE_CONFIG_DIR: path.join(home, '.claude'),
     ANTHROPIC_API_KEY: apiKey!,
+    ...(values['tool-search'] ? { ENABLE_TOOL_SEARCH: values['tool-search'] } : {}),
     DISABLE_AUTOUPDATER: '1',
     DISABLE_TELEMETRY: '1',
     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',

@@ -1,110 +1,90 @@
 ---
 name: trod
-description: Build your own MCP tools mid-task with trod. Use when an operation will repeat (3+ times in this task), when a Bash pipeline keeps failing and needs to be made robust, or when the user mentions trod, .trod/tools, trod_status or self-made tools.
+description: Build your own MCP tools mid-task with trod. Use when you are about to write a helper script you will run more than once, when the same lookup or check repeats (3+ times), when a Bash pipeline keeps failing and needs to be made robust, or when the user mentions trod, .trod/tools, trod_status or self-made tools.
 ---
 
-# trod: build tools when they pay off
+# trod: your helper scripts as real tools
 
-trod turns folders in `.trod/tools/<name>/` into live MCP tools. You write the files with the Write tool. The trod
-server validates them, registers them and tells Claude Code that the tool list changed, so you can call the tool in
-this session as `mcp__trod__<name>` (or `mcp__plugin_trod_trod__<name>` when trod comes from the plugin).
+trod turns files in `.trod/tools/` into live tools. You write one file with the Write tool; trod validates it and
+the Write result tells you right away whether it is live. **Call it with `trod_run {"tool": "<name>", "input": {…}}`**,
+the permanent trod tool that runs any trod tool by name, with nothing to load first. (Each tool is also registered
+as `mcp__trod__<name>`; use that form if it is already in your tool list.)
 
-## When to build a tool (the economics)
+## When
 
-A tool costs about one or two turns to write, plus its definition in the tool list on every later turn. It pays
-off when it replaces work you would otherwise repeat:
+**Whenever you are about to write a helper script that you will run more than once, write it as a trod tool
+instead.** It is the same amount of work: one file. What you get on top of a script:
 
-- **Build** when the same operation will run **3 or more times in this task** (check 30 pages, transform 12
-  files, query an API per item, re-run the same verification after each edit).
-- **Build** when a Bash pipeline has **failed twice**. A tool with real parsing and error handling is more robust
-  than a fourth one-liner.
-- **Do not build** for one-off steps, for things a single Bash command already does well (`ls`, `grep`, `git
-  status`), or when you are still exploring and do not know the shape of the work yet.
-- **Batch inside the tool.** A tool that takes a list (`urls: [...]`) and returns a compact table beats one call
-  per item. Summarize in the tool: return the counts, the failures and the few lines that matter, not raw dumps.
-- **Update rather than duplicate.** Fix `fetch_status` in place instead of adding `fetch_status_v2`. Keep tools
-  small and composable, each doing one thing, with precise descriptions.
+- **Cheaper calls.** A call is a few tokens of JSON. No `cd …; node script.mjs --flag "quoted 'args'"` each time, and
+  no shell quoting bugs.
+- **Compact answers by design.** You choose the return value, so return exactly what you need: counts, the matching
+  rows, the verdict. Do not dump raw responses into your context. Every byte a tool returns is re-read on every
+  later turn.
+- **Reuse.** The tool stays available for the rest of the session, and `trod promote` moves it into the committed
+  library for future sessions.
 
-## The format
+- **Batch.** Every turn re-reads the whole context, so turns are the expensive unit. Let one call take a list
+  (`queries: [...]`, `ids: [...]`) and return all the answers. When you do make several independent calls, send
+  them in parallel in one message.
 
-```
-.trod/tools/<name>/
-├── tool.json
-└── run.mjs   (or run.sh)
-```
+The best tools wrap a **fiddly, multi-step operation you will do many times with judgment in between**. Examples:
+an authenticated API request (signing, pagination, retries) that returns only the fields you need; a browser
+login-and-read; a parser for a log or code format; a lookup across several files. One-off steps stay in Bash.
 
-`tool.json`:
+## The format: one file
 
-```json
-{
-  "name": "csv_column_stats",
-  "description": "Reads a CSV file and returns count, min, max, mean and blank count for one numeric column.",
-  "whenToUse": "When you need numeric stats for a CSV column; prefer it over ad-hoc awk/python one-liners.",
-  "inputSchema": {
-    "type": "object",
-    "properties": {
-      "path": { "type": "string", "description": "CSV path relative to the project root" },
-      "column": { "type": "string" }
-    },
-    "required": ["path", "column"],
-    "additionalProperties": false
-  },
-  "examples": [
-    { "input": { "path": "fixtures/small.csv", "column": "price" }, "expect": { "contains": "\"count\": 3" } }
-  ],
-  "timeoutMs": 30000,
-  "provenance": { "reason": "stats for 14 CSV exports in this task" }
-}
-```
-
-- `name`: lowercase letters, digits and underscores, 2–48 chars. It **must equal the folder name**.
-  `trod_status` is reserved.
-- `description` says what the tool does **and what it returns**. `whenToUse` says when to pick it over Bash.
-  Both are shown to you in the tool list, so make them precise.
-- `inputSchema` is a JSON Schema with `"type": "object"`. Inputs are validated against it before the tool runs.
-- `examples` (optional, recommended) run as a smoke test on every change. `expect` takes `contains`,
-  `matches` (a regex) or `equals` (deep-equal on the returned value). A failing example keeps the tool
-  unregistered, so only use inputs that exist and are stable.
-- `provenance.reason`: one line on why the tool exists.
-
-`run.mjs` (Node 22, ESM, built-ins only: there is no npm install):
+`.trod/tools/<name>.mjs` (Node 22 ESM, built-ins only; `require('playwright')` and other globally installed
+packages work through `createRequire`):
 
 ```js
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
+export const meta = {
+  description: 'Fetches a ticket with its customer and the last 20 events, and returns a compact summary.',
+  whenToUse: 'For every ticket you triage; replaces three signed API requests.',
+  inputSchema: {
+    type: 'object',
+    properties: { id: { type: 'string', description: 'Ticket id, e.g. T-104' } },
+    required: ['id'],
+    additionalProperties: false,
+  },
+  // Optional: smoke tests run on every change. A failing example keeps the tool unregistered.
+  examples: [{ input: { id: 'T-101' }, expect: { contains: 'T-101' } }],
+};
 
 export default async function run(input, ctx) {
   // ctx: { projectDir, toolDir, toolName, sessionId, log(...) }  (log goes to stderr, not to the result)
-  const text = readFileSync(path.resolve(ctx.projectDir, input.path), 'utf8');
-  // ... compute ...
-  return { count: 3, min: 1, max: 9 }; // objects are returned as JSON; strings as text
+  return { id: input.id /* , … only what you need */ }; // objects come back as JSON, strings as text
 }
 ```
 
-`run.sh` gets the input as JSON on stdin and prints its result to stdout (JSON output is parsed). A non-zero
-exit is an error, and stderr is shown to you. Use `jq` when it is installed, or Node, to read the input.
+- The name comes from the file name: lowercase letters, digits and underscores, 2–48 chars (`trod_status` is
+  reserved).
+- `description` says what the tool returns; `whenToUse` says when to pick it. Both show up in your tool list.
+- Inputs are validated against `inputSchema` before the tool runs.
+- Throw an `Error` with a clear message on bad input or a failed request; trod returns it as a tool error.
+- The working directory is the project root. The environment is scrubbed: API keys and tokens from your
+  environment are not visible, so read credentials the task gives you from their files.
 
-Throw, or exit non-zero, with a clear message on bad input. trod returns it as a tool error.
+The older two-file format still works: `.trod/tools/<name>/tool.json` plus `run.mjs` or `run.sh` (input JSON on
+stdin, result on stdout).
 
 ## The workflow
 
-1. **Write `tool.json` and the run file** with the Write tool (`tool.json` first or second, it does not matter).
-2. **Then, in a separate step, call `trod_status`.** Do not call it in parallel with the Write: a search or
-   call batched with the Write runs before the file exists. `trod_status` lists live tools and, for invalid
-   ones, the exact errors (schema, syntax, failing example). Fix them and check again.
-3. **Call the tool.** With tool search on, find it with ToolSearch (`select:mcp__trod__<name>`, or search for
-   its name).
-4. If the output says `[trod: output truncated …]`, make the tool filter or summarize instead of returning more.
+1. **Write the file.** The Write result includes a `trod:` line: either "valid and live", or the exact errors
+   (syntax, schema, a failing example). Fix them and write again.
+2. **Call it** in the next step: `trod_run {"tool": "<name>", "input": {…}}`. In later turns and resumed sessions
+   too: there is nothing to load. `trod_status` shows the whole registry, invalid tools and usage.
+3. **Change it in place** when the task changes: add a parameter rather than creating `foo_v2`. Code-only changes
+   take effect on the next call.
 
-Changing only `run.mjs` takes effect on the next call. Changing the name, description or schema updates the
-tool list.
+## Library tools
+
+Tools in `.trod/library/` were built and promoted in earlier sessions, and their examples pass at startup. Their
+description says so. **Call them directly (`trod_run`); do not read their source first.** `trod_status` lists them with their descriptions. Only read the source when a call fails
+or returns something that looks wrong.
 
 ## Rules
 
-- Tools run **outside Claude Code's sandbox and permission prompts**, in a subprocess with a timeout and a
-  scrubbed environment (no API keys). Keep them inside the project directory. Never read credentials, never
-  delete outside the project, and never call hosts the task does not need.
-- Execution only works when the server has `TROD_ALLOW_EXEC=1`. If `trod_status` says execution is disabled, use
-  Bash and do not build tools.
-- A tool that is useful beyond this task can be promoted to the committed library with
-  `node plugin/bin/trod promote <name>` (or `trod promote <name>`). Only do that when the user asks.
+- Tools run **outside Claude Code's sandbox and permission prompts**, in a subprocess with a timeout. Keep them inside
+  the project directory and the hosts the task needs. Never read credentials the task did not give you.
+- Execution only works when the server has `TROD_ALLOW_EXEC=1`. If trod says execution is disabled, use Bash.
+- Promote a tool to the library (`node plugin/bin/trod promote <name>`) only when the user asks.

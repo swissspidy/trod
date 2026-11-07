@@ -41,9 +41,9 @@ async function connect(paths: TrodPaths, env: NodeJS.ProcessEnv = { TROD_ALLOW_E
 }
 
 describe('TrodServer', () => {
-  it('starts with only trod_status', async () => {
+  it('starts with only the two permanent tools', async () => {
     const { names, call } = await connect(tempProject());
-    expect(await names()).toEqual(['trod_status']);
+    expect(await names()).toEqual(['trod_status', 'trod_run']);
     expect((await call('trod_status')).text).toContain('No tools yet');
   });
 
@@ -57,7 +57,7 @@ describe('TrodServer', () => {
       examples: [{ input: { a: 1, b: 2 }, expect: { equals: 3 } }],
     }, { mjs: 'export default async ({ a, b }) => a + b;' });
     await changed;
-    expect(await names()).toEqual(['trod_status', 'add_nums']);
+    expect(await names()).toEqual(['trod_status', 'trod_run', 'add_nums']);
     expect(await call('add_nums', { a: 20, b: 22 })).toEqual({ isError: false, text: '42' });
     const status = (await call('trod_status')).text;
     expect(status).toContain('add_nums [session], examples 1/1, 1 call(s)');
@@ -85,7 +85,7 @@ describe('TrodServer', () => {
     writeTool(paths.toolsDir, 'broken', {}, { mjs: 'export default async ( => 1' });
     writeTool(paths.toolsDir, 'fails_example', { examples: [{ input: { x: 'a' }, expect: { contains: 'zzz' } }] });
     const { names, call } = await connect(paths);
-    expect(await names()).toEqual(['trod_status']);
+    expect(await names()).toEqual(['trod_status', 'trod_run']);
     const status = (await call('trod_status')).text;
     expect(status).toContain('session/broken');
     expect(status).toContain('syntax error in run.mjs');
@@ -113,7 +113,7 @@ describe('TrodServer', () => {
     changed = nextChange();
     rmSync(dir, { recursive: true });
     await changed;
-    expect(await names()).toEqual(['trod_status']);
+    expect(await names()).toEqual(['trod_status', 'trod_run']);
   });
 
   it('finds a tool called right after it was written, before the watcher fired', async () => {
@@ -163,5 +163,18 @@ describe('TrodServer', () => {
     expect(records.map((r) => r.type)).toEqual(['server', 'tool', 'call']);
     expect(records[1]).toMatchObject({ event: 'added', tool: 'echo_it', source: 'session', sessionId: 's1' });
     expect(records[2]).toMatchObject({ tool: 'echo_it', ok: true, sessionId: 's1', truncated: false });
+  });
+});
+
+describe('trod_run', () => {
+  it('runs a tool by name without it being in the client tool list, and rejects bad targets', async () => {
+    const paths = tempProject();
+    const { call } = await connect(paths);
+    writeTool(paths.toolsDir, 'fresh', {}, { mjs: 'export default async ({ x }) => `got ${x}`;' });
+    // No waiting for list_changed: trod_run rescans on demand.
+    expect(await call('trod_run', { tool: 'fresh', input: { x: 'it' } })).toEqual({ isError: false, text: 'got it' });
+    expect((await call('trod_run', { tool: 'fresh', input: { x: 1 } })).text).toMatch(/must be string/);
+    expect((await call('trod_run', { tool: 'trod_run' })).isError).toBe(true);
+    expect((await call('trod_run', { tool: 'nope' })).text).toMatch(/unknown tool/);
   });
 });

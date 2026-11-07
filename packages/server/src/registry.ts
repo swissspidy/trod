@@ -1,8 +1,8 @@
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { statSync } from 'node:fs';
 import path from 'node:path';
 import { executeTool } from './executor.ts';
 import type { LoadedTool, ToolDefinition, ToolSource, TrodPaths } from './types.ts';
-import { checkExpectation, loadToolFolder } from './validate.ts';
+import { checkExpectation, hashTool, listToolEntries, loadToolEntry } from './validate.ts';
 
 export interface RegistryOptions {
   paths: TrodPaths;
@@ -21,22 +21,19 @@ export interface RegistryChange {
   listChanged: boolean;
 }
 
-function listFolders(root: string): string[] {
-  if (!existsSync(root)) return [];
-  return readdirSync(root, { withFileTypes: true })
-    .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
-    .map((d) => path.join(root, d.name))
-    .sort();
-}
-
-export function describeForClient(def: ToolDefinition): string {
-  return `${def.description.trim()}\n\nWhen to use: ${def.whenToUse.trim()}`;
+export function describeForClient(def: ToolDefinition, tool?: Pick<LoadedTool, 'source' | 'examples'>): string {
+  let text = `${def.description.trim()}\n\nWhen to use: ${def.whenToUse.trim()}`;
+  if (tool?.source === 'library') {
+    const verified = tool.examples && !tool.examples.skipped && tool.examples.passed ? ` Its ${tool.examples.passed} example(s) passed just now.` : '';
+    text += `\n\nLibrary tool, promoted from an earlier session.${verified} Call it directly; there is no need to read its source.`;
+  }
+  return text;
 }
 
 function listingSignature(tools: Map<string, LoadedTool>): string {
   return JSON.stringify(
     [...tools.values()]
-      .map((t) => [t.def!.name, describeForClient(t.def!), t.def!.inputSchema])
+      .map((t) => [t.def!.name, describeForClient(t.def!, t), t.def!.inputSchema])
       .sort((a, b) => String(a[0]).localeCompare(String(b[0]))),
   );
 }
@@ -62,7 +59,16 @@ export class Registry {
   fingerprint(): string {
     const parts: string[] = [];
     for (const root of [this.opts.paths.libraryDir, this.opts.paths.toolsDir]) {
-      for (const dir of listFolders(root)) {
+      for (const dir of listToolEntries(root)) {
+        if (dir.endsWith('.mjs')) {
+          try {
+            const s = statSync(dir);
+            parts.push(`${dir}:${s.size}:${s.mtimeMs}`);
+          } catch {
+            // removed meanwhile
+          }
+          continue;
+        }
         for (const file of ['tool.json', 'run.mjs', 'run.sh']) {
           try {
             const s = statSync(path.join(dir, file));
@@ -96,9 +102,15 @@ export class Registry {
       ['session', paths.toolsDir],
     ];
     for (const [source, root] of roots) {
-      for (const dir of listFolders(root)) {
-        const key = `${source}/${path.basename(dir)}`;
-        folders.set(key, await this.loadCached(dir, source));
+      for (const dir of listToolEntries(root)) {
+        const key = `${source}/${path.basename(dir, '.mjs')}`;
+        const tool = await this.loadCached(dir, source);
+        if (folders.has(key)) {
+          // Both <name>/ and <name>.mjs: keep the folder, reject the file.
+          folders.set(`${key}.mjs`, { ...tool, ok: false, errors: [`both ${path.basename(dir, '.mjs')}/ and ${path.basename(dir)} exist; keep one`] });
+          continue;
+        }
+        folders.set(key, tool);
       }
     }
 
@@ -139,46 +151,53 @@ export class Registry {
   }
 
   private async loadCached(dir: string, source: ToolSource): Promise<LoadedTool> {
-    const fresh = await loadToolFolder(dir, source);
     const cacheKey = `${source}:${dir}`;
     const cached = this.cache.get(cacheKey);
-    if (cached && cached.hash === fresh.hash) return cached;
+    if (cached && cached.hash === hashTool(dir)) return cached;
+    const fresh = await loadToolEntry(dir, source, { execAllowed: this.opts.execAllowed, env: this.opts.env });
     if (fresh.ok) await this.runExamples(fresh);
     this.cache.set(cacheKey, fresh);
     return fresh;
   }
 
-  /** Runs a tool's examples as a smoke test. A failing example makes the tool invalid. */
-  private async runExamples(tool: LoadedTool): Promise<void> {
-    const examples = tool.def?.examples ?? [];
-    if (!examples.length) return;
-    if (!this.opts.execAllowed) {
-      tool.examples = { passed: 0, failed: 0, failures: [], skipped: 'execution is disabled (TROD_ALLOW_EXEC is not 1)' };
-      return;
-    }
-    const report = { passed: 0, failed: 0, failures: [] as string[] };
-    for (const [i, ex] of examples.entries()) {
-      const res = await executeTool({
-        runner: tool.runner!,
-        runPath: tool.runPath!,
-        toolDir: tool.dir,
-        toolName: tool.def!.name,
-        projectDir: this.opts.paths.projectDir,
-        input: ex.input,
-        timeoutMs: tool.def!.timeoutMs,
-        sessionId: this.opts.sessionId,
-        env: this.opts.env,
-      });
-      const failure = res.ok ? checkExpectation(ex.expect, res.text, res.value) : `threw: ${res.error ?? res.text.slice(0, 500)}`;
-      if (failure) {
-        report.failed++;
-        report.failures.push(`examples[${i}]${ex.description ? ` (${ex.description})` : ''}: ${failure}`);
-      } else report.passed++;
-    }
-    tool.examples = report;
-    if (report.failed) {
-      tool.ok = false;
-      tool.errors.push(...report.failures);
-    }
+  private runExamples(tool: LoadedTool): Promise<void> {
+    return runToolExamples(tool, { projectDir: this.opts.paths.projectDir, execAllowed: this.opts.execAllowed, sessionId: this.opts.sessionId, env: this.opts.env });
+  }
+}
+
+/** Runs a tool's examples as a smoke test. A failing example makes the tool invalid. */
+export async function runToolExamples(
+  tool: LoadedTool,
+  opts: { projectDir: string; execAllowed: boolean; sessionId?: string; env?: NodeJS.ProcessEnv },
+): Promise<void> {
+  const examples = tool.def?.examples ?? [];
+  if (!examples.length) return;
+  if (!opts.execAllowed) {
+    tool.examples = { passed: 0, failed: 0, failures: [], skipped: 'execution is disabled (TROD_ALLOW_EXEC is not 1)' };
+    return;
+  }
+  const report = { passed: 0, failed: 0, failures: [] as string[] };
+  for (const [i, ex] of examples.entries()) {
+    const res = await executeTool({
+      runner: tool.runner!,
+      runPath: tool.runPath!,
+      toolDir: tool.dir,
+      toolName: tool.def!.name,
+      projectDir: opts.projectDir,
+      input: ex.input,
+      timeoutMs: tool.def!.timeoutMs,
+      sessionId: opts.sessionId,
+      env: opts.env,
+    });
+    const failure = res.ok ? checkExpectation(ex.expect, res.text, res.value) : `threw: ${res.error ?? res.text.slice(0, 500)}`;
+    if (failure) {
+      report.failed++;
+      report.failures.push(`examples[${i}]${ex.description ? ` (${ex.description})` : ''}: ${failure}`);
+    } else report.passed++;
+  }
+  tool.examples = report;
+  if (report.failed) {
+    tool.ok = false;
+    tool.errors.push(...report.failures);
   }
 }

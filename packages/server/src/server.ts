@@ -27,6 +27,8 @@ interface Usage {
 }
 
 /** The one permanent tool. Its definition never changes, so the prompt cache stays warm. */
+// Both permanent tools set _meta anthropic/alwaysLoad: they are always in the prompt, even with tool search on.
+// They are fixed from the start, so they never invalidate the prompt cache.
 export const STATUS_TOOL: Tool = {
   name: 'trod_status',
   description:
@@ -40,7 +42,41 @@ export const STATUS_TOOL: Tool = {
     },
     additionalProperties: false,
   },
+  _meta: { 'anthropic/alwaysLoad': true },
 };
+
+/**
+ * The second permanent tool: calls any registered trod tool by name. Its definition never changes, so a tool written
+ * mid-session can be called in the very next turn without loading it through tool search and without changing the
+ * tool list (which would invalidate the prompt cache).
+ */
+export const RUN_TOOL: Tool = {
+  name: 'trod_run',
+  description:
+    'Runs a trod tool (from .trod/tools or .trod/library) by name, right after you wrote it, with no need to load it first. ' +
+    '"input" must match that tool\'s inputSchema. Returns the tool\'s result.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      tool: { type: 'string', description: 'The trod tool name (file or folder name, e.g. "fetch_ticket").' },
+      input: { type: 'object', description: 'The input for that tool.' },
+    },
+    required: ['tool'],
+    additionalProperties: false,
+  },
+  _meta: { 'anthropic/alwaysLoad': true },
+};
+
+
+/** Shown in the system prompt. Enough to build and call a tool without loading the skill. */
+export const SERVER_INSTRUCTIONS = `trod turns a file into a tool you can call. When you are about to write a helper script you will run more than once (a repeated lookup, an authenticated or paginated request, a parser, a browser step), write it as a trod tool instead: same effort, cheaper and safer to call.
+
+Write .trod/tools/<name>.mjs (Node ESM, built-ins only):
+  export const meta = { description: 'what it returns', whenToUse: 'when to call it', inputSchema: { type: 'object', properties: { … }, required: [ … ] } };
+  export default async (input, ctx) => result;   // return only what you need: compact objects or text
+Design for batches: let one call take a list (e.g. queries: [...]) and return all answers, and send independent calls in parallel in one message; every extra turn costs. The Write result says whether the tool is live or shows the errors. Then call it with trod_run {"tool": "<name>", "input": { … }}: no loading needed, also in later turns. Change the file in place when needs change. Tools in .trod/library are verified tools from earlier sessions: call them directly (trod_status lists them). The trod skill has details.`;
+
+export const RESERVED = new Set([STATUS_TOOL.name, RUN_TOOL.name]);
 
 export function sessionIdFromEnv(env: NodeJS.ProcessEnv): string | undefined {
   return env.TROD_SESSION_ID || env.CLAUDE_CODE_SESSION_ID || env.CLAUDE_SESSION_ID || undefined;
@@ -76,9 +112,7 @@ export class TrodServer {
       { name: 'trod', version: VERSION },
       {
         capabilities: { tools: { listChanged: true } },
-        instructions:
-          'trod turns folders in .trod/tools/<name>/ (tool.json + run.mjs or run.sh) into live tools. ' +
-          'Write a tool with the Write tool, then call trod_status to confirm it registered. See the trod skill for the format.',
+        instructions: SERVER_INSTRUCTIONS,
       },
     );
     this.server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: this.listTools() }));
@@ -90,10 +124,10 @@ export class TrodServer {
       .sort((a, b) => a.def!.name.localeCompare(b.def!.name))
       .map((t) => ({
         name: t.def!.name,
-        description: describeForClient(t.def!),
+        description: describeForClient(t.def!, t),
         inputSchema: t.def!.inputSchema as Tool['inputSchema'],
       }));
-    return [STATUS_TOOL, ...dynamic];
+    return [STATUS_TOOL, RUN_TOOL, ...dynamic];
   }
 
   async start(): Promise<void> {
@@ -172,6 +206,12 @@ export class TrodServer {
 
   async callTool(name: string, args: Record<string, unknown>): Promise<CallToolResult> {
     if (name === STATUS_TOOL.name) return { content: [{ type: 'text', text: this.status(typeof args.name === 'string' ? args.name : undefined) }] };
+    if (name === RUN_TOOL.name) {
+      const target = typeof args.tool === 'string' ? args.tool : '';
+      if (!target || RESERVED.has(target)) return { isError: true, content: [{ type: 'text', text: 'trod_run: "tool" must name a trod tool (see trod_status).' }] };
+      const input = args.input && typeof args.input === 'object' ? (args.input as Record<string, unknown>) : {};
+      return this.callTool(target, input);
+    }
 
     let tool = this.registry.active.get(name);
     // The agent may call a tool right after writing it, before the watcher fired.
