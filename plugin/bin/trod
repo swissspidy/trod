@@ -15977,8 +15977,10 @@ async function main(argv, out = console.log) {
         if (!values.json) out(`${t.ok ? examples ? "ok     " : "ok (no examples)" : "STALE  "} ${t.folder}${t.ok ? "" : "\n  - " + t.errors.join("\n  - ")}`);
       }
       const stale = report.filter((r) => !r.ok);
-      if (values.json) out(JSON.stringify({ stale: stale.map((r) => r.tool), tools: report }, null, 2));
-      else out(`${report.length - stale.length}/${report.length} library tool(s) verified${stale.length ? `; stale: ${stale.map((r) => r.tool).join(", ")} (re-forge or fix them)` : ""}`);
+      const verified = report.filter((r) => r.ok && r.examples > 0).length;
+      const unverifiable = report.filter((r) => r.ok && r.examples === 0).length;
+      if (values.json) out(JSON.stringify({ stale: stale.map((r) => r.tool), unverifiable, tools: report }, null, 2));
+      else out(`${verified}/${report.length} library tool(s) verified${unverifiable ? `, ${unverifiable} without examples (cannot be verified)` : ""}${stale.length ? `; stale: ${stale.map((r) => r.tool).join(", ")} (re-forge or fix them)` : ""}`);
       return stale.length ? 1 : 0;
     }
     case "hook": {
