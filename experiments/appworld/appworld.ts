@@ -156,7 +156,11 @@ export function appWorldTasks(ids: string[], experiment: string, forgeTaskId: st
       kind: 'repetitive',
       repetitions: 1,
       forgeKey: 'appworld',
-      setup: () => ({ task_id: id }),
+      setup: ({ work }: TaskContext) => {
+        // AW_NOTES: a CLAUDE.md for the work dir (always loaded by Claude Code), e.g. notes/CLAUDE.md.
+        if (process.env.AW_NOTES) cpSync(process.env.AW_NOTES, path.join(work, 'CLAUDE.md'));
+        return { task_id: id };
+      },
       forgeSetup: ({ work }: TaskContext) => {
         // AW_FORGE_SEED: start from an earlier library (its tools land in .trod/tools, to be improved in place).
         const seed = process.env.AW_FORGE_SEED;
