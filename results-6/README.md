@@ -1,4 +1,9 @@
-# Round 6: AppWorld — the library ties, because Haiku is already near the ceiling
+# Round 6: AppWorld — the tools tie, the distilled notes win
+
+**Update (round 6b):** the same conventions the experience forge learned, put in an always-loaded `CLAUDE.md`
+instead of tool descriptions, raise Haiku from 87.5% to **95.0%** task goal completion (105 → 114 of 120 paired test
+runs; 11 fixed, 2 broken, exact McNemar p = 0.022). Adding the tool library on top does not help (110/120). See
+[Round 6b](#round-6b-the-conventions-as-always-loaded-notes) below.
 
 [AppWorld](https://appworld.dev) (ACL 2024) is a simulated world of nine apps (Amazon, Gmail, Spotify, Venmo,
 Splitwise, SimpleNote, Todoist, phone, file system) with 457 APIs. Tasks are everyday chores ("approve all Venmo
@@ -54,6 +59,29 @@ Round 4's lesson holds and sharpens: a forged library pays when working knowledg
 *and* the model cannot cheaply look it up. AppWorld documents itself, so the only unguessable part is the grader's
 conventions, and those reach the model only if it reads them.
 
+## Round 6b: the conventions as always-loaded notes
+
+The v2 library failed because its lessons only reached the model when it called `aw_context`, which it did in about
+half the runs. Round 6b puts the same checklist (rewritten without tool references:
+`experiments/appworld/notes/CLAUDE.md`, about 3 KB) into each session's work directory as `CLAUDE.md`, which
+Claude Code always loads. Same 120 test tasks, Haiku 5.5, one seed (`AW_NOTES=…`).
+
+| condition | TGC | SGC | tokens/run |
+|---|---|---|---|
+| baseline (v2 prompt) | 105/120 (87.5%) | 29/40 | 267k |
+| baseline + notes | **114/120 (95.0%)** | **36/40** | 257k |
+| v2 library | 105/120 (87.5%) | 30/40 | 305k |
+| v2 library + notes | 110/120 (91.7%) | 31/40 | 288k |
+
+Paired by task: notes vs no notes, 11 tasks fixed and 2 broken (exact McNemar p = 0.022); adding the library to the
+notes, 3 fixed and 7 broken (p = 0.34). The notes cost nothing per run (tokens even fell slightly); they came from one
+$1.40 Opus session that read 90 graded train runs.
+
+**What this changes:** the valuable output of a forge is not necessarily code. Here the environment documents its own
+APIs, so tools add little, but the grader's conventions cannot be guessed, and a short always-loaded note carries
+them to every session. trod's forge should be able to emit notes as well as tools (for example into `CLAUDE.md` or the
+server instructions), and the library-cards budget should leave room for them.
+
 ## Reproduce
 
 ```sh
@@ -67,6 +95,8 @@ AW_HOME=/opt/appworld AW_SERVER_USER=awenv node experiments/runner/run.ts --suit
   --sample experiments/appworld/sample-test-normal.json --arms baseline,forged --model claude-haiku-5-5 \
   --as-user agent --seeds 1 --forge-dir results/runs/aw-forge --out results/runs/aw-normal
 ```
+
+Round 6b adds `AW_NOTES=$PWD/experiments/appworld/notes/CLAUDE.md` to the same command.
 
 `runs.jsonl` and `summary.json` hold the per-run numbers (no task text: AppWorld data may only be redistributed
 encrypted); `forged-library/` is the v2 library; `forge-1.json` and `forge-2.json` are the forge records.
