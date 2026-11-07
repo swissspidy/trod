@@ -367,6 +367,7 @@ async function runOne(task: Task, arm: Arm, seed: number): Promise<RunRecord> {
   if (toolsmith) record.toolsmith = toolsmith;
   if (forgeInfo) (record as RunRecord & { forge?: unknown }).forge = forgeInfo;
   writeFileSync(path.join(runDir, 'result.json'), JSON.stringify(record, null, 2));
+  task.afterRun?.({ work, baseUrl });
   console.log(
     `${record.check.pass ? 'PASS' : 'FAIL'} ${id.padEnd(34)} score=${record.check.score.toFixed(2)} turns=${record.turns} tokens=${record.tokens.total} cost=$${record.costUsd.toFixed(3)} wall=${Math.round(wallMs / 1000)}s` +
       (arm !== 'baseline' ? ` tools=${record.trod.toolsCreated} calls=${record.trod.calls}` : '') +

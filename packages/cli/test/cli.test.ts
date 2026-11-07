@@ -65,3 +65,20 @@ describe('trod hook', () => {
     expect(await hookMessage('not json', env)).toBeUndefined();
   });
 });
+
+describe('trod verify', () => {
+  it('passes for tools whose examples still hold and flags stale ones', async () => {
+    const dir = project();
+    const lib = path.join(dir, '.trod', 'library');
+    mkdirSync(lib, { recursive: true });
+    writeFileSync(path.join(lib, 'answer.mjs'), "export const meta = { description: 'Returns the answer to everything.', whenToUse: 'Always.', inputSchema: { type: 'object' }, examples: [{ input: {}, expect: { equals: 42 } }] };\nexport default async () => 42;\n");
+    const ok = await run(['verify', '--dir', dir]);
+    expect(ok.code).toBe(0);
+    expect(ok.out).toContain('1/1 library tool(s) verified');
+    // The environment drifts: the tool now returns something else.
+    writeFileSync(path.join(lib, 'answer.mjs'), "export const meta = { description: 'Returns the answer to everything.', whenToUse: 'Always.', inputSchema: { type: 'object' }, examples: [{ input: {}, expect: { equals: 42 } }] };\nexport default async () => 41;\n");
+    const stale = await run(['verify', '--dir', dir]);
+    expect(stale.code).toBe(1);
+    expect(stale.out).toContain('stale: answer');
+  });
+});
