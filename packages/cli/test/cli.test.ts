@@ -125,6 +125,15 @@ describe('trod notes', () => {
     expect((await run(['notes', '--dir', dir])).out).toContain('linked from CLAUDE.md');
   });
 
+  it('does not link notes whose checks fail', async () => {
+    const dir = notesProject();
+    writeFileSync(path.join(dir, '.trod', 'library', 'status_codes.mjs'), tool("['Active', 'Closed']"));
+    const res = await run(['notes', '--link', '--dir', dir]);
+    expect(res.code).toBe(1);
+    expect(res.out).toContain('not linked, some checks fail');
+    expect(existsSync(path.join(dir, 'CLAUDE.md'))).toBe(false);
+  });
+
   it('reports malformed checks and checks that name a missing tool', async () => {
     const dir = notesProject();
     writeFileSync(path.join(dir, '.trod', 'notes.checks.json'), JSON.stringify([{ claim: 'x' }, { claim: 'y', tool: 'nope', expect: { contains: 'a' } }]));

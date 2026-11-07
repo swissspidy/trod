@@ -96,7 +96,9 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       const res = await forge({ projectDir: paths.projectDir, brief, model: values.model, server: values.server, maxBudgetUsd: values.budget, streamFile: values.stream, out, linkNotes: !values['no-link'] });
       out(`forge: ${res.promoted.length} tool(s) promoted${res.unverified.length ? ` (${res.unverified.length} without examples)` : ''}, ${res.rejected.length} rejected${res.costUsd !== undefined ? `, $${res.costUsd.toFixed(3)}, ${res.turns} turns` : ''}`);
       if (values.json) out(JSON.stringify(res, null, 2));
-      return res.promoted.length ? 0 : 1;
+      // Notes whose checks fail are not verified: report the forge as failed so scripts do not take them as good.
+      const notesFailed = !!res.notes && (res.notes.checks.some((c) => !c.ok) || res.notes.errors.length > 0);
+      return res.promoted.length && !notesFailed ? 0 : 1;
     }
     case 'verify': {
       // Library tools are trusted from promotion and not re-checked at startup (ADR 0003), so environments that drift
@@ -122,12 +124,21 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       return stale.length || staleNotes.length || notes.errors.length ? 1 : 0;
     }
     case 'notes': {
-      if (values.link && linkNotes(paths)) out(`linked .trod/notes.md into CLAUDE.md (${NOTES_IMPORT})`);
-      const notes = await verifyNotes(paths, { execAllowed: true });
+      let notes = await verifyNotes(paths, { execAllowed: true });
+      const failed = notes.checks.some((c) => !c.ok) || notes.errors.length > 0;
+      if (values.link) {
+        // Only verified notes are linked: check first.
+        if (!notes.exists) out('trod notes --link: no .trod/notes.md to link');
+        else if (failed) out('trod notes --link: not linked, some checks fail (fix or remove those claims and their checks first)');
+        else if (linkNotes(paths)) {
+          out(`linked .trod/notes.md into CLAUDE.md (${NOTES_IMPORT})`);
+          notes = { ...notes, linked: true };
+        }
+      }
       if (values.json) out(JSON.stringify(notes, null, 2));
       else if (!notes.exists) out('no .trod/notes.md (trod forge writes one)');
       else printNotes(notes, out);
-      return notes.checks.some((c) => !c.ok) || notes.errors.length ? 1 : 0;
+      return failed || (values.link && !notes.exists) ? 1 : 0;
     }
     case 'hook': {
       const msg = await hookMessage(await readStdin());
