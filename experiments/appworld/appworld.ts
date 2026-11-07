@@ -11,7 +11,7 @@
  */
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { cpSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import path from 'node:path';
 import type { CheckResult, Task, TaskContext } from '../lib/types.ts';
@@ -156,7 +156,13 @@ export function appWorldTasks(ids: string[], experiment: string, forgeTaskId: st
       kind: 'repetitive',
       repetitions: 1,
       forgeKey: 'appworld',
-      setup: () => ({ task_id: id }),
+      setup: ({ work }: TaskContext) => {
+        // AW_NOTES: a CLAUDE.md for the work dir (always loaded by Claude Code), e.g. notes/CLAUDE.md.
+        // Without it, remove notes a reused work dir may still hold, so a no-notes run cannot load them.
+        if (process.env.AW_NOTES) cpSync(process.env.AW_NOTES, path.join(work, 'CLAUDE.md'), { dereference: true });
+        else rmSync(path.join(work, 'CLAUDE.md'), { force: true });
+        return { task_id: id };
+      },
       forgeSetup: ({ work }: TaskContext) => {
         // AW_FORGE_SEED: start from an earlier library (its tools land in .trod/tools, to be improved in place).
         const seed = process.env.AW_FORGE_SEED;

@@ -7,11 +7,13 @@
     "tgc": 0.933,
     "scenarios": 30,
     "sgc": 27,
+    "incompleteScenarios": 0,
     "meanScore": 0.987,
     "meanTokens": 209962,
     "meanCostUsd": 0.00548,
     "meanTurns": 8.2,
-    "usedLibrary": 0
+    "usedLibrary": 0,
+    "withNotes": 0
   },
   {
     "condition": "v1-normal",
@@ -21,11 +23,13 @@
     "tgc": 0.883,
     "scenarios": 20,
     "sgc": 17,
+    "incompleteScenarios": 0,
     "meanScore": 0.955,
     "meanTokens": 201595,
     "meanCostUsd": 0.00541,
     "meanTurns": 7.8,
-    "usedLibrary": 0
+    "usedLibrary": 0,
+    "withNotes": 0
   },
   {
     "condition": "v1-normal",
@@ -35,11 +39,13 @@
     "tgc": 0.867,
     "scenarios": 20,
     "sgc": 17,
+    "incompleteScenarios": 0,
     "meanScore": 0.945,
     "meanTokens": 230498,
     "meanCostUsd": 0.00595,
     "meanTurns": 8.2,
-    "usedLibrary": 27
+    "usedLibrary": 27,
+    "withNotes": 0
   },
   {
     "condition": "v1-challenge",
@@ -49,11 +55,13 @@
     "tgc": 0.883,
     "scenarios": 20,
     "sgc": 16,
+    "incompleteScenarios": 0,
     "meanScore": 0.973,
     "meanTokens": 324790,
     "meanCostUsd": 0.00797,
     "meanTurns": 10.6,
-    "usedLibrary": 0
+    "usedLibrary": 0,
+    "withNotes": 0
   },
   {
     "condition": "v1-challenge",
@@ -63,11 +71,13 @@
     "tgc": 0.867,
     "scenarios": 20,
     "sgc": 14,
+    "incompleteScenarios": 0,
     "meanScore": 0.974,
     "meanTokens": 347815,
     "meanCostUsd": 0.00823,
     "meanTurns": 11.4,
-    "usedLibrary": 36
+    "usedLibrary": 36,
+    "withNotes": 0
   },
   {
     "condition": "v2-normal",
@@ -77,11 +87,13 @@
     "tgc": 0.867,
     "scenarios": 20,
     "sgc": 16,
+    "incompleteScenarios": 0,
     "meanScore": 0.947,
     "meanTokens": 197462,
     "meanCostUsd": 0.00546,
     "meanTurns": 7.7,
-    "usedLibrary": 0
+    "usedLibrary": 0,
+    "withNotes": 0
   },
   {
     "condition": "v2-normal",
@@ -91,11 +103,13 @@
     "tgc": 0.9,
     "scenarios": 20,
     "sgc": 17,
+    "incompleteScenarios": 0,
     "meanScore": 0.955,
     "meanTokens": 230049,
     "meanCostUsd": 0.00619,
     "meanTurns": 8.5,
-    "usedLibrary": 27
+    "usedLibrary": 27,
+    "withNotes": 0
   },
   {
     "condition": "v2-challenge",
@@ -105,11 +119,13 @@
     "tgc": 0.883,
     "scenarios": 20,
     "sgc": 13,
+    "incompleteScenarios": 0,
     "meanScore": 0.967,
     "meanTokens": 336985,
     "meanCostUsd": 0.00836,
     "meanTurns": 10.8,
-    "usedLibrary": 0
+    "usedLibrary": 0,
+    "withNotes": 0
   },
   {
     "condition": "v2-challenge",
@@ -119,10 +135,76 @@
     "tgc": 0.85,
     "scenarios": 20,
     "sgc": 13,
+    "incompleteScenarios": 0,
     "meanScore": 0.974,
     "meanTokens": 379177,
     "meanCostUsd": 0.00902,
     "meanTurns": 12,
-    "usedLibrary": 31
+    "usedLibrary": 31,
+    "withNotes": 0
+  },
+  {
+    "condition": "notes-normal",
+    "arm": "baseline",
+    "runs": 60,
+    "passed": 57,
+    "tgc": 0.95,
+    "scenarios": 20,
+    "sgc": 19,
+    "incompleteScenarios": 0,
+    "meanScore": 0.975,
+    "meanTokens": 216383,
+    "meanCostUsd": 0.00583,
+    "meanTurns": 8.4,
+    "usedLibrary": 0,
+    "withNotes": 60
+  },
+  {
+    "condition": "notes-normal",
+    "arm": "forged",
+    "runs": 60,
+    "passed": 56,
+    "tgc": 0.933,
+    "scenarios": 20,
+    "sgc": 17,
+    "incompleteScenarios": 0,
+    "meanScore": 0.969,
+    "meanTokens": 240785,
+    "meanCostUsd": 0.0064,
+    "meanTurns": 9.1,
+    "usedLibrary": 47,
+    "withNotes": 60
+  },
+  {
+    "condition": "notes-challenge",
+    "arm": "baseline",
+    "runs": 60,
+    "passed": 57,
+    "tgc": 0.95,
+    "scenarios": 20,
+    "sgc": 17,
+    "incompleteScenarios": 0,
+    "meanScore": 0.989,
+    "meanTokens": 297272,
+    "meanCostUsd": 0.00761,
+    "meanTurns": 10.2,
+    "usedLibrary": 0,
+    "withNotes": 60
+  },
+  {
+    "condition": "notes-challenge",
+    "arm": "forged",
+    "runs": 60,
+    "passed": 54,
+    "tgc": 0.9,
+    "scenarios": 20,
+    "sgc": 14,
+    "incompleteScenarios": 0,
+    "meanScore": 0.969,
+    "meanTokens": 335069,
+    "meanCostUsd": 0.00813,
+    "meanTurns": 11.4,
+    "usedLibrary": 46,
+    "withNotes": 60
   }
 ]

@@ -25,7 +25,7 @@ for (const spec of specs) {
         incomplete.add(`${r.arm}/${task.split('_')[0]}`);
         continue;
       }
-      const rec = { condition: label, task, scenario: task.split('_')[0], arm: r.arm, pass: r.check.pass, score: +r.check.score.toFixed(3), tokens: r.tokens.total, costUsd: +r.costUsd.toFixed(5), turns: r.turns, wallMs: r.wallMs, libraryCalls: r.trod?.calls ?? 0 };
+      const rec = { condition: label, task, scenario: task.split('_')[0], arm: r.arm, pass: r.check.pass, score: +r.check.score.toFixed(3), tokens: r.tokens.total, costUsd: +r.costUsd.toFixed(5), turns: r.turns, wallMs: r.wallMs, libraryCalls: r.trod?.calls ?? 0, notes: existsSync(path.join(dir, task, run, 'work', 'CLAUDE.md')) };
       runs.push(rec);
       byArm.set(r.arm, [...(byArm.get(r.arm) ?? []), rec]);
     }
@@ -35,7 +35,7 @@ for (const spec of specs) {
     for (const r of rs) scen.set(r.scenario, [...(scen.get(r.scenario) ?? []), r.pass]);
     const n = rs.length;
     const mean = (k: string) => rs.reduce((a, r) => a + r[k], 0) / n;
-    summary.push({ condition: label, arm, runs: n, passed: rs.filter((r) => r.pass).length, tgc: +(rs.filter((r) => r.pass).length / n).toFixed(3), scenarios: scen.size, sgc: [...scen.entries()].filter(([sc, v]) => !incomplete.has(`${arm}/${sc}`) && v.every(Boolean)).length, incompleteScenarios: [...scen.keys()].filter((sc) => incomplete.has(`${arm}/${sc}`)).length, meanScore: +mean('score').toFixed(3), meanTokens: Math.round(mean('tokens')), meanCostUsd: +mean('costUsd').toFixed(5), meanTurns: +mean('turns').toFixed(1), usedLibrary: rs.filter((r) => r.libraryCalls > 0).length });
+    summary.push({ condition: label, arm, runs: n, passed: rs.filter((r) => r.pass).length, tgc: +(rs.filter((r) => r.pass).length / n).toFixed(3), scenarios: scen.size, sgc: [...scen.entries()].filter(([sc, v]) => !incomplete.has(`${arm}/${sc}`) && v.every(Boolean)).length, incompleteScenarios: [...scen.keys()].filter((sc) => incomplete.has(`${arm}/${sc}`)).length, meanScore: +mean('score').toFixed(3), meanTokens: Math.round(mean('tokens')), meanCostUsd: +mean('costUsd').toFixed(5), meanTurns: +mean('turns').toFixed(1), usedLibrary: rs.filter((r) => r.libraryCalls > 0).length, withNotes: rs.filter((r) => r.notes).length });
   }
 }
 writeFileSync(path.join(out!, 'runs.jsonl'), runs.map((r) => JSON.stringify(r)).join('\n') + '\n');
