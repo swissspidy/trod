@@ -61,7 +61,10 @@ function findResults(dir: string): RunRecord[] {
   return out;
 }
 
-export function aggregate(records: RunRecord[]) {
+export function aggregate(all: RunRecord[]) {
+  // A check that could not be completed (infra) says nothing about the agent: leave those runs out of every aggregate.
+  const records = all.filter((r) => !r.check.infra);
+  const infraExcluded = all.length - records.length;
   const cells: Cell[] = [];
   for (const task of TASKS) {
     for (const arm of ARMS) {
@@ -152,7 +155,7 @@ export function aggregate(records: RunRecord[]) {
       library: ts.map((r) => r.toolsmith.library),
     };
   }
-  return { cells, overall, ratios, stepCost, tools, investment };
+  return { cells, overall, ratios, stepCost, tools, investment, infraExcluded };
 }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -278,5 +281,5 @@ if (import.meta.main) {
   const writeup = values.writeup && existsSync(values.writeup) ? readFileSync(values.writeup, 'utf8') : '<p>No write-up yet.</p>';
   writeFileSync(path.join(values.out!, 'summary.json'), JSON.stringify({ model: records[0]?.model, runs: records.length, ...agg }, null, 2));
   writeFileSync(path.join(values.out!, 'report.html'), renderHtml(agg, { model: records[0]?.model ?? '?', runs: records.length, generated: new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC', writeup, title: values.title! }));
-  console.log(`${records.length} runs -> ${values.out}/summary.json, ${values.out}/report.html`);
+  console.log(`${records.length} runs${agg.infraExcluded ? ` (${agg.infraExcluded} infra failures excluded)` : ''} -> ${values.out}/summary.json, ${values.out}/report.html`);
 }
