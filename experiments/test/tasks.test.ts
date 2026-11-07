@@ -88,20 +88,20 @@ const ORACLES: Record<string, (w: string, expected: any, i: number) => void> = {
 };
 
 describe.each(TASKS.map((t) => [t.id, t] as const))('task %s', (_id, task) => {
-  it('is deterministic, fails on an empty run and passes every step with the oracle', () => {
+  it('is deterministic, fails on an empty run and passes every step with the oracle', async () => {
     const w = work();
     const expected = task.setup({ work: w });
     expect(JSON.stringify(task.setup({ work: work() }))).toBe(JSON.stringify(expected));
     expect(task.kind === 'control' ? task.steps.length : task.steps.length).toBeGreaterThanOrEqual(task.kind === 'control' ? 1 : 3);
-    task.steps.forEach((step, i) => {
+    for (const [i, step] of task.steps.entries()) {
       if (i > 0) task.prepareStep?.({ work: w }, i);
-      expect(step.check({ work: w }, expected).pass).toBe(false);
+      expect((await step.check({ work: w }, expected)).pass).toBe(false);
       ORACLES[task.id]!(w, expected, i);
-      const res = step.check({ work: w }, expected);
+      const res = await step.check({ work: w }, expected);
       expect(res.details, `step ${i}`).toBeTruthy();
       expect(res.pass, `step ${i}: ${res.details}`).toBe(true);
       expect(step.prompt({ work: w, baseUrl: 'http://127.0.0.1:1' })).toContain('DONE');
-    });
+    }
   });
 
   it.runIf(!!task.handler)('serves its fixture', async () => {

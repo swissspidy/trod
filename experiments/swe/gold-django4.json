@@ -1,0 +1,352 @@
+{
+  "django__django-13933": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/19",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/19 (failing: test_modelchoicefield_value_placeholder (forms_tests.tests.test_error_messages.ModelChoiceFieldErrorMessagesTestCase)=FAIL)",
+    "ok": true
+  },
+  "django__django-13925": {
+    "gold": "FAIL_TO_PASS 2/2, PASS_TO_PASS broken 0/24",
+    "empty": "FAIL_TO_PASS 0/2, PASS_TO_PASS broken 0/24 (failing: test_auto_created_inherited_pk (check_framework.test_model_checks.ModelDefaultAutoFieldTests)=FAIL; test_explicit_inherited_pk (check_framework.test_model_checks.ModelDefaultAutoFieldTests)=FAIL)",
+    "ok": true
+  },
+  "django__django-14007": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/12",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/12 (failing: test_auto_field_subclass_create (custom_pk.tests.CustomPKTests)=FAIL)",
+    "ok": true
+  },
+  "django__django-14011": {
+    "gold": "FAIL_TO_PASS 17/17, PASS_TO_PASS broken 0/2",
+    "empty": "FAIL_TO_PASS 0/17, PASS_TO_PASS broken 0/2 (failing: test_live_server_url_is_class_property (servers.tests.LiveServerAddress)=not run; Data written to the database by a view can be read.=not run)",
+    "ok": true
+  },
+  "django__django-13964": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/36",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/36 (failing: test_save_fk_after_parent_with_non_numeric_pk_set_on_child (many_to_one.tests.ManyToOneTests)=ERROR)",
+    "ok": true
+  },
+  "django__django-14034": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/12",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/12 (failing: test_render_required_attributes (forms_tests.field_tests.test_multivaluefield.MultiValueFieldTest)=FAIL)",
+    "ok": true
+  },
+  "django__django-14053": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/31",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/31 (failing: post_processing behaves correctly.=FAIL)",
+    "ok": true
+  },
+  "django__django-14017": {
+    "gold": "FAIL_TO_PASS 2/2, PASS_TO_PASS broken 0/147",
+    "empty": "FAIL_TO_PASS 0/2, PASS_TO_PASS broken 0/147 (failing: test_boolean_expression_combined (expressions.tests.BasicExpressionsTests)=ERROR; test_boolean_expression_combined_with_empty_Q (expressions.tests.BasicExpressionsTests)=ERROR)",
+    "ok": true
+  },
+  "django__django-14122": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/26",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/26 (failing: test_default_ordering_does_not_affect_group_by (ordering.tests.OrderingTests)=FAIL)",
+    "ok": true
+  },
+  "django__django-14089": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/43",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/43 (failing: test_reversed (utils_tests.test_datastructures.OrderedSetTests)=ERROR)",
+    "ok": true
+  },
+  "django__django-13809": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/245",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/245 (failing: test_skip_checks (admin_scripts.tests.ManageRunserver)=ERROR)",
+    "ok": true
+  },
+  "django__django-14170": {
+    "gold": "FAIL_TO_PASS 2/2, PASS_TO_PASS broken 0/76",
+    "empty": "FAIL_TO_PASS 0/2, PASS_TO_PASS broken 0/76 (failing: test_extract_iso_year_func_boundaries (db_functions.datetime.test_extract_trunc.DateFunctionTests)=FAIL; test_extract_iso_year_func_boundaries (db_functions.datetime.test_extract_trunc.DateFunctionWithTimeZoneTests)=FAIL)",
+    "ok": true
+  },
+  "django__django-14155": {
+    "gold": "FAIL_TO_PASS 3/3, PASS_TO_PASS broken 0/89",
+    "empty": "FAIL_TO_PASS 0/3, PASS_TO_PASS broken 0/89 (failing: test_repr (urlpatterns_reverse.tests.ResolverMatchTests)=FAIL; test_repr_functools_partial (urlpatterns_reverse.tests.ResolverMatchTests)=not run)",
+    "ok": true
+  },
+  "django__django-14238": {
+    "gold": "FAIL_TO_PASS 2/2, PASS_TO_PASS broken 0/39",
+    "empty": "FAIL_TO_PASS 0/2, PASS_TO_PASS broken 1/39 (e.g. test_app_default_auto_field (model_options.test_default_pk.TestDefaultPK)) (failing: test_issubclass_of_autofield (model_fields.test_autofield.AutoFieldInheritanceTests)=not run; test_default_auto_field_setting_bigautofield_subclass (model_options.test_default_pk.TestDefaultPK)=ERROR)",
+    "ok": true
+  },
+  "django__django-14140": {
+    "gold": "FAIL_TO_PASS 4/4, PASS_TO_PASS broken 0/199",
+    "empty": "FAIL_TO_PASS 0/4, PASS_TO_PASS broken 0/199 (failing: test_deconstruct (queries.test_q.QTests)=FAIL; test_deconstruct_boolean_expression (queries.test_q.QTests)=ERROR)",
+    "ok": true
+  },
+  "django__django-14315": {
+    "gold": "FAIL_TO_PASS 11/11, PASS_TO_PASS broken 0/0",
+    "empty": "FAIL_TO_PASS 7/11, PASS_TO_PASS broken 0/0 (failing: test_runshell_use_environ (backends.base.test_client.SimpleDatabaseClientTests)=not run; test_settings_to_cmd_args_env (backends.base.test_client.SimpleDatabaseClientTests)=not run)",
+    "ok": true
+  },
+  "django__django-14311": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/59",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/59 (failing: test_run_as_non_django_module_non_package (utils_tests.test_autoreload.TestChildArguments)=FAIL)",
+    "ok": true
+  },
+  "django__django-14373": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/19",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/19 (failing: test_Y_format_year_before_1000 (utils_tests.test_dateformat.DateFormatTests)=FAIL)",
+    "ok": true
+  },
+  "django__django-14349": {
+    "gold": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 1/18 (e.g. test_basic_equality (validators.tests.TestValidatorEquality)) (failing: test_validators (validators.tests.TestValidators)=not run)",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 1/18 (e.g. test_basic_equality (validators.tests.TestValidatorEquality)) (failing: test_validators (validators.tests.TestValidators)=not run)",
+    "ok": false
+  },
+  "django__django-14376": {
+    "gold": "FAIL_TO_PASS 3/3, PASS_TO_PASS broken 0/6",
+    "empty": "FAIL_TO_PASS 0/3, PASS_TO_PASS broken 0/6 (failing: test_options_non_deprecated_keys_preferred (dbshell.test_mysql.MySqlDbshellCommandTestCase)=FAIL; test_options_override_settings_proper_values (dbshell.test_mysql.MySqlDbshellCommandTestCase)=not run)",
+    "ok": true
+  },
+  "django__django-14351": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/58",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/58 (failing: test_having_subquery_select (aggregation_regress.tests.AggregationTests)=ERROR)",
+    "ok": true
+  },
+  "django__django-14493": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/36",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/36 (failing: test_collectstatistic_no_post_process_replaced_paths (staticfiles_tests.test_storage.TestCollectionNoPostProcessReplacedPaths)=ERROR)",
+    "ok": true
+  },
+  "django__django-14500": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/21",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/21 (failing: test_migrate_marks_replacement_unapplied (migrations.test_executor.ExecutorTests)=FAIL)",
+    "ok": true
+  },
+  "django__django-14534": {
+    "gold": "FAIL_TO_PASS 2/2, PASS_TO_PASS broken 0/118",
+    "empty": "FAIL_TO_PASS 0/2, PASS_TO_PASS broken 0/118 (failing: If auto_id is provided when initializing the form, the generated ID in=FAIL; test_iterable_boundfield_select (forms_tests.tests.test_forms.FormsTestCase)=FAIL)",
+    "ok": true
+  },
+  "django__django-14539": {
+    "gold": "FAIL_TO_PASS 2/2, PASS_TO_PASS broken 2/14 (e.g. test_strip_tags (utils_tests.test_html.TestUtilsHtml); test_strip_tags_files (utils_tests.test_html.TestUtilsHtml))",
+    "empty": "FAIL_TO_PASS 0/2, PASS_TO_PASS broken 2/14 (e.g. test_strip_tags (utils_tests.test_html.TestUtilsHtml); test_strip_tags_files (utils_tests.test_html.TestUtilsHtml)) (failing: test_urlize (utils_tests.test_html.TestUtilsHtml)=not run; test_urlize_unchanged_inputs (utils_tests.test_html.TestUtilsHtml)=not run)",
+    "ok": false
+  },
+  "django__django-14434": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/133",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/133 (failing: test_unique_constraint (schema.tests.SchemaTests)=FAIL)",
+    "ok": true
+  },
+  "django__django-14559": {
+    "gold": "FAIL_TO_PASS 3/3, PASS_TO_PASS broken 0/23",
+    "empty": "FAIL_TO_PASS 0/3, PASS_TO_PASS broken 0/23 (failing: test_empty_objects (queries.test_bulk_update.BulkUpdateTests)=FAIL; test_large_batch (queries.test_bulk_update.BulkUpdateTests)=FAIL)",
+    "ok": true
+  },
+  "django__django-14580": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/49",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/49 (failing: test_serialize_type_model (migrations.test_writer.WriterTests)=FAIL)",
+    "ok": true
+  },
+  "django__django-14631": {
+    "gold": "FAIL_TO_PASS 2/2, PASS_TO_PASS broken 0/117",
+    "empty": "FAIL_TO_PASS 0/2, PASS_TO_PASS broken 0/117 (failing: The cleaned value for a form with a disabled DateTimeField and callable=FAIL; Cleaning a form with a disabled DateTimeField and callable initial=FAIL)",
+    "ok": true
+  },
+  "django__django-14404": {
+    "gold": "FAIL_TO_PASS 2/2, PASS_TO_PASS broken 0/323",
+    "empty": "FAIL_TO_PASS 0/2, PASS_TO_PASS broken 0/323 (failing: test_missing_slash_append_slash_true_force_script_name (admin_views.tests.AdminSiteFinalCatchAllPatternTests)=FAIL; test_missing_slash_append_slash_true_script_name (admin_views.tests.AdminSiteFinalCatchAllPatternTests)=FAIL)",
+    "ok": true
+  },
+  "django__django-14672": {
+    "gold": "FAIL_TO_PASS 168/168, PASS_TO_PASS broken 0/0",
+    "empty": "FAIL_TO_PASS 0/168, PASS_TO_PASS broken 0/0 (failing: test_multiple_autofields (invalid_models_tests.test_models.MultipleAutoFieldsTests)=not run; test_db_column_clash (invalid_models_tests.test_models.FieldNamesTests)=not run)",
+    "ok": true
+  },
+  "django__django-14752": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/15",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/15 (failing: test_serialize_result (admin_views.test_autocomplete_view.AutocompleteJsonViewTests)=FAIL)",
+    "ok": true
+  },
+  "django__django-14725": {
+    "gold": "FAIL_TO_PASS 3/3, PASS_TO_PASS broken 0/64",
+    "empty": "FAIL_TO_PASS 0/3, PASS_TO_PASS broken 0/64 (failing: test_edit_only (model_formsets.tests.ModelFormsetTest)=ERROR; test_edit_only_inlineformset_factory (model_formsets.tests.ModelFormsetTest)=ERROR)",
+    "ok": true
+  },
+  "django__django-14771": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/60",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/60 (failing: test_xoptions (utils_tests.test_autoreload.TestChildArguments)=FAIL)",
+    "ok": true
+  },
+  "django__django-14787": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/20",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/20 (failing: @method_decorator preserves wrapper assignments.=FAIL)",
+    "ok": true
+  },
+  "django__django-14765": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/64",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/64 (failing: test_real_apps_non_set (migrations.test_state.StateTests)=FAIL)",
+    "ok": true
+  },
+  "django__django-14792": {
+    "gold": "FAIL_TO_PASS 2/2, PASS_TO_PASS broken 0/23",
+    "empty": "FAIL_TO_PASS 0/2, PASS_TO_PASS broken 0/23 (failing: The _get_timezone_name() helper must return the offset for fixed offset=not run; test_is_aware (utils_tests.test_timezone.TimezoneTests)=not run)",
+    "ok": true
+  },
+  "django__django-14915": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/23",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/23 (failing: test_choice_value_hash (model_forms.test_modelchoicefield.ModelChoiceFieldTests)=ERROR)",
+    "ok": true
+  },
+  "django__django-14608": {
+    "gold": "FAIL_TO_PASS 4/4, PASS_TO_PASS broken 0/394",
+    "empty": "FAIL_TO_PASS 0/4, PASS_TO_PASS broken 0/394 (failing: If validate_max is set and max_num is less than TOTAL_FORMS in the=FAIL; If validate_min is set and min_num is more than TOTAL_FORMS in the=FAIL)",
+    "ok": true
+  },
+  "django__django-15022": {
+    "gold": "FAIL_TO_PASS 3/3, PASS_TO_PASS broken 0/56",
+    "empty": "FAIL_TO_PASS 0/3, PASS_TO_PASS broken 0/56 (failing: test_many_search_terms (admin_changelist.tests.ChangeListTests)=ERROR; All rows containing each of the searched words are returned, where each=not run)",
+    "ok": true
+  },
+  "django__django-15037": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/14",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/14 (failing: test_foreign_key_to_field (inspectdb.tests.InspectDBTestCase)=FAIL)",
+    "ok": true
+  },
+  "django__django-14999": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/113",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/113 (failing: test_rename_model_with_db_table_noop (migrations.test_operations.OperationTests)=FAIL)",
+    "ok": true
+  },
+  "django__django-15103": {
+    "gold": "FAIL_TO_PASS 2/2, PASS_TO_PASS broken 2/17 (e.g. test_strip_tags (utils_tests.test_html.TestUtilsHtml); test_strip_tags_files (utils_tests.test_html.TestUtilsHtml))",
+    "empty": "FAIL_TO_PASS 0/2, PASS_TO_PASS broken 2/17 (e.g. test_strip_tags (utils_tests.test_html.TestUtilsHtml); test_strip_tags_files (utils_tests.test_html.TestUtilsHtml)) (failing: test_without_id (template_tests.filter_tests.test_json_script.JsonScriptTests)=ERROR; test_json_script_without_id (utils_tests.test_html.TestUtilsHtml)=ERROR)",
+    "ok": false
+  },
+  "django__django-15098": {
+    "gold": "FAIL_TO_PASS 2/2, PASS_TO_PASS broken 0/88",
+    "empty": "FAIL_TO_PASS 0/2, PASS_TO_PASS broken 0/88 (failing: test_get_language_from_path_real (i18n.tests.MiscTests)=not run; test_get_supported_language_variant_null (i18n.tests.MiscTests)=not run)",
+    "ok": true
+  },
+  "django__django-15127": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/1",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/1 (failing: test_override_settings_level_tags (messages_tests.tests.TestLevelTags)=FAIL)",
+    "ok": true
+  },
+  "django__django-15104": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/131",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/131 (failing: test_add_custom_fk_with_hardcoded_to (migrations.test_autodetector.AutodetectorTests)=ERROR)",
+    "ok": true
+  },
+  "django__django-14855": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/325",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/325 (failing: test_readonly_foreignkey_links_custom_admin_site (admin_views.tests.ReadonlyTest)=FAIL)",
+    "ok": true
+  },
+  "django__django-15252": {
+    "gold": "FAIL_TO_PASS 2/2, PASS_TO_PASS broken 0/34",
+    "empty": "FAIL_TO_PASS 0/2, PASS_TO_PASS broken 0/34 (failing: test_migrate_test_setting_false_ensure_schema (backends.base.test_creation.TestDbCreationTests)=FAIL; The django_migrations table is not created if there are no migrations=ERROR)",
+    "ok": true
+  },
+  "django__django-15161": {
+    "gold": "FAIL_TO_PASS 3/3, PASS_TO_PASS broken 0/208",
+    "empty": "FAIL_TO_PASS 0/3, PASS_TO_PASS broken 0/208 (failing: test_deconstruct (expressions.tests.ValueTests)=FAIL; test_deconstruct_output_field (expressions.tests.ValueTests)=FAIL)",
+    "ok": true
+  },
+  "django__django-15268": {
+    "gold": "FAIL_TO_PASS 3/3, PASS_TO_PASS broken 0/130",
+    "empty": "FAIL_TO_PASS 0/3, PASS_TO_PASS broken 0/130 (failing: index/unique_together also triggers on ordering changes.=FAIL; Removed fields will be removed after updating index/unique_together.=FAIL)",
+    "ok": true
+  },
+  "django__django-15128": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/282",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/282 (failing: test_conflicting_aliases_during_combine (queries.tests.QuerySetBitwiseOperationTests)=FAIL)",
+    "ok": true
+  },
+  "django__django-15277": {
+    "gold": "FAIL_TO_PASS 2/2, PASS_TO_PASS broken 0/158",
+    "empty": "FAIL_TO_PASS 0/2, PASS_TO_PASS broken 0/158 (failing: The output field for a given Value doesn't get cleaned & validated,=not run; test_raise_empty_expressionlist (expressions.tests.ValueTests)=not run)",
+    "ok": true
+  },
+  "django__django-15315": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/33",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/33 (failing: test_hash_immutability (model_fields.tests.BasicFieldTests)=FAIL)",
+    "ok": true
+  },
+  "django__django-15280": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/85",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/85 (failing: The prefetched relationship is used rather than populating the reverse=FAIL)",
+    "ok": true
+  },
+  "django__django-15368": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/29",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/29 (failing: test_f_expression (queries.test_bulk_update.BulkUpdateTests)=FAIL)",
+    "ok": true
+  },
+  "django__django-15278": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/138",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/138 (failing: test_add_field_o2o_nullable (schema.tests.SchemaTests)=ERROR)",
+    "ok": true
+  },
+  "django__django-15375": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/95",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/95 (failing: test_aggregation_default_after_annotation (aggregation.tests.AggregateTestCase)=ERROR)",
+    "ok": true
+  },
+  "django__django-15380": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/133",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/133 (failing: test_rename_field_with_renamed_model (migrations.test_autodetector.AutodetectorTests)=ERROR)",
+    "ok": true
+  },
+  "django__django-15499": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/35",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/35 (failing: test_create_alter_model_managers (migrations.test_optimizer.OptimizerTests)=FAIL)",
+    "ok": true
+  },
+  "django__django-15467": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/62",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/62 (failing: test_radio_fields_foreignkey_formfield_overrides_empty_label (admin_widgets.tests.AdminFormfieldForDBFieldTests)=FAIL)",
+    "ok": true
+  },
+  "django__django-15382": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/161",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/161 (failing: test_negated_empty_exists (expressions.tests.ExistsTests)=FAIL)",
+    "ok": true
+  },
+  "django__django-15554": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/41",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/41 (failing: test_multiple (filtered_relation.tests.FilteredRelationTests)=FAIL)",
+    "ok": true
+  },
+  "django__django-15503": {
+    "gold": "FAIL_TO_PASS 2/2, PASS_TO_PASS broken 0/78",
+    "empty": "FAIL_TO_PASS 0/2, PASS_TO_PASS broken 0/78 (failing: test_has_key_number (model_fields.test_jsonfield.TestQuerying)=not run; test_has_keys (model_fields.test_jsonfield.TestQuerying)=not run)",
+    "ok": true
+  },
+  "django__django-15563": {
+    "gold": "FAIL_TO_PASS 2/2, PASS_TO_PASS broken 0/29",
+    "empty": "FAIL_TO_PASS 0/2, PASS_TO_PASS broken 0/29 (failing: test_mti_update_grand_parent_through_child (model_inheritance_regress.tests.ModelInheritanceTest)=FAIL; test_mti_update_parent_through_child (model_inheritance_regress.tests.ModelInheritanceTest)=FAIL)",
+    "ok": true
+  },
+  "django__django-15525": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/53",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/53 (failing: Natural keys with foreing keys in dependencies works in a multiple=ERROR)",
+    "ok": true
+  },
+  "django__django-15572": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/10",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/10 (failing: test_template_dirs_ignore_empty_path (template_tests.test_autoreloader.TemplateReloadTests)=FAIL)",
+    "ok": true
+  },
+  "django__django-15561": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/141",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/141 (failing: test_alter_field_choices_noop (schema.tests.SchemaTests)=FAIL)",
+    "ok": true
+  },
+  "django__django-15629": {
+    "gold": "FAIL_TO_PASS 2/2, PASS_TO_PASS broken 0/115",
+    "empty": "FAIL_TO_PASS 0/2, PASS_TO_PASS broken 0/115 (failing: AlterField operation of db_collation on primary keys changes any FKs=FAIL; Creation of models with a FK to a PK with db_collation.=FAIL)",
+    "ok": true
+  },
+  "django__django-15695": {
+    "gold": "FAIL_TO_PASS 1/1, PASS_TO_PASS broken 0/123",
+    "empty": "FAIL_TO_PASS 0/1, PASS_TO_PASS broken 0/123 (failing: test_rename_index_unnamed_index (migrations.test_operations.OperationTests)=ERROR)",
+    "ok": true
+  },
+  "django__django-15569": {
+    "gold": "FAIL_TO_PASS 2/2, PASS_TO_PASS broken 0/242",
+    "empty": "FAIL_TO_PASS 0/2, PASS_TO_PASS broken 0/242 (failing: test_get_transforms (model_fields.test_jsonfield.TestMethods)=FAIL; test_lookups_caching (custom_lookups.tests.LookupTests)=FAIL)",
+    "ok": true
+  }
+}

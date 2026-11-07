@@ -5,6 +5,8 @@ export interface CheckResult {
   /** 0..1 */
   score: number;
   details: string;
+  /** The check could not be completed (infrastructure, not the agent): excluded from scores. */
+  infra?: boolean;
 }
 
 export interface TaskContext {
@@ -21,7 +23,7 @@ export interface FixtureState {
 
 export interface Step {
   prompt(ctx: TaskContext): string;
-  check(ctx: TaskContext, expected: any): CheckResult;
+  check(ctx: TaskContext, expected: any): CheckResult | Promise<CheckResult>;
 }
 
 /**
@@ -45,4 +47,10 @@ export interface Task {
   steps: Step[];
   /** For the toolsmith arm: what future sessions will do here (default: the first step's prompt). */
   toolsmithBrief?(ctx: TaskContext): string;
+  /** Tasks that share an environment share one forge (e.g. all instances of one repository). Default: the task id. */
+  forgeKey?: string;
+  /** Prepares the forge's checkout (default: setup). */
+  forgeSetup?(ctx: TaskContext): void;
+  /** Extra environment variables for the agent's session (and the trod server), e.g. a virtualenv on PATH. */
+  env?(ctx: TaskContext): Record<string, string>;
 }

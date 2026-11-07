@@ -22,6 +22,7 @@ import type { AddressInfo } from 'node:net';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { TASKS } from '../tasks/index.ts';
+import { sweTasks } from '../swe/swe.ts';
 import type { FixtureState, Task } from '../lib/types.ts';
 import { collectMetrics, type RunRecord, type StepOutcome } from './metrics.ts';
 
@@ -38,6 +39,10 @@ export const NUDGE =
 const { values } = parseArgs({
   options: {
     tasks: { type: 'string' },
+    // swe-django4: SWE-bench Verified Django 4.0/4.1 instances (experiments/swe); --tasks picks instance ids, or
+    // --sample <file> a JSON list of ids.
+    suite: { type: 'string' },
+    sample: { type: 'string' },
     arms: { type: 'string', default: 'baseline,genesis,nudged' },
     seeds: { type: 'string', default: '3' },
     model: { type: 'string', default: 'claude-sonnet-5-5' },
@@ -65,7 +70,18 @@ if (!apiKey) {
   process.exit(1);
 }
 
-const tasks = values.tasks ? TASKS.filter((t) => values.tasks!.split(',').includes(t.id)) : TASKS;
+const pool = values.suite === 'swe-django4' ? sweTasks() : TASKS;
+if (values.suite && !pool.length) {
+  console.error(`suite ${values.suite}: no instances (run experiments/swe/setup.sh, or set SWE_HOME)`);
+  process.exit(1);
+}
+const wanted = values.tasks?.split(',') ?? (values.sample ? (JSON.parse(readFileSync(values.sample, 'utf8')) as string[]) : undefined);
+const tasks = wanted ? pool.filter((t) => wanted.includes(t.id)) : pool;
+const unknown = wanted?.filter((id) => !pool.some((t) => t.id === id)) ?? [];
+if (unknown.length) {
+  console.error(`unknown task ids: ${unknown.join(', ')}`);
+  process.exit(1);
+}
 const arms = values.arms!.split(',') as Arm[];
 const seeds = Number(values.seeds);
 const outDir = path.resolve(values.out ?? path.join(ROOT, 'results/runs', new Date().toISOString().replace(/[:.]/g, '-')));
@@ -199,12 +215,13 @@ function listEntries(dir: string): string[] {
 /** One forge per task, shared by every forged run (and by later runner invocations through --forge-dir). */
 const forges = new Map<string, Promise<{ library: string; info: unknown }>>();
 function ensureForge(task: Task): Promise<{ library: string; info: unknown }> {
-  if (!forges.has(task.id)) forges.set(task.id, doForge(task));
-  return forges.get(task.id)!;
+  const key = task.forgeKey ?? task.id;
+  if (!forges.has(key)) forges.set(key, doForge(task));
+  return forges.get(key)!;
 }
 
 async function doForge(task: Task): Promise<{ library: string; info: unknown }> {
-  const dir = path.join(path.resolve(values['forge-dir'] ?? path.join(outDir, '_forge')), task.id);
+  const dir = path.join(path.resolve(values['forge-dir'] ?? path.join(outDir, '_forge')), task.forgeKey ?? task.id);
   const work = path.join(dir, 'work');
   const library = path.join(work, '.trod', 'library');
   const done = path.join(dir, 'forge.json');
@@ -212,18 +229,18 @@ async function doForge(task: Task): Promise<{ library: string; info: unknown }> 
   mkdirSync(work, { recursive: true });
   const home = path.join(dir, 'home');
   mkdirSync(path.join(home, '.claude'), { recursive: true });
-  const expected = task.setup({ work });
+  const expected = task.forgeSetup ? (task.forgeSetup({ work }), null) : task.setup({ work });
   const state = { step: 0 };
   const { server, baseUrl } = await startFixture(task, expected, state);
   writeServiceUrl(work, baseUrl);
   const brief = task.toolsmithBrief?.({ work, baseUrl }) ?? `Future sessions will get tasks like this one (do not solve it):\n\n${task.steps[0]!.prompt({ work, baseUrl })}`;
   const urlNote = baseUrl ? `\n\nThe service's base URL changes between sessions (today it is ${baseUrl}). Tools must read it from the file .service/base-url in the project directory (ctx.projectDir) instead of hardcoding it or taking it as a required input.` : '';
   writeFileSync(path.join(dir, 'brief.md'), brief + urlNote);
-  console.log(`forging ${task.id} with ${values['forge-model']} …`);
+  console.log(`forging ${task.forgeKey ?? task.id} with ${values['forge-model']} …`);
   const t0 = Date.now();
   const output = await new Promise<string>((resolve) => {
     const child = spawn(process.execPath, [path.join(PLUGIN_DIR, 'bin', 'trod'), 'forge', '--dir', work, '--brief', `@${path.join(dir, 'brief.md')}`, '--model', values['forge-model']!, '--stream', path.join(dir, 'forge.jsonl'), '--json'], {
-      env: cleanEnv(home, {}),
+      env: cleanEnv(home, { ...task.env?.({ work }) }),
     });
     let text = '';
     child.stdout.on('data', (c: Buffer) => (text += c));
@@ -242,7 +259,7 @@ async function doForge(task: Task): Promise<{ library: string; info: unknown }> 
   info.wallMs = Date.now() - t0;
   info.model = values['forge-model'];
   writeFileSync(done, JSON.stringify(info, null, 2));
-  console.log(`forged ${task.id}: ${JSON.stringify((info as { promoted?: string[] }).promoted ?? [])}`);
+  console.log(`forged ${task.forgeKey ?? task.id}: ${JSON.stringify((info as { promoted?: string[] }).promoted ?? [])}`);
   return { library, info };
 }
 
@@ -283,10 +300,10 @@ async function runOne(task: Task, arm: Arm, seed: number): Promise<RunRecord> {
     writeFileSync(mcpConfig, JSON.stringify({ mcpServers: { trod: { command: 'node', args: [path.join(PLUGIN_DIR, 'server/trod-server.mjs')] } } }));
     common.push('--plugin-dir', PLUGIN_DIR, '--mcp-config', mcpConfig, '--allowedTools', [...BASE_TOOLS, 'mcp__trod__*'].join(','));
     if (arm === 'nudged') common.push('--append-system-prompt', NUDGE);
-    env = cleanEnv(home, { TROD_ALLOW_EXEC: '1', TROD_PROJECT_DIR: work, TROD_SESSION_ID: sessionTag });
+    env = cleanEnv(home, { ...task.env?.({ work }), TROD_ALLOW_EXEC: '1', TROD_PROJECT_DIR: work, TROD_SESSION_ID: sessionTag });
   } else {
     common.push('--allowedTools', BASE_TOOLS.join(','));
-    env = cleanEnv(home, {});
+    env = cleanEnv(home, { ...task.env?.({ work }) });
   }
 
   // Each step is one `claude -p` call; follow-ups resume the same session.
@@ -329,7 +346,7 @@ async function runOne(task: Task, arm: Arm, seed: number): Promise<RunRecord> {
     sessionId = readSessionId(streamFile) ?? sessionId;
     let check;
     try {
-      check = step.check({ work, baseUrl }, expected);
+      check = await step.check({ work, baseUrl }, expected);
     } catch (e) {
       check = { pass: false, score: 0, details: `checker crashed: ${(e as Error).message}` };
     }
