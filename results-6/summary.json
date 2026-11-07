@@ -12,7 +12,8 @@
     "meanTokens": 209962,
     "meanCostUsd": 0.00548,
     "meanTurns": 8.2,
-    "usedLibrary": 0
+    "usedLibrary": 0,
+    "withNotes": 0
   },
   {
     "condition": "v1-normal",
@@ -27,7 +28,8 @@
     "meanTokens": 201595,
     "meanCostUsd": 0.00541,
     "meanTurns": 7.8,
-    "usedLibrary": 0
+    "usedLibrary": 0,
+    "withNotes": 0
   },
   {
     "condition": "v1-normal",
@@ -42,7 +44,8 @@
     "meanTokens": 230498,
     "meanCostUsd": 0.00595,
     "meanTurns": 8.2,
-    "usedLibrary": 27
+    "usedLibrary": 27,
+    "withNotes": 0
   },
   {
     "condition": "v1-challenge",
@@ -57,7 +60,8 @@
     "meanTokens": 324790,
     "meanCostUsd": 0.00797,
     "meanTurns": 10.6,
-    "usedLibrary": 0
+    "usedLibrary": 0,
+    "withNotes": 0
   },
   {
     "condition": "v1-challenge",
@@ -72,7 +76,8 @@
     "meanTokens": 347815,
     "meanCostUsd": 0.00823,
     "meanTurns": 11.4,
-    "usedLibrary": 36
+    "usedLibrary": 36,
+    "withNotes": 0
   },
   {
     "condition": "v2-normal",
@@ -87,7 +92,8 @@
     "meanTokens": 197462,
     "meanCostUsd": 0.00546,
     "meanTurns": 7.7,
-    "usedLibrary": 0
+    "usedLibrary": 0,
+    "withNotes": 0
   },
   {
     "condition": "v2-normal",
@@ -102,7 +108,8 @@
     "meanTokens": 230049,
     "meanCostUsd": 0.00619,
     "meanTurns": 8.5,
-    "usedLibrary": 27
+    "usedLibrary": 27,
+    "withNotes": 0
   },
   {
     "condition": "v2-challenge",
@@ -117,7 +124,8 @@
     "meanTokens": 336985,
     "meanCostUsd": 0.00836,
     "meanTurns": 10.8,
-    "usedLibrary": 0
+    "usedLibrary": 0,
+    "withNotes": 0
   },
   {
     "condition": "v2-challenge",
@@ -132,7 +140,8 @@
     "meanTokens": 379177,
     "meanCostUsd": 0.00902,
     "meanTurns": 12,
-    "usedLibrary": 31
+    "usedLibrary": 31,
+    "withNotes": 0
   },
   {
     "condition": "notes-normal",
@@ -147,7 +156,8 @@
     "meanTokens": 216383,
     "meanCostUsd": 0.00583,
     "meanTurns": 8.4,
-    "usedLibrary": 0
+    "usedLibrary": 0,
+    "withNotes": 60
   },
   {
     "condition": "notes-normal",
@@ -162,7 +172,8 @@
     "meanTokens": 240785,
     "meanCostUsd": 0.0064,
     "meanTurns": 9.1,
-    "usedLibrary": 47
+    "usedLibrary": 47,
+    "withNotes": 60
   },
   {
     "condition": "notes-challenge",
@@ -177,7 +188,8 @@
     "meanTokens": 297272,
     "meanCostUsd": 0.00761,
     "meanTurns": 10.2,
-    "usedLibrary": 0
+    "usedLibrary": 0,
+    "withNotes": 60
   },
   {
     "condition": "notes-challenge",
@@ -192,6 +204,7 @@
     "meanTokens": 335069,
     "meanCostUsd": 0.00813,
     "meanTurns": 11.4,
-    "usedLibrary": 46
+    "usedLibrary": 46,
+    "withNotes": 60
   }
 ]

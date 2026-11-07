@@ -61,8 +61,9 @@ conventions, and those reach the model only if it reads them.
 
 ## Round 6b: the conventions as always-loaded notes
 
-The v2 library failed because its lessons only reached the model when it called `aw_context`, which it did in about
-half the runs. Round 6b puts the same checklist (rewritten without tool references:
+The v2 library tied, and one likely reason is reach: its lessons sat mainly in `aw_context`'s output (called in about
+half the forged runs) and in tool descriptions, which the library cards clip. The runs do not prove that this was
+the only way they could reach the model. Round 6b puts the same checklist (rewritten without tool references:
 `experiments/appworld/notes/CLAUDE.md`, about 3 KB) into each session's work directory as `CLAUDE.md`, which
 Claude Code always loads. Same 120 test tasks, Haiku 5.5, one seed (`AW_NOTES=…`).
 
@@ -96,7 +97,11 @@ AW_HOME=/opt/appworld AW_SERVER_USER=awenv node experiments/runner/run.ts --suit
   --as-user agent --seeds 1 --forge-dir results/runs/aw-forge --out results/runs/aw-normal
 ```
 
-Round 6b adds `AW_NOTES=$PWD/experiments/appworld/notes/CLAUDE.md` to the same command.
+Round 6b adds `AW_NOTES=$PWD/experiments/appworld/notes/CLAUDE.md` to the same command, with a separate `--out`
+(e.g. `results/runs/aw-normal-notes`): the runner skips task/arm/seed combinations that already have a result. Use
+`--suite appworld:test_challenge --sample experiments/appworld/sample-test-challenge.json` for the challenge sample.
+The published notes runs were checked: all 240 had a `CLAUDE.md` identical to `notes/CLAUDE.md`, and none of the
+240 runs without notes had one (`analyze.ts` records this per run as `notes`).
 
 `runs.jsonl` and `summary.json` hold the per-run numbers (no task text: AppWorld data may only be redistributed
 encrypted); `forged-library/` is the v2 library; `forge-1.json` and `forge-2.json` are the forge records.
