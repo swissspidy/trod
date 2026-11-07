@@ -4,6 +4,8 @@
  *   baseline  no MCP servers, no trod skill
  *   genesis   the trod server (--mcp-config) and skill (--plugin-dir), with TROD_ALLOW_EXEC=1; the agent decides
  *   nudged    as genesis, plus an appended system prompt telling the agent to build repeated operations as trod tools
+ *   toolsmith as genesis (no nudge), after one dedicated session that builds robust, general tools for the task's
+ *             environment (promoted to .trod/library; its cost is reported separately)
  *   library   as genesis (no nudge), but .trod/library/ starts with the tools a nudged run of the same task built
  *             (--library-from <runs dir>, seed 1): the cross-session reuse that `trod promote` is for
  *
@@ -12,7 +14,7 @@
  * Needs an API key in ANTHROPIC_API_KEY or TEST_API_KEY.
  */
 import { spawn } from 'node:child_process';
-import { cpSync, createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, cpSync, createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import path from 'node:path';
@@ -24,7 +26,7 @@ import { collectMetrics, type RunRecord, type StepOutcome } from './metrics.ts';
 const ROOT = path.resolve(import.meta.dirname, '../..');
 const PLUGIN_DIR = path.join(ROOT, 'plugin');
 
-export type Arm = 'baseline' | 'genesis' | 'nudged' | 'library';
+export type Arm = 'baseline' | 'scripts' | 'genesis' | 'nudged' | 'library' | 'toolsmith';
 
 /** Appended to the system prompt in the nudged arm. */
 export const NUDGE =
@@ -42,6 +44,11 @@ const { values } = parseArgs({
     budget: { type: 'string', default: '3' },
     out: { type: 'string' },
     'library-from': { type: 'string' },
+    // resume: each step is a follow-up prompt in the same session (claude -p --resume).
+    // sessions: each step is a fresh session in a fresh checkout, as with ephemeral cloud containers. Only
+    // "committed" state carries over: nothing for baseline, the whole work dir for scripts, and .trod/library for
+    // the trod arms (the harness promotes every valid session tool between sessions, like `trod promote` + commit).
+    mode: { type: 'string', default: 'resume' },
     // ENABLE_TOOL_SEARCH for every arm; empty keeps Claude Code's default (on). Turning it off loads every tool
     // schema up front (about 13k more tokens per request) and makes each new trod tool invalidate the prompt cache.
     'tool-search': { type: 'string', default: '' },
@@ -59,6 +66,15 @@ const arms = values.arms!.split(',') as Arm[];
 const seeds = Number(values.seeds);
 const outDir = path.resolve(values.out ?? path.join(ROOT, 'results/runs', new Date().toISOString().replace(/[:.]/g, '-')));
 mkdirSync(outDir, { recursive: true });
+
+/** The toolsmith arm's one-off session. */
+export const TOOLSMITH =
+  'You are preparing tools for future sessions, not solving a task. Future sessions will start fresh, with no memory of this one, ' +
+  'and will be able to call the trod tools you build (they get promoted to .trod/library). Study the environment described below, then ' +
+  'build a few robust, general trod tools (.trod/tools/<name>.mjs) that make such tasks fast and reliable: handle authentication, pagination, ' +
+  'rate limits (back off on 429), and parse every value into a clean, normalized form. Prefer general capabilities (fetch clean records with ' +
+  'filters) over answers to one specific question. Document what each tool handles in its description and whenToUse, include examples ' +
+  'that pass, and test each tool with trod_run. Do not write answer files. When finished, reply DONE.';
 
 const BASE_TOOLS = ['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep', 'ToolSearch', 'TodoWrite'];
 const DENIED = ['WebFetch', 'WebSearch', 'Task', 'Agent'];
@@ -123,6 +139,51 @@ function readSessionId(streamFile: string): string | undefined {
   return undefined;
 }
 
+/**
+ * Session mode: start step `i` in a fresh checkout. Trod arms first promote the previous session's valid tools to
+ * .trod/library (examples must pass), which carries over with the trod logs; the scripts arm keeps everything.
+ */
+async function newCheckout(task: Task, arm: Arm, work: string, baseUrl: string | undefined, i: number): Promise<void> {
+  if (arm === 'scripts') {
+    task.prepareStep?.({ work, baseUrl }, i);
+    return;
+  }
+  const keep = path.join(path.dirname(work), `keep-${i}`);
+  rmSync(keep, { recursive: true, force: true });
+  if (arm !== 'baseline') {
+    for (const entry of listEntries(path.join(work, '.trod', 'tools'))) {
+      const name = path.basename(entry, '.mjs');
+      // Async: the fixture server runs in this process, and the tool's examples may call it.
+      const out = await new Promise<string>((resolve) => {
+        const child = spawn(process.execPath, [path.join(PLUGIN_DIR, 'bin', 'trod'), 'promote', name, '--dir', work], {
+          env: cleanEnv(process.env.HOME ?? '/tmp', { TROD_ALLOW_EXEC: '1' }),
+        });
+        let text = '';
+        child.stdout.on('data', (c: Buffer) => (text += c));
+        child.stderr.on('data', (c: Buffer) => (text += c));
+        child.on('close', () => resolve(text.trim()));
+      });
+      appendFileSync(path.join(path.dirname(work), 'promotions.log'), `before session ${i + 1}: ${name}: ${out}\n`);
+    }
+    for (const d of ['library', 'logs']) {
+      const from = path.join(work, '.trod', d);
+      if (existsSync(from)) cpSync(from, path.join(keep, d), { recursive: true });
+    }
+  }
+  rmSync(work, { recursive: true, force: true });
+  mkdirSync(work, { recursive: true });
+  task.setup({ work, baseUrl });
+  for (let j = 1; j <= i; j++) task.prepareStep?.({ work, baseUrl }, j);
+  if (existsSync(keep)) {
+    cpSync(keep, path.join(work, '.trod'), { recursive: true });
+    rmSync(keep, { recursive: true, force: true });
+  }
+}
+
+function listEntries(dir: string): string[] {
+  return existsSync(dir) ? readdirSync(dir).filter((f) => !f.startsWith('.')).map((f) => path.join(dir, f)) : [];
+}
+
 async function runOne(task: Task, arm: Arm, seed: number): Promise<RunRecord> {
   const id = `${task.id}/${arm}-s${seed}`;
   const runDir = path.join(outDir, task.id, `${arm}-s${seed}`);
@@ -146,7 +207,7 @@ async function runOne(task: Task, arm: Arm, seed: number): Promise<RunRecord> {
   const sessionTag = `${task.id}-${arm}-s${seed}`;
   const common = ['--output-format', 'stream-json', '--verbose', '--model', values.model!, '--max-budget-usd', values.budget!, '--strict-mcp-config', '--disallowedTools', DENIED.join(',')];
   let env: Record<string, string>;
-  if (arm !== 'baseline') {
+  if (arm !== 'baseline' && arm !== 'scripts') {
     // --strict-mcp-config also drops plugin MCP servers, so the server is passed explicitly; the plugin
     // still provides the skill.
     const mcpConfig = path.join(runDir, 'mcp.json');
@@ -160,6 +221,22 @@ async function runOne(task: Task, arm: Arm, seed: number): Promise<RunRecord> {
   }
 
   // Each step is one `claude -p` call; follow-ups resume the same session.
+  let toolsmith: { costUsd: number; turns: number; wallMs: number; usage: unknown; library: string[] } | undefined;
+  if (arm === 'toolsmith') {
+    const brief = task.toolsmithBrief?.({ work, baseUrl }) ?? `Future sessions will get tasks like this one:\n\n${task.steps[0]!.prompt({ work, baseUrl })}`;
+    const prompt = `${TOOLSMITH}\n\n${brief}`;
+    writeFileSync(path.join(runDir, 'toolsmith-prompt.txt'), prompt);
+    const tsHome = path.join(runDir, 'home-toolsmith');
+    mkdirSync(path.join(tsHome, '.claude'), { recursive: true });
+    const tsEnv = { ...env, HOME: tsHome, CLAUDE_CONFIG_DIR: path.join(tsHome, '.claude') };
+    const tsStream = path.join(runDir, 'toolsmith.jsonl');
+    const t0 = Date.now();
+    await runClaude(['-p', prompt, ...common], work, tsEnv, tsStream, path.join(runDir, 'toolsmith-stderr.txt'), Number(values.timeout) * 1000);
+    const res = readFileSync(tsStream, 'utf8').split('\n').filter((l) => l.includes('"type":"result"')).map((l) => JSON.parse(l)).at(-1);
+    // Promote what it built, then start the measured sessions from a fresh checkout that has only the library.
+    await newCheckout(task, 'toolsmith', work, baseUrl, 0);
+    toolsmith = { costUsd: res?.total_cost_usd ?? 0, turns: res?.num_turns ?? 0, wallMs: Date.now() - t0, usage: res?.usage ?? {}, library: listEntries(path.join(work, '.trod', 'library')).map((e) => path.basename(e)) };
+  }
   const started = Date.now();
   const steps: StepOutcome[] = [];
   let sessionId: string | undefined;
@@ -168,10 +245,12 @@ async function runOne(task: Task, arm: Arm, seed: number): Promise<RunRecord> {
   const deadline = started + Number(values.timeout) * 1000;
   for (const [i, step] of task.steps.entries()) {
     state.step = i;
-    if (i > 0) task.prepareStep?.({ work, baseUrl }, i);
+    if (i > 0 && (values.mode === 'sessions' || arm === 'toolsmith')) await newCheckout(task, arm, work, baseUrl, i);
+    else if (i > 0) task.prepareStep?.({ work, baseUrl }, i);
     const prompt = step.prompt({ work, baseUrl });
     writeFileSync(path.join(runDir, `prompt-${i + 1}.txt`), prompt);
-    const args = ['-p', prompt, ...common, ...(sessionId ? ['--resume', sessionId] : [])];
+    const resume = values.mode === 'sessions' || arm === 'toolsmith' ? [] : sessionId ? ['--resume', sessionId] : [];
+    const args = ['-p', prompt, ...common, ...resume];
     const streamFile = path.join(runDir, `stream-${i + 1}.jsonl`);
     const stepStarted = Date.now();
     const exit = await runClaude(args, work, env, streamFile, path.join(runDir, `stderr-${i + 1}.txt`), Math.max(1000, deadline - Date.now()));
@@ -197,7 +276,8 @@ async function runOne(task: Task, arm: Arm, seed: number): Promise<RunRecord> {
     score: scores.reduce((a, b) => a + b, 0) / scores.length,
     details: steps.map((s) => `step ${s.step}: ${s.check.pass ? 'ok' : s.check.details}`).join(' | '),
   };
-  const record = collectMetrics({ id, task, arm, seed, runDir, work, home, wallMs, exitCode, timedOut, check, steps, model: values.model! });
+  const record: RunRecord & { toolsmith?: unknown } = collectMetrics({ id, task, arm, seed, runDir, work, home, wallMs, exitCode, timedOut, check, steps, model: values.model! });
+  if (toolsmith) record.toolsmith = toolsmith;
   writeFileSync(path.join(runDir, 'result.json'), JSON.stringify(record, null, 2));
   console.log(
     `${record.check.pass ? 'PASS' : 'FAIL'} ${id.padEnd(34)} score=${record.check.score.toFixed(2)} turns=${record.turns} tokens=${record.tokens.total} cost=$${record.costUsd.toFixed(3)} wall=${Math.round(wallMs / 1000)}s` +

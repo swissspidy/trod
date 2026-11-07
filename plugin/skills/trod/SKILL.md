@@ -27,6 +27,13 @@ instead.** It is the same amount of work: one file. What you get on top of a scr
   (`queries: [...]`, `ids: [...]`) and return all the answers. When you do make several independent calls, send
   them in parallel in one message.
 
+- **Capabilities, not answers.** Tomorrow's question will be different. A tool that returns clean records
+  (`inventory_items({warehouse, updated_since})`: authenticated, all pages fetched, rate limits respected, `"€1.234,50"`
+  parsed to `1234.5`) answers it; a tool that computes today's total (`stock_value_per_warehouse`) does not. Put the
+  hard-won knowledge (the auth header that took three tries, the date format the API wants, the reversal rule) in
+  the capability tool and say so in its `whenToUse`, so a later session can rely on it without rediscovering it.
+  Compute the answer itself with a quick script or a second small tool that calls the same helper code.
+
 The best tools wrap a **fiddly, multi-step operation you will do many times with judgment in between**. Examples:
 an authenticated API request (signing, pagination, retries) that returns only the fields you need; a browser
 login-and-read; a parser for a log or code format; a lookup across several files. One-off steps stay in Bash.
@@ -61,6 +68,8 @@ export default async function run(input, ctx) {
 - `description` says what the tool returns; `whenToUse` says when to pick it. Both show up in your tool list.
 - Inputs are validated against `inputSchema` before the tool runs.
 - Throw an `Error` with a clear message on bad input or a failed request; trod returns it as a tool error.
+- Tools time out after 120 s; set `meta.timeoutMs` (up to 600000) for slow ones, and make API tools back off on
+  429 instead of retrying immediately.
 - The working directory is the project root. The environment is scrubbed: API keys and tokens from your
   environment are not visible, so read credentials the task gives you from their files.
 

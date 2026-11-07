@@ -17061,8 +17061,8 @@ var Server = class extends Protocol {
 
 // packages/server/src/executor.ts
 import { spawn } from "node:child_process";
-var DEFAULT_TIMEOUT_MS = 3e4;
-var MAX_TIMEOUT_MS = 3e5;
+var DEFAULT_TIMEOUT_MS = 12e4;
+var MAX_TIMEOUT_MS = 6e5;
 var DEFAULT_MAX_OUTPUT_CHARS = 25e3;
 var MAX_CAPTURE_BYTES = 8 * 1024 * 1024;
 var ENV_ALLOWLIST = /* @__PURE__ */ new Set([
@@ -17668,7 +17668,7 @@ async function runToolExamples(tool, opts) {
 }
 
 // packages/server/src/server.ts
-var VERSION = "0.1.0";
+var VERSION = "0.2.0";
 var STATUS_TOOL = {
   name: "trod_status",
   description: 'Shows the trod tool registry: which tools in .trod/tools (session) and .trod/library are live, which failed validation and why (schema, syntax, failing examples), and per-tool usage. Call it after writing or changing a tool to confirm it registered. Pass "name" for one tool in detail.',
@@ -17700,7 +17700,7 @@ var SERVER_INSTRUCTIONS = `trod turns a file into a tool you can call. When you 
 Write .trod/tools/<name>.mjs (Node ESM, built-ins only):
   export const meta = { description: 'what it returns', whenToUse: 'when to call it', inputSchema: { type: 'object', properties: { \u2026 }, required: [ \u2026 ] } };
   export default async (input, ctx) => result;   // return only what you need: compact objects or text
-Design for batches: let one call take a list (e.g. queries: [...]) and return all answers, and send independent calls in parallel in one message; every extra turn costs. The Write result says whether the tool is live or shows the errors. Then call it with trod_run {"tool": "<name>", "input": { \u2026 }}: no loading needed, also in later turns. Change the file in place when needs change. Tools in .trod/library are verified tools from earlier sessions: call them directly (trod_status lists them). The trod skill has details.`;
+Build capabilities, not answers: a tool that fetches clean, normalized records (auth, paging, retries and format quirks handled) serves tomorrow's different question; a tool that computes today's answer does not. Design for batches: let one call take a list (e.g. queries: [...]) and return all answers, and send independent calls in parallel in one message; every extra turn costs. The Write result says whether the tool is live or shows the errors. Then call it with trod_run {"tool": "<name>", "input": { \u2026 }}: no loading needed, also in later turns. Change the file in place when needs change. Tools in .trod/library are verified tools from earlier sessions: call them directly (trod_status lists them). The trod skill has details.`;
 var RESERVED = /* @__PURE__ */ new Set([STATUS_TOOL.name, RUN_TOOL.name]);
 function sessionIdFromEnv(env) {
   return env.TROD_SESSION_ID || env.CLAUDE_CODE_SESSION_ID || env.CLAUDE_SESSION_ID || void 0;

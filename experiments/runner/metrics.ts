@@ -25,7 +25,7 @@ export interface RunRecord {
   id: string;
   task: string;
   kind: Task['kind'];
-  arm: 'baseline' | 'genesis' | 'nudged' | 'library';
+  arm: 'baseline' | 'scripts' | 'genesis' | 'nudged' | 'library' | 'toolsmith';
   seed: number;
   model: string;
   check: CheckResult;
@@ -127,7 +127,7 @@ const isCreation = (t: { name: string; input: any }) =>
 export function collectMetrics(r: {
   id: string;
   task: Task;
-  arm: 'baseline' | 'genesis' | 'nudged' | 'library';
+  arm: 'baseline' | 'scripts' | 'genesis' | 'nudged' | 'library' | 'toolsmith';
   seed: number;
   runDir: string;
   work: string;

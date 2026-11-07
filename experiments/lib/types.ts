@@ -43,4 +43,6 @@ export interface Task {
   /** Optional fixture HTTP server. */
   handler?: (expected: any, state: FixtureState) => (req: IncomingMessage, res: ServerResponse) => void;
   steps: Step[];
+  /** For the toolsmith arm: what future sessions will do here (default: the first step's prompt). */
+  toolsmithBrief?(ctx: TaskContext): string;
 }

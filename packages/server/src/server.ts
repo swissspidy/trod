@@ -8,7 +8,7 @@ import { Registry, describeForClient, type RegistryChange } from './registry.ts'
 import type { LoadedTool, TrodPaths } from './types.ts';
 import { validateInput } from './validate.ts';
 
-export const VERSION = '0.1.0';
+export const VERSION = '0.2.0';
 
 export interface TrodServerOptions {
   paths: TrodPaths;
@@ -74,7 +74,7 @@ export const SERVER_INSTRUCTIONS = `trod turns a file into a tool you can call. 
 Write .trod/tools/<name>.mjs (Node ESM, built-ins only):
   export const meta = { description: 'what it returns', whenToUse: 'when to call it', inputSchema: { type: 'object', properties: { … }, required: [ … ] } };
   export default async (input, ctx) => result;   // return only what you need: compact objects or text
-Design for batches: let one call take a list (e.g. queries: [...]) and return all answers, and send independent calls in parallel in one message; every extra turn costs. The Write result says whether the tool is live or shows the errors. Then call it with trod_run {"tool": "<name>", "input": { … }}: no loading needed, also in later turns. Change the file in place when needs change. Tools in .trod/library are verified tools from earlier sessions: call them directly (trod_status lists them). The trod skill has details.`;
+Build capabilities, not answers: a tool that fetches clean, normalized records (auth, paging, retries and format quirks handled) serves tomorrow's different question; a tool that computes today's answer does not. Design for batches: let one call take a list (e.g. queries: [...]) and return all answers, and send independent calls in parallel in one message; every extra turn costs. The Write result says whether the tool is live or shows the errors. Then call it with trod_run {"tool": "<name>", "input": { … }}: no loading needed, also in later turns. Change the file in place when needs change. Tools in .trod/library are verified tools from earlier sessions: call them directly (trod_status lists them). The trod skill has details.`;
 
 export const RESERVED = new Set([STATUS_TOOL.name, RUN_TOOL.name]);
 

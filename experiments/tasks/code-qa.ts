@@ -164,6 +164,10 @@ function render(g: Graph): Record<string, string> {
     entry.map((m, i) => `import * as entry${i} from './${m.path}';`).join('\n') +
     `\n\nexport function main(input) {\n${entry.map((m, i) => `  entry${i}.${m.fns.find((f) => !f.isDefault)?.name ?? 'default'}?.(input);`).join('\n')}\n}\n`;
   files['package.json'] = JSON.stringify({ name: 'monolith', type: 'module', private: true }, null, 2) + '\n';
+  // main.js:main is a function too: it calls the first named export of each entry module.
+  const main: Fn = { id: 'main.js:main', module: 'main.js', name: 'main', isDefault: false, calls: entry.map((m) => m.fns.find((f) => !f.isDefault)?.id).filter((x): x is string => !!x) };
+  g.all.push(main);
+  g.byId.set(main.id, main);
   return files;
 }
 
@@ -215,6 +219,10 @@ type Question =
 function questions(g: Graph, files: Record<string, string>): Question[][] {
   const r = rng(99 + 1);
   const closure = new Map(g.all.map((f) => [f.id, transitiveCallees(g, f.id)]));
+  // Questions are chosen among module functions only (main.js:main was added to the graph later, and the choice of
+  // questions must stay the same); answers count every caller, main included.
+  const fns = g.all.filter((f) => f.module !== 'main.js');
+  const callersSel = (t: string) => fns.filter((f) => closure.get(f.id)!.has(t)).map((f) => f.id).sort();
   const callers = (t: string) => g.all.filter((f) => closure.get(f.id)!.has(t)).map((f) => f.id).sort();
   const pick = <T>(xs: T[], pred: (x: T) => boolean) => {
     const ok = xs.filter(pred);
@@ -225,20 +233,20 @@ function questions(g: Graph, files: Record<string, string>): Question[][] {
   for (let s = 0; s < 4; s++) {
     const qs: Question[] = [];
     // 1. transitive callers of a function with a moderate fan-in
-    const t = pick(g.all, (f) => !usedTargets.has(f.id) && callers(f.id).length >= 3 && callers(f.id).length <= 12);
+    const t = pick(fns, (f) => !usedTargets.has(f.id) && callersSel(f.id).length >= 3 && callersSel(f.id).length <= 12);
     usedTargets.add(t.id);
     qs.push({ id: 'q1', kind: 'callers', target: t.id, text: `Which functions call \`${t.id}\` directly or transitively? Answer with a sorted array of ids.`, answer: callers(t.id) });
     // 2. shortest call chain of length >= 3
     let from: Fn, to: string, len: number;
     do {
-      from = pick(g.all, (f) => closure.get(f.id)!.size >= 4);
+      from = pick(fns, (f) => closure.get(f.id)!.size >= 4);
       const reach = [...closure.get(from.id)!];
       to = reach[Math.floor(r.next() * reach.length)]!;
       len = shortestPathLen(g, from.id, to);
     } while (len < 3);
     qs.push({ id: 'q2', kind: 'path', from: from.id, to, length: len, text: `What is a shortest call chain from \`${from.id}\` to \`${to}\`? Answer with the array of ids from the first to the last function, inclusive.` });
     // 3. transitive callee count
-    const f3 = pick(g.all, (f) => closure.get(f.id)!.size >= 5 && !usedTargets.has(f.id));
+    const f3 = pick(fns, (f) => closure.get(f.id)!.size >= 5 && !usedTargets.has(f.id));
     usedTargets.add(f3.id);
     qs.push({ id: 'q3', kind: 'count', fn: f3.id, text: `How many distinct functions does \`${f3.id}\` call directly or transitively? Answer with a number.`, answer: closure.get(f3.id)!.size });
     // 4. alternate: another callers question, or the unreachable-modules question in the last step
@@ -255,7 +263,7 @@ function questions(g: Graph, files: Record<string, string>): Question[][] {
       const un = [...mg.keys()].filter((f) => !seen.has(f) && !f.endsWith('/index.js')).map((f) => f.replace(/^src\//, '')).sort();
       qs.push({ id: 'q4', kind: 'unreachable', text: 'Which modules (excluding the index.js barrels) are not reachable from src/main.js through imports and re-exports? Answer with a sorted array of paths relative to src/, e.g. "billing/core.js".', answer: un });
     } else {
-      const t4 = pick(g.all, (f) => !usedTargets.has(f.id) && callers(f.id).length >= 2 && callers(f.id).length <= 15);
+      const t4 = pick(fns, (f) => !usedTargets.has(f.id) && callersSel(f.id).length >= 2 && callersSel(f.id).length <= 15);
       usedTargets.add(t4.id);
       qs.push({ id: 'q4', kind: 'callers', target: t4.id, text: `Which functions call \`${t4.id}\` directly or transitively? Answer with a sorted array of ids.`, answer: callers(t4.id) });
     }
@@ -284,7 +292,7 @@ function promptFor(i: number): string {
 
 ${qs}
 
-Write ${OUT(i)}: a JSON object {"q1": …, "q2": …, …}.${i === 0 ? ' I will have more questions about this code base afterwards.' : ''} When finished, reply DONE.`;
+Write ${OUT(i)}: a JSON object {"q1": …, "q2": …, …}. There will be more questions about this code base in the future. When finished, reply DONE.`;
 }
 
 function checkStep(i: number) {
@@ -332,7 +340,8 @@ const task: Task = {
     return steps;
   },
   steps: [0, 1, 2, 3].map((i) => ({
-    prompt: () => (i === 0 ? promptFor(0) : `More questions about the same code (same rules and id format).\n\n${promptFor(i).split('\n\n')[1]}\n\nWrite ${OUT(i)}. When finished, reply DONE.`),
+    // Standalone, so the same prompt works as a follow-up (resume mode) and in a fresh session (sessions mode).
+    prompt: () => promptFor(i),
     check: checkStep(i),
   })),
 };
