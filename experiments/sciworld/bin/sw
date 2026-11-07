@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+"""Act in the current ScienceWorld task. One action per line (argument or stdin); prints each observation.
+
+  sw "look around"
+  sw <<'EOF'
+  open door to kitchen
+  go to kitchen
+  look around
+  EOF
+  sw --task        the task description and the action templates
+
+The environment's URL is read from $SW_WORK/.service/base-url (the run's work dir), else ./.service/base-url.
+"""
+import json
+import os
+import sys
+import urllib.request
+
+url = open(os.path.join(os.environ.get("SW_WORK") or os.getcwd(), ".service", "base-url")).read().strip()
+if sys.argv[1:] == ["--task"]:
+    with urllib.request.urlopen(url + "/task", timeout=60) as res:
+        t = json.load(res)
+    print(t["description"])
+    print("\nAction templates (OBJ = an object name as the observations show it):")
+    print("\n".join("  " + a for a in t["action_templates"]))
+    sys.exit()
+text = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else sys.stdin.read()
+actions = [a.strip() for a in text.splitlines() if a.strip()]
+if not actions:
+    sys.exit('sw: no action given, e.g. sw "look around"')
+req = urllib.request.Request(url + "/act", data=json.dumps({"actions": actions}).encode(), headers={"content-type": "application/json"})
+with urllib.request.urlopen(req, timeout=600) as res:
+    body = json.load(res)
+for r in body["results"]:
+    print(f"> {r['action']}\n{r['observation']}\n")
+print(f"[{body['moves']}/{body['limit']} actions used{'; the task has ended' if body['done'] else ''}]")

@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFil
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { promoteTool, trodPaths } from '@trod/server';
+import { linkNotes, NOTES_IMPORT, NOTES_MAX_CHARS, promoteTool, trodPaths, verifyNotes, type NotesReport } from '@trod/server';
 
 /**
  * `trod forge`: a dedicated tool-building session. A headless Claude Code session studies an environment (a brief
@@ -20,6 +20,8 @@ Future sessions start fresh, with no memory of this one. They will see the tools
 3. Write description and whenToUse so that a newcomer can use the tool correctly without reading code: say what it returns (field names, units, what is excluded) and which quirks it handles. These texts are the only documentation future sessions get.
 4. Give every tool at least one example that exercises the real environment and checks something stable (expect.contains or expect.matches). Tools whose examples fail are discarded.
 5. Test each tool with trod_run, and test combining them with trod_eval, like a future session would.
+6. Write .trod/notes.md: what future sessions need to KNOW about the environment itself (at most 4000 characters, dense and concrete). Conventions a newcomer gets wrong: what fields and coded values mean, how derived quantities are defined, which records count, how domain rules work (money, limits, defaults, side effects), date and unit formats, how results are expected to be shaped, traps. Do NOT spend the notes on how to use your tools: tool descriptions already carry that, and the notes must stay useful even when a session works without the tools. These notes are loaded into every future session, so state general rules, not answers to one task, and check each claim against the environment.
+7. Back every checkable claim with an entry in .trod/notes.checks.json: a JSON array of {"claim": "<a few words>", "tool": "<one of your tools>", "input": {...}, "expect": {"contains": "..."} or {"matches": "<regex>"}}. The checks are re-run later to detect when the environment changes and a note goes stale; claims whose check fails are reported.
 
 Do not write answer files. When finished, reply with a short list of the tools and DONE.`;
 
@@ -35,6 +37,8 @@ export interface ForgeOptions {
   /** Where to write the session's stream-json output. */
   streamFile?: string;
   out?: (s: string) => void;
+  /** Add the `@.trod/notes.md` import to CLAUDE.md when the forge wrote notes (default true). */
+  linkNotes?: boolean;
 }
 
 export interface ForgeResult {
@@ -43,6 +47,8 @@ export interface ForgeResult {
   rejected: { name: string; reason: string }[];
   /** Promoted without examples. */
   unverified: string[];
+  /** The notes the forge wrote (.trod/notes.md) and their checks, if any. */
+  notes?: NotesReport;
   costUsd?: number;
   turns?: number;
   usage?: Record<string, number>;
@@ -106,5 +112,21 @@ export async function forge(opts: ForgeOptions): Promise<ForgeResult> {
       out(`  rejected ${name}: ${(err as Error).message.split('\n')[0]}`);
     }
   }
-  return { exitCode, promoted, rejected, unverified, costUsd: result?.total_cost_usd, turns: result?.num_turns, usage: result?.usage };
+  // Notes (ADR 0004): run their checks against the promoted library, then link them into CLAUDE.md.
+  const notes = await verifyNotes(paths, { execAllowed: true, env });
+  let notesLinkedNow = false;
+  if (notes.exists) {
+    const passed = notes.checks.filter((c) => c.ok).length;
+    out(`  notes: ${notes.chars} chars${notes.tooLong ? ` (over ${NOTES_MAX_CHARS}: trim them, they are in every session's context)` : ''}, ${passed}/${notes.checks.length} check(s) passed`);
+    for (const c of notes.checks.filter((c) => !c.ok)) out(`    failed check "${c.claim}" (${c.tool}): ${c.error}`);
+    for (const e of notes.errors) out(`    ${e}`);
+    const failed = notes.checks.some((c) => !c.ok) || notes.errors.length > 0;
+    if (failed && notes.linked) out(`  WARNING: CLAUDE.md already imports .trod/notes.md (${NOTES_IMPORT}), so sessions still load these unverified notes: fix the failing claims or remove the import`);
+    else if (failed) out('  notes NOT linked into CLAUDE.md: fix or remove the failing claims and their checks, then run `trod notes --link`');
+    else if (opts.linkNotes !== false) {
+      notesLinkedNow = linkNotes(paths);
+      if (notesLinkedNow) out(`  linked .trod/notes.md into CLAUDE.md (${NOTES_IMPORT})${notes.checks.length ? '' : ' (no checks: nothing in them is verified)'}`);
+    }
+  }
+  return { exitCode, promoted, rejected, unverified, notes: notes.exists ? { ...notes, linked: notes.linked || notesLinkedNow } : undefined, costUsd: result?.total_cost_usd, turns: result?.num_turns, usage: result?.usage };
 }

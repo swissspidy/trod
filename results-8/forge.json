@@ -1,0 +1,422 @@
+[
+ {
+  "task": "boil",
+  "ok": true,
+  "chars": 2928,
+  "costUsd": 0.25274679999999994,
+  "turns": 14,
+  "wallMs": 53086,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ },
+ {
+  "task": "change-the-state-of-matter-of",
+  "ok": true,
+  "chars": 2978,
+  "costUsd": 0.19292420000000002,
+  "turns": 13,
+  "wallMs": 49587,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ },
+ {
+  "task": "chemistry-mix-paint-secondary-color",
+  "ok": true,
+  "chars": 2153,
+  "costUsd": 0.1384368,
+  "turns": 9,
+  "wallMs": 30241,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ },
+ {
+  "task": "chemistry-mix-paint-tertiary-color",
+  "ok": true,
+  "chars": 2948,
+  "costUsd": 0.2022232,
+  "turns": 14,
+  "wallMs": 60023,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ },
+ {
+  "task": "chemistry-mix",
+  "ok": true,
+  "chars": 2992,
+  "costUsd": 0.21024739999999997,
+  "turns": 16,
+  "wallMs": 45644,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ },
+ {
+  "task": "find-animal",
+  "ok": true,
+  "chars": 2761,
+  "costUsd": 0.13050200000000003,
+  "turns": 8,
+  "wallMs": 35098,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ },
+ {
+  "task": "find-living-thing",
+  "ok": true,
+  "chars": 2884,
+  "costUsd": 0.13027160000000002,
+  "turns": 8,
+  "wallMs": 29965,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ },
+ {
+  "task": "find-non-living-thing",
+  "ok": true,
+  "chars": 2849,
+  "costUsd": 0.12177860000000001,
+  "turns": 7,
+  "wallMs": 31704,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ },
+ {
+  "task": "find-plant",
+  "ok": true,
+  "chars": 2953,
+  "costUsd": 0.13689700000000002,
+  "turns": 8,
+  "wallMs": 39726,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ },
+ {
+  "task": "freeze",
+  "ok": true,
+  "chars": 2906,
+  "costUsd": 0.210994,
+  "turns": 14,
+  "wallMs": 51697,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ },
+ {
+  "task": "grow-fruit",
+  "ok": true,
+  "chars": 2640,
+  "costUsd": 0.39877160000000006,
+  "turns": 22,
+  "wallMs": 92081,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ },
+ {
+  "task": "grow-plant",
+  "ok": true,
+  "chars": 2998,
+  "costUsd": 0.27984440000000005,
+  "turns": 20,
+  "wallMs": 70698,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ },
+ {
+  "task": "identify-life-stages-1",
+  "ok": true,
+  "chars": 2984,
+  "costUsd": 0.2319998,
+  "turns": 15,
+  "wallMs": 53070,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ },
+ {
+  "task": "identify-life-stages-2",
+  "ok": true,
+  "chars": 2929,
+  "costUsd": 0.18355359999999998,
+  "turns": 12,
+  "wallMs": 44279,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ },
+ {
+  "task": "inclined-plane-determine-angle",
+  "ok": true,
+  "chars": 3000,
+  "costUsd": 0.2492934,
+  "turns": 16,
+  "wallMs": 75015,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ },
+ {
+  "task": "inclined-plane-friction-named-surfaces",
+  "ok": true,
+  "chars": 2980,
+  "costUsd": 0.26270200000000005,
+  "turns": 18,
+  "wallMs": 61384,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ },
+ {
+  "task": "inclined-plane-friction-unnamed-surfaces",
+  "ok": true,
+  "chars": 2910,
+  "costUsd": 0.196167,
+  "turns": 11,
+  "wallMs": 45876,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ },
+ {
+  "task": "lifespan-longest-lived-then-shortest-lived",
+  "ok": true,
+  "chars": 2716,
+  "costUsd": 0.1594484,
+  "turns": 8,
+  "wallMs": 48308,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ },
+ {
+  "task": "lifespan-longest-lived",
+  "ok": true,
+  "chars": 2502,
+  "costUsd": 0.13429819999999998,
+  "turns": 10,
+  "wallMs": 35326,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ },
+ {
+  "task": "lifespan-shortest-lived",
+  "ok": true,
+  "chars": 2642,
+  "costUsd": 0.1454986,
+  "turns": 10,
+  "wallMs": 58071,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ },
+ {
+  "task": "measure-melting-point-known-substance",
+  "ok": true,
+  "chars": 2716,
+  "costUsd": 0.2298476,
+  "turns": 12,
+  "wallMs": 62347,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ },
+ {
+  "task": "measure-melting-point-unknown-substance",
+  "ok": true,
+  "chars": 2701,
+  "costUsd": 0.2683332,
+  "turns": 14,
+  "wallMs": 103600,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ },
+ {
+  "task": "melt",
+  "ok": true,
+  "chars": 2976,
+  "costUsd": 0.21346160000000003,
+  "turns": 13,
+  "wallMs": 188513,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ },
+ {
+  "task": "mendelian-genetics-known-plant",
+  "ok": true,
+  "chars": 2932,
+  "costUsd": 0.48634959999999994,
+  "turns": 24,
+  "wallMs": 125001,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ },
+ {
+  "task": "mendelian-genetics-unknown-plant",
+  "ok": true,
+  "chars": 2788,
+  "costUsd": 0.48330179999999995,
+  "turns": 21,
+  "wallMs": 112551,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ },
+ {
+  "task": "power-component-renewable-vs-nonrenewable-energy",
+  "ok": true,
+  "chars": 2872,
+  "costUsd": 0.168078,
+  "turns": 10,
+  "wallMs": 43611,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ },
+ {
+  "task": "power-component",
+  "ok": true,
+  "chars": 2521,
+  "costUsd": 0.13485600000000003,
+  "turns": 7,
+  "wallMs": 32328,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ },
+ {
+  "task": "test-conductivity-of-unknown-substances",
+  "ok": true,
+  "chars": 2958,
+  "costUsd": 0.21974160000000004,
+  "turns": 12,
+  "wallMs": 64336,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ },
+ {
+  "task": "test-conductivity",
+  "ok": true,
+  "chars": 2984,
+  "costUsd": 0.21470980000000003,
+  "turns": 13,
+  "wallMs": 54687,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ },
+ {
+  "task": "use-thermometer",
+  "ok": true,
+  "chars": 2959,
+  "costUsd": 0.15943800000000002,
+  "turns": 9,
+  "wallMs": 37494,
+  "goldVariations": [
+   0,
+   1
+  ],
+  "liveVariation": 2,
+  "model": "claude-opus-5-5"
+ }
+]

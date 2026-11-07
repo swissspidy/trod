@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync, existsSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -80,5 +80,94 @@ describe('trod verify', () => {
     const stale = await run(['verify', '--dir', dir]);
     expect(stale.code).toBe(1);
     expect(stale.out).toContain('stale: answer');
+  });
+});
+
+describe('trod notes', () => {
+  const tool = (value: string) =>
+    `export const meta = { description: 'Returns the status codes in use.', whenToUse: 'To look up status codes.', inputSchema: { type: 'object' } };\nexport default async () => (${value});\n`;
+  function notesProject(): string {
+    const dir = project();
+    const lib = path.join(dir, '.trod', 'library');
+    mkdirSync(lib, { recursive: true });
+    writeFileSync(path.join(lib, 'status_codes.mjs'), tool("['Active', 'Closed', 'Merged']"));
+    writeFileSync(path.join(dir, '.trod', 'notes.md'), '# Notes\n\n- StatusType is one of Active, Closed, Merged.\n');
+    writeFileSync(
+      path.join(dir, '.trod', 'notes.checks.json'),
+      JSON.stringify([{ claim: 'StatusType values', tool: 'status_codes', input: {}, expect: { contains: 'Merged' } }]),
+    );
+    return dir;
+  }
+
+  it('runs the checks, and verify flags a note whose check no longer holds', async () => {
+    const dir = notesProject();
+    const ok = await run(['verify', '--dir', dir]);
+    expect(ok.code).toBe(0);
+    expect(ok.out).toContain('1/1 check(s) passed');
+    expect(ok.out).toContain('not linked');
+    // The environment drifts: 'Merged' is gone, so the note is stale.
+    writeFileSync(path.join(dir, '.trod', 'library', 'status_codes.mjs'), tool("['Active', 'Closed']"));
+    const stale = await run(['verify', '--dir', dir]);
+    expect(stale.code).toBe(1);
+    expect(stale.out).toContain('STALE  "StatusType values"');
+  });
+
+  it('links the notes into CLAUDE.md once, keeping what is there', async () => {
+    const dir = notesProject();
+    writeFileSync(path.join(dir, 'CLAUDE.md'), '# Project\n\nExisting instructions.\n');
+    const first = await run(['notes', '--link', '--dir', dir]);
+    expect(first.code).toBe(0);
+    expect(first.out).toContain('linked .trod/notes.md into CLAUDE.md');
+    await run(['notes', '--link', '--dir', dir]);
+    const md = readFileSync(path.join(dir, 'CLAUDE.md'), 'utf8');
+    expect(md).toContain('Existing instructions.');
+    expect(md.split('\n').filter((l) => l.trim() === '@.trod/notes.md')).toHaveLength(1);
+    expect((await run(['notes', '--dir', dir])).out).toContain('linked from CLAUDE.md');
+  });
+
+  it('does not link notes whose checks fail', async () => {
+    const dir = notesProject();
+    writeFileSync(path.join(dir, '.trod', 'library', 'status_codes.mjs'), tool("['Active', 'Closed']"));
+    const res = await run(['notes', '--link', '--dir', dir]);
+    expect(res.code).toBe(1);
+    expect(res.out).toContain('not linked, some checks fail');
+    expect(existsSync(path.join(dir, 'CLAUDE.md'))).toBe(false);
+  });
+
+  it('reports malformed checks and checks that name a missing tool', async () => {
+    const dir = notesProject();
+    writeFileSync(path.join(dir, '.trod', 'notes.checks.json'), JSON.stringify([{ claim: 'x' }, { claim: 'y', tool: 'nope', expect: { contains: 'a' } }]));
+    const res = await run(['notes', '--dir', dir]);
+    expect(res.code).toBe(1);
+    expect(res.out).toContain('notes.checks.json[0]');
+    expect(res.out).toContain('"y" (nope): no such tool');
+  });
+});
+
+describe('trod notes: validation', () => {
+  it('reports an invalid matches pattern as a check-file error instead of aborting', async () => {
+    const dir = project();
+    mkdirSync(path.join(dir, '.trod', 'library'), { recursive: true });
+    writeFileSync(path.join(dir, '.trod', 'library', 'codes.mjs'), "export const meta = { description: 'Returns codes in use.', whenToUse: 'Codes.', inputSchema: { type: 'object' } };\nexport default async () => 'A B';\n");
+    writeFileSync(path.join(dir, '.trod', 'notes.md'), '- codes are A and B\n');
+    writeFileSync(path.join(dir, '.trod', 'notes.checks.json'), JSON.stringify([{ claim: 'codes', tool: 'codes', expect: { matches: '[' } }]));
+    const res = await run(['notes', '--dir', dir]);
+    expect(res.code).toBe(1);
+    expect(res.out).toContain('invalid matches pattern');
+  });
+
+  it('rejects a check without an expectation', async () => {
+    const dir = project();
+    writeFileSync(path.join(dir, '.trod', 'notes.md'), '- x\n');
+    writeFileSync(path.join(dir, '.trod', 'notes.checks.json'), JSON.stringify([{ claim: 'x', tool: 'codes', expect: {} }]));
+    const res = await run(['notes', '--dir', dir]);
+    expect(res.code).toBe(1);
+    expect(res.out).toContain('expect needs contains, matches or equals');
+  });
+
+  it('rejects contradicting or misplaced link flags', async () => {
+    const dir = project();
+    expect((await run(['notes', '--link', '--no-link', '--dir', dir])).code).toBe(1);
+    expect((await run(['verify', '--link', '--dir', dir])).out).toContain('--link only applies to trod notes');
   });
 });

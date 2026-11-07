@@ -1,0 +1,35 @@
+[
+  {
+    "condition": "baseline",
+    "label": "Haiku, no notes",
+    "runs": 180,
+    "solved": 94,
+    "solvedRate": 0.522,
+    "meanScore": 69.2,
+    "meanTokens": 265243,
+    "meanCostUsd": 0.00592,
+    "meanTurns": 12.6
+  },
+  {
+    "condition": "notes",
+    "label": "Haiku + forged per-task-type notes",
+    "runs": 180,
+    "solved": 160,
+    "solvedRate": 0.889,
+    "meanScore": 93.0,
+    "meanTokens": 162368,
+    "meanCostUsd": 0.00385,
+    "meanTurns": 7.9
+  },
+  {
+    "condition": "sonnet",
+    "label": "Sonnet, no notes (1 seed)",
+    "runs": 60,
+    "solved": 40,
+    "solvedRate": 0.667,
+    "meanScore": 77.1,
+    "meanTokens": 138477,
+    "meanCostUsd": 0.04201,
+    "meanTurns": 7.6
+  }
+]
