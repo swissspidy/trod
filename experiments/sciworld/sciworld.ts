@@ -137,7 +137,9 @@ export function sciworldTasks(sample: { task: string; variation: number }[]): Ta
       },
       serve: async ({ work }: TaskContext, forForge?: boolean) => {
         // A forge (the runner's forged arm) must never see a test variation: give it a train one.
-        const env = await startSw(task, forForge ? (variations()[task]?.train[0] ?? 0) : variation);
+        const train = variations()[task]?.train[0];
+        if (forForge && train === undefined) throw new Error(`ScienceWorld ${task}: no train variation to forge against`);
+        const env = await startSw(task, forForge ? train! : variation);
         envs.set(work, env);
         const info = (await (await fetch(`${env.baseUrl}/task`)).json()) as { description: string; start: string };
         return { baseUrl: env.baseUrl, close: () => env.close(), info };
