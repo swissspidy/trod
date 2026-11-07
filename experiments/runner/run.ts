@@ -27,6 +27,7 @@ import { appWorldTasks, datasetIds } from '../appworld/appworld.ts';
 import { birdTasks, birdTestSample } from '../bird/bird.ts';
 import type { FixtureState, Task } from '../lib/types.ts';
 import { collectMetrics, type RunRecord, type StepOutcome } from './metrics.ts';
+import { linkNotes, trodPaths } from '../../packages/server/src/index.ts';
 
 const ROOT = path.resolve(import.meta.dirname, '../..');
 const PLUGIN_DIR = path.join(ROOT, 'plugin');
@@ -319,8 +320,16 @@ async function runOne(task: Task, arm: Arm, seed: number): Promise<RunRecord> {
     const f = await ensureForge(task);
     forgeInfo = f.info;
     if (existsSync(f.library)) cpSync(f.library, path.join(work, '.trod', 'library'), { recursive: true });
+    // Notes the forge wrote (ADR 0004) travel with the library and are linked into CLAUDE.md, as `trod forge` does.
+    const forgeTrod = path.dirname(f.library);
+    for (const file of ['notes.md', 'notes.checks.json']) {
+      if (existsSync(path.join(forgeTrod, file))) cpSync(path.join(forgeTrod, file), path.join(work, '.trod', file));
+    }
+
   }
   const expected = task.setup({ work });
+  // After setup, which may reset CLAUDE.md: link the forge's notes as `trod forge` would.
+  if (arm === 'forged' && existsSync(path.join(work, '.trod', 'notes.md'))) linkNotes(trodPaths(work));
   writeFileSync(path.join(runDir, 'expected.json'), JSON.stringify(expected, null, 2));
   const state = { step: 0 };
   const { server, baseUrl, info } = await startFixture(task, expected, state, work);
