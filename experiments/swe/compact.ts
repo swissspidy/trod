@@ -7,13 +7,13 @@
  * Usage: SWE_HOME=… node experiments/swe/compact.ts <runs root> [--parallel 4] [--dry-run] [--regrade]
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import type { RunRecord } from '../runner/metrics.ts';
 import { DJANGO4, exportCommit, grade, loadInstances } from './swe.ts';
 
-const { values, positionals } = parseArgs({ allowPositionals: true, options: { parallel: { type: 'string', default: '4' }, 'dry-run': { type: 'boolean', default: false }, regrade: { type: 'boolean', default: false } } });
+const { values, positionals } = parseArgs({ allowPositionals: true, options: { parallel: { type: 'string', default: '4' }, 'dry-run': { type: 'boolean', default: false }, regrade: { type: 'boolean', default: false }, force: { type: 'boolean', default: false } } });
 const root = positionals[0] ? path.resolve(positionals[0]) : undefined;
 if (!root || !existsSync(root)) {
   console.error('usage: node experiments/swe/compact.ts <runs root> [--parallel 4] [--dry-run]');
@@ -26,9 +26,10 @@ const runs: string[] = [];
 for (const model of readdirSync(root)) {
   const md = path.join(root, model);
   if (model === 'forge' || !existsSync(md)) continue;
+  if (!statSync(md).isDirectory()) continue;
   for (const inst of readdirSync(md)) {
-    if (!instances.has(inst)) continue;
-    for (const run of readdirSync(path.join(md, inst))) runs.push(path.join(md, inst, run));
+    if (!instances.has(inst) || !statSync(path.join(md, inst)).isDirectory()) continue;
+    for (const run of readdirSync(path.join(md, inst))) if (statSync(path.join(md, inst, run)).isDirectory()) runs.push(path.join(md, inst, run));
   }
 }
 
@@ -52,6 +53,11 @@ await Promise.all(
       } catch {
         record = undefined; // missing, or truncated when the disk was full
       }
+      // An incomplete run may still be in progress in a live runner: leave recent ones alone.
+      if (!record && Date.now() - statSync(dir).mtimeMs < 2 * 3600_000 && !values.force) {
+        console.log(`keep ${path.relative(root, dir)} (incomplete but recent; --force to remove)`);
+        continue;
+      }
       if (!record || hitDiskFull(dir)) {
         console.log(`remove ${path.relative(root, dir)} (${record ? 'hit disk full' : 'incomplete'})`);
         if (!dry) rmSync(dir, { recursive: true, force: true });
@@ -60,6 +66,11 @@ await Promise.all(
       }
       const inst = instances.get(record.task)!;
       let work = path.join(dir, 'work');
+      if (dry) {
+        // Report only: grading would modify the checkout.
+        console.log(`would ${existsSync(work) ? 'compact' : 'check for regrade'} ${path.relative(root, dir)}`);
+        continue;
+      }
       if (!existsSync(work)) {
         const notRun = /PASS_TO_PASS broken (\d+)\/\1\b/.test(record.check.details) && /FAIL_TO_PASS 0\//.test(record.check.details);
         if (!values.regrade || !(record.check.infra || notRun) || !existsSync(path.join(dir, 'agent.patch'))) continue;

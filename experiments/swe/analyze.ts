@@ -39,18 +39,19 @@ for (const modelDir of readdirSync(root)) {
 }
 
 const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
-/** Exact two-sided McNemar test (binomial on the discordant pairs). */
+/** Exact two-sided binomial (sign / McNemar) test on discordant counts, computed in log space (no overflow). */
 function mcnemar(b: number, c: number): number {
   const n = b + c;
   if (!n) return 1;
   const k = Math.min(b, c);
+  const lnFact = (x: number) => {
+    let s = 0;
+    for (let i = 2; i <= x; i++) s += Math.log(i);
+    return s;
+  };
   let p = 0;
-  let coef = 1;
-  for (let i = 0; i <= n; i++) {
-    if (i > 0) coef = (coef * (n - i + 1)) / i;
-    if (i <= k) p += coef;
-  }
-  return Math.min(1, (2 * p) / 2 ** n);
+  for (let i = 0; i <= k; i++) p += Math.exp(lnFact(n) - lnFact(i) - lnFact(n - i) - n * Math.LN2);
+  return Math.min(1, 2 * p);
 }
 
 const models = [...new Set(records.map((r) => r.modelDir))].sort();
@@ -88,7 +89,21 @@ function paired(x: string, y: string) {
   const both = common.filter((k) => ix.get(k) && iy.get(k)).length;
   const onlyX = common.filter((k) => ix.get(k) && !iy.get(k));
   const onlyY = common.filter((k) => !ix.get(k) && iy.get(k));
-  return { x, y, n: common.length, both, onlyX: onlyX.length, onlyY: onlyY.length, neither: common.length - both - onlyX.length - onlyY.length, p: mcnemar(onlyX.length, onlyY.length), onlyXIds: onlyX, onlyYIds: onlyY };
+  // Seeds of one instance are correlated, so also test at the instance level: a sign test on instances whose resolve
+  // rate differs between the two cells.
+  const rate = (m: Map<string, boolean>, task: string) => {
+    const v = [...m].filter(([k]) => k.startsWith(`${task}#`) && iy.has(k) && ix.has(k)).map(([, pass]) => (pass ? 1 : 0));
+    return v.length ? v.reduce((a: number, b: number) => a + b, 0) / v.length : NaN;
+  };
+  const tasks = [...new Set(common.map((k) => k.split('#')[0]!))];
+  const better = tasks.filter((t) => rate(ix, t) > rate(iy, t)).length;
+  const worse = tasks.filter((t) => rate(ix, t) < rate(iy, t)).length;
+  return {
+    x, y, n: common.length, instances: tasks.length, both, onlyX: onlyX.length, onlyY: onlyY.length, neither: common.length - both - onlyX.length - onlyY.length,
+    p: mcnemar(onlyX.length, onlyY.length),
+    instanceLevel: { xBetter: better, yBetter: worse, p: mcnemar(better, worse) },
+    onlyXIds: onlyX, onlyYIds: onlyY,
+  };
 }
 
 const comparisons = [];

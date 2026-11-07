@@ -187,9 +187,11 @@ export async function grade(env: SweEnv, inst: Instance, work: string): Promise<
   const st = parseDjangoLog(log);
   // No test result at all means the run itself failed (e.g. no disk space), not that every test failed.
   if (st.size === 0) {
-    // Usually the environment (e.g. a broken virtualenv or a full disk); keep the underlying error for diagnosis.
+    // Usually the agent's change breaks importing Django (a genuine failure). Only a clearly environmental cause (a full
+    // disk) makes it an infrastructure error; the environment itself is validated by the gold patches.
     const errLines = log.split('\n').filter((l) => /Error|error:|No space/.test(l)).slice(-3).join(' | ');
-    return { pass: false, score: 0, infra: true, details: `infra: no test results in the output (${errLines.slice(0, 400)})` };
+    const infra = /No space left on device|ENOSPC/.test(log);
+    return { pass: false, score: 0, ...(infra ? { infra: true } : {}), details: `${infra ? 'infra: ' : ''}no test results in the output (${errLines.slice(0, 400)})` };
   }
   const ok = (n: string) => st.get(n) === 'ok' || st.get(n) === 'expected failure';
   const f2pOk = f2p.filter(ok).length;
@@ -246,7 +248,10 @@ export function sweTasks(env: SweEnv = DJANGO4, ids?: string[]): Task[] {
         toolsmithBrief: () => DJANGO_BRIEF(e),
         steps: [{ prompt: () => PROMPT(inst), check: ({ work }: TaskContext) => grade(e, inst, work) }],
         // A Django checkout is ~100 MB; hundreds of runs fill the disk. agent.patch keeps what grading needs.
-        afterRun: ({ work }: TaskContext) => rmSync(work, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 }),
+        afterRun: ({ work }: TaskContext) => {
+          // Only once the agent's changes are safely saved.
+          if (existsSync(path.join(path.dirname(work), 'agent.patch'))) rmSync(work, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 });
+        },
       }),
     );
 }
