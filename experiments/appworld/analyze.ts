@@ -10,13 +10,16 @@ const [out, ...specs] = process.argv.slice(2);
 const runs: Record<string, unknown>[] = [];
 const summary: Record<string, unknown>[] = [];
 for (const spec of specs) {
-  const [label, dir] = spec.split('=') as [string, string];
+  const i = spec.indexOf('=');
+  const [label, dir] = [spec.slice(0, i), spec.slice(i + 1)];
   const byArm = new Map<string, Record<string, any>[]>();
   for (const task of readdirSync(dir)) {
     for (const run of existsSync(path.join(dir, task)) ? readdirSync(path.join(dir, task)) : []) {
       const f = path.join(dir, task, run, 'result.json');
       if (!existsSync(f)) continue;
       const r = JSON.parse(readFileSync(f, 'utf8'));
+      // A run whose grading failed (infrastructure) is not a failure of the agent: leave it out.
+      if (r.steps?.some((s: { check?: { infra?: boolean } }) => s.check?.infra)) continue;
       const rec = { condition: label, task, scenario: task.split('_')[0], arm: r.arm, pass: r.check.pass, score: +r.check.score.toFixed(3), tokens: r.tokens.total, costUsd: +r.costUsd.toFixed(5), turns: r.turns, wallMs: r.wallMs, libraryCalls: r.trod?.calls ?? 0 };
       runs.push(rec);
       byArm.set(r.arm, [...(byArm.get(r.arm) ?? []), rec]);

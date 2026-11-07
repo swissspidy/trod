@@ -236,6 +236,7 @@ async function newCheckout(task: Task, arm: Arm, work: string, baseUrl: string |
     cpSync(keep, path.join(work, '.trod'), { recursive: true });
     rmSync(keep, { recursive: true, force: true });
   }
+  chownTree(work);
 }
 
 function listEntries(dir: string): string[] {

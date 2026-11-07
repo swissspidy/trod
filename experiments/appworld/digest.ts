@@ -22,6 +22,7 @@ const dir = path.resolve(process.argv[2] ?? '');
 const out: string[] = [];
 let runs = 0;
 let failed = 0;
+const failedScenarios = new Set<string>();
 for (const task of readdirSync(dir).sort()) {
   for (const run of existsSync(path.join(dir, task)) ? readdirSync(path.join(dir, task)) : []) {
     const res = path.join(dir, task, run, 'result.json');
@@ -30,12 +31,14 @@ for (const task of readdirSync(dir).sort()) {
     const r = JSON.parse(readFileSync(res, 'utf8'));
     if (r.check.pass) continue;
     failed++;
-    const prompt = readFileSync(path.join(dir, task, run, 'prompt-1.txt'), 'utf8');
+    failedScenarios.add(task.split('_')[0]!);
+    const read = (f: string) => (existsSync(path.join(dir, task, run, f)) ? readFileSync(path.join(dir, task, run, f), 'utf8') : '');
+    const prompt = read('prompt-1.txt');
     const instruction = prompt.split('Task: ')[1]?.split('\n')[0] ?? '';
     const evalFile = path.join(dir, task, run, 'evaluation.json');
     const fails = existsSync(evalFile) ? (JSON.parse(readFileSync(evalFile, 'utf8')).failures as { requirement: string }[]) : [];
     let last = '';
-    for (const line of readFileSync(path.join(dir, task, run, 'stream-1.jsonl'), 'utf8').split('\n')) {
+    for (const line of read('stream-1.jsonl').split('\n')) {
       try {
         const e = JSON.parse(line);
         if (e.type === 'result') last = String(e.result ?? '');
@@ -49,7 +52,7 @@ for (const task of readdirSync(dir).sort()) {
   }
 }
 // One reference solution per other scenario (the first variant), as worked examples of the conventions.
-const covered = new Set(out.map((o) => o.slice(3, 10)));
+const covered = new Set(failedScenarios);
 const examples: string[] = [];
 for (const task of readdirSync(dir).sort()) {
   const scenario = task.split('_')[0]!;

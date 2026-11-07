@@ -59,7 +59,10 @@ export async function startEnvironment(taskId: string, experiment: string): Prom
     : spawn(PYTHON(), args, { env, stdio: ['ignore', 'pipe', 'pipe'] });
   let log = '';
   await new Promise<void>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`AppWorld environment for ${taskId} did not start: ${log.slice(-500)}`)), 120_000);
+    const timer = setTimeout(() => {
+      child.kill();
+      reject(new Error(`AppWorld environment for ${taskId} did not start: ${log.slice(-500)}`));
+    }, 120_000);
     const onData = (c: Buffer) => {
       log += c.toString();
       if (log.includes(`ready ${port}`)) {

@@ -41,7 +41,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         length = int(self.headers.get("content-length") or 0)
-        body = json.loads(self.rfile.read(length) or b"{}")
+        try:
+            body = json.loads(self.rfile.read(length) or b"{}")
+        except ValueError:
+            return self._send(400, {"error": "request body must be JSON: {\"code\": \"...\"}"})
         if self.path == "/execute":
             output = world.execute(body.get("code", ""))
             return self._send(200, {"output": output, "completed": world.task_completed()})
