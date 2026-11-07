@@ -14,6 +14,8 @@ export interface TaskContext {
   work: string;
   /** Base URL of the task's fixture server, when it has one. */
   baseUrl?: string;
+  /** Whatever the task's serve() returned as info (e.g. the task statement of an external environment). */
+  info?: any;
 }
 
 /** Mutable state shared with the fixture server: which step the run is on (0-based). */
@@ -55,4 +57,9 @@ export interface Task {
   env?(ctx: TaskContext): Record<string, string>;
   /** Called after the run's result is written, e.g. to delete a large checkout. */
   afterRun?(ctx: TaskContext): void;
+  /**
+   * Starts an external environment for one run (instead of handler), e.g. a separate process. Called once per run
+   * and once for the forge (forForge). The runner writes baseUrl to .service/base-url and calls close() at the end.
+   */
+  serve?(ctx: TaskContext, forForge?: boolean): Promise<{ baseUrl: string; close(): void; info?: any }>;
 }

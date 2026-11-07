@@ -15,14 +15,15 @@
  *          [--model claude-sonnet-5-5] [--parallel 4] [--timeout 1800] [--budget 3] [--out results/runs/<name>]
  * Needs an API key in ANTHROPIC_API_KEY or TEST_API_KEY.
  */
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { appendFileSync, cpSync, createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { createServer, type Server } from 'node:http';
+import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { TASKS } from '../tasks/index.ts';
 import { sweTasks } from '../swe/swe.ts';
+import { appWorldTasks, datasetIds } from '../appworld/appworld.ts';
 import type { FixtureState, Task } from '../lib/types.ts';
 import { collectMetrics, type RunRecord, type StepOutcome } from './metrics.ts';
 
@@ -61,6 +62,9 @@ const { values } = parseArgs({
     // ENABLE_TOOL_SEARCH for every arm; empty keeps Claude Code's default (on). Turning it off loads every tool
     // schema up front (about 13k more tokens per request) and makes each new trod tool invalidate the prompt cache.
     'tool-search': { type: 'string', default: '' },
+    // Run claude (and the forge) as this unprivileged user, e.g. so an agent cannot read benchmark ground truth
+    // that lives in a root-only directory. The run directories are chowned to it. Needs root.
+    'as-user': { type: 'string' },
   },
 });
 
@@ -70,7 +74,13 @@ if (!apiKey) {
   process.exit(1);
 }
 
-const pool = values.suite === 'swe-django4' ? sweTasks() : TASKS;
+// appworld:<split>: AppWorld tasks (experiments/appworld); the forge builds tools against a train-split task.
+const pool =
+  values.suite === 'swe-django4'
+    ? sweTasks()
+    : values.suite?.startsWith('appworld:')
+      ? appWorldTasks(datasetIds(values.suite.slice('appworld:'.length)), path.basename(values.out ?? 'appworld'), process.env.AW_FORGE_TASK ?? '82e2fac_1')
+      : TASKS;
 if (values.suite && !pool.length) {
   console.error(`suite ${values.suite}: no instances (run experiments/swe/setup.sh, or set SWE_HOME)`);
   process.exit(1);
@@ -118,6 +128,22 @@ function cleanEnv(home: string, extra: Record<string, string>): Record<string, s
   };
 }
 
+/** spawn(), as --as-user when set: `runuser -u <user> -- env -i K=V… cmd args` (the env is passed explicitly). */
+function spawnAs(cmd: string, args: string[], opts: { cwd?: string; env: Record<string, string> }) {
+  const user = values['as-user'];
+  if (!user) return spawn(cmd, args, { ...opts, stdio: ['ignore', 'pipe', 'pipe'] });
+  const env = { ...opts.env, TMPDIR: path.join(opts.env.HOME!, 'tmp') };
+  mkdirSync(env.TMPDIR, { recursive: true });
+  chownTree(opts.env.HOME!);
+  const vars = Object.entries(env).map(([k, v]) => `${k}=${v}`);
+  return spawn('runuser', ['-u', user, '--', 'env', '-i', ...vars, cmd, ...args], { cwd: opts.cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+}
+
+/** Gives a directory tree to --as-user (no-op without it). */
+function chownTree(dir: string): void {
+  if (values['as-user'] && existsSync(dir)) spawnSync('chown', ['-R', `${values['as-user']}:`, dir]);
+}
+
 /** The service URL as project config: tools must not hardcode it, because it changes between sessions. */
 function writeServiceUrl(work: string, baseUrl: string | undefined): void {
   if (!baseUrl) return;
@@ -125,7 +151,11 @@ function writeServiceUrl(work: string, baseUrl: string | undefined): void {
   writeFileSync(path.join(work, '.service', 'base-url'), baseUrl + '\n');
 }
 
-async function startFixture(task: Task, expected: unknown, state: FixtureState): Promise<{ server?: Server; baseUrl?: string }> {
+async function startFixture(task: Task, expected: unknown, state: FixtureState, work: string, forForge = false): Promise<{ server?: { close(): void }; baseUrl?: string; info?: unknown }> {
+  if (task.serve) {
+    const s = await task.serve({ work }, forForge);
+    return { server: s, baseUrl: s.baseUrl, info: s.info };
+  }
   if (!task.handler) return {};
   const server = createServer(task.handler(expected, state));
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
@@ -136,7 +166,7 @@ function runClaude(args: string[], cwd: string, env: Record<string, string>, str
   const out = createWriteStream(streamFile);
   const err = createWriteStream(stderrFile);
   return new Promise<{ code: number | null; timedOut: boolean }>((resolve) => {
-    const child = spawn('claude', args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawnAs('claude', args, { cwd, env });
     child.stdout.pipe(out);
     child.stderr.pipe(err);
     let timedOut = false;
@@ -206,6 +236,7 @@ async function newCheckout(task: Task, arm: Arm, work: string, baseUrl: string |
     cpSync(keep, path.join(work, '.trod'), { recursive: true });
     rmSync(keep, { recursive: true, force: true });
   }
+  chownTree(work);
 }
 
 function listEntries(dir: string): string[] {
@@ -231,15 +262,16 @@ async function doForge(task: Task): Promise<{ library: string; info: unknown }> 
   mkdirSync(path.join(home, '.claude'), { recursive: true });
   const expected = task.forgeSetup ? (task.forgeSetup({ work }), null) : task.setup({ work });
   const state = { step: 0 };
-  const { server, baseUrl } = await startFixture(task, expected, state);
+  const { server, baseUrl, info: envInfo } = await startFixture(task, expected, state, work, true);
   writeServiceUrl(work, baseUrl);
-  const brief = task.toolsmithBrief?.({ work, baseUrl }) ?? `Future sessions will get tasks like this one (do not solve it):\n\n${task.steps[0]!.prompt({ work, baseUrl })}`;
+  const brief = task.toolsmithBrief?.({ work, baseUrl, info: envInfo }) ?? `Future sessions will get tasks like this one (do not solve it):\n\n${task.steps[0]!.prompt({ work, baseUrl, info: envInfo })}`;
   const urlNote = baseUrl ? `\n\nThe service's base URL changes between sessions (today it is ${baseUrl}). Tools must read it from the file .service/base-url in the project directory (ctx.projectDir) instead of hardcoding it or taking it as a required input.` : '';
   writeFileSync(path.join(dir, 'brief.md'), brief + urlNote);
   console.log(`forging ${task.forgeKey ?? task.id} with ${values['forge-model']} …`);
   const t0 = Date.now();
   const output = await new Promise<string>((resolve) => {
-    const child = spawn(process.execPath, [path.join(PLUGIN_DIR, 'bin', 'trod'), 'forge', '--dir', work, '--brief', `@${path.join(dir, 'brief.md')}`, '--model', values['forge-model']!, '--stream', path.join(dir, 'forge.jsonl'), '--json'], {
+    chownTree(dir);
+    const child = spawnAs(process.execPath, [path.join(PLUGIN_DIR, 'bin', 'trod'), 'forge', '--dir', work, '--brief', `@${path.join(dir, 'brief.md')}`, '--model', values['forge-model']!, '--stream', path.join(dir, 'forge.jsonl'), '--json'], {
       env: cleanEnv(home, { ...task.env?.({ work }) }),
     });
     let text = '';
@@ -287,8 +319,9 @@ async function runOne(task: Task, arm: Arm, seed: number): Promise<RunRecord> {
   const expected = task.setup({ work });
   writeFileSync(path.join(runDir, 'expected.json'), JSON.stringify(expected, null, 2));
   const state = { step: 0 };
-  const { server, baseUrl } = await startFixture(task, expected, state);
+  const { server, baseUrl, info } = await startFixture(task, expected, state, work);
   writeServiceUrl(work, baseUrl);
+  chownTree(runDir);
 
   const sessionTag = `${task.id}-${arm}-s${seed}`;
   const common = ['--output-format', 'stream-json', '--verbose', '--model', values.model!, '--max-budget-usd', values.budget!, '--strict-mcp-config', '--disallowedTools', DENIED.join(',')];
@@ -334,7 +367,7 @@ async function runOne(task: Task, arm: Arm, seed: number): Promise<RunRecord> {
     if (i > 0 && values.mode === 'sessions') await newCheckout(task, arm, work, baseUrl, i);
     else if (i > 0 && arm === 'toolsmith') await newCheckout(task, arm, work, baseUrl, i);
     else if (i > 0) task.prepareStep?.({ work, baseUrl }, i);
-    const prompt = step.prompt({ work, baseUrl });
+    const prompt = step.prompt({ work, baseUrl, info });
     writeFileSync(path.join(runDir, `prompt-${i + 1}.txt`), prompt);
     const resume = values.mode === 'sessions' || arm === 'toolsmith' ? [] : sessionId ? ['--resume', sessionId] : [];
     const args = ['-p', prompt, ...common, ...resume];
@@ -346,7 +379,7 @@ async function runOne(task: Task, arm: Arm, seed: number): Promise<RunRecord> {
     sessionId = readSessionId(streamFile) ?? sessionId;
     let check;
     try {
-      check = await step.check({ work, baseUrl }, expected);
+      check = await step.check({ work, baseUrl, info }, expected);
     } catch (e) {
       check = { pass: false, score: 0, details: `checker crashed: ${(e as Error).message}` };
     }

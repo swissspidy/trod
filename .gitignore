@@ -6,3 +6,4 @@ spike-server.log
 .trod/logs/
 results/runs/
 experiments/swe/.cache/
+experiments/appworld/.cache/
