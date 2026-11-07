@@ -10,6 +10,7 @@
  * AW_HOME (default experiments/appworld/.cache) holds venv/ (appworld installed) and data/ (appworld download data).
  */
 import { spawn } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import { cpSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import path from 'node:path';
@@ -162,7 +163,7 @@ export function appWorldTasks(ids: string[], experiment: string, forgeTaskId: st
         if (seed) cpSync(seed, path.join(work, '.trod', 'tools'), { recursive: true });
       },
       serve: async ({ work }: TaskContext, forForge?: boolean) => {
-        const env = await startEnvironment(forForge ? forgeTaskId : id, `${experiment}-${forForge ? 'forge' : path.basename(path.dirname(work))}`.replace(/[^a-zA-Z0-9_-]/g, '_'));
+        const env = await startEnvironment(forForge ? forgeTaskId : id, `${experiment}-${forForge ? 'forge' : path.basename(path.dirname(work))}-${randomBytes(4).toString('hex')}`.replace(/[^a-zA-Z0-9_-]/g, '_'));
         envs.set(work, env);
         const info = await taskInfo(env.baseUrl);
         return { baseUrl: env.baseUrl, close: () => env.close(), info };
