@@ -81,8 +81,9 @@ for (const m of models) {
 
 /** Paired comparison of two cells over the instances both ran. */
 function paired(x: string, y: string) {
-  const ix = new Map(records.filter((r) => `${r.modelDir}/${r.arm}` === x).map((r) => [r.task, r.check.pass]));
-  const iy = new Map(records.filter((r) => `${r.modelDir}/${r.arm}` === y).map((r) => [r.task, r.check.pass]));
+  // Pairs are (instance, seed): the same instance in the same seed slot of both cells.
+  const ix = new Map(records.filter((r) => `${r.modelDir}/${r.arm}` === x).map((r) => [`${r.task}#${r.seed}`, r.check.pass]));
+  const iy = new Map(records.filter((r) => `${r.modelDir}/${r.arm}` === y).map((r) => [`${r.task}#${r.seed}`, r.check.pass]));
   const common = [...ix.keys()].filter((k) => iy.has(k));
   const both = common.filter((k) => ix.get(k) && iy.get(k)).length;
   const onlyX = common.filter((k) => ix.get(k) && !iy.get(k));

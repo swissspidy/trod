@@ -69,11 +69,16 @@ function sh(cmd: string, args: string[], opts: { cwd?: string; input?: string } 
 export function exportCommit(gitDir: string, commit: string, work: string): void {
   execFileSync('bash', ['-c', `git --git-dir="$1" archive "$2" | tar -x -C "$3"`, '_', gitDir, commit, work]);
   sh('git', ['init', '-q'], { cwd: work });
+  // No background gc/maintenance: thousands of loose objects would trigger a detached `git gc` that keeps writing
+  // into .git while the checkout is graded or deleted.
+  sh('git', ['config', 'gc.auto', '0'], { cwd: work });
+  sh('git', ['config', 'maintenance.auto', 'false'], { cwd: work });
   sh('git', ['add', '-A'], { cwd: work });
   sh('git', ['-c', 'user.name=swe', '-c', 'user.email=swe@example.com', 'commit', '-q', '-m', 'base'], { cwd: work });
 }
 
 export function envVars(env: SweEnv, work: string): Record<string, string> {
+  work = path.resolve(work);
   return {
     PATH: `${path.join(env.venv, 'bin')}:${process.env.PATH ?? ''}`,
     VIRTUAL_ENV: env.venv,
@@ -127,6 +132,16 @@ export function parseDjangoLog(log: string): Map<string, string> {
 }
 
 export async function grade(env: SweEnv, inst: Instance, work: string): Promise<CheckResult> {
+  // Absolute: the test run's working directory is the checkout, so a relative PYTHONPATH would point nowhere.
+  work = path.resolve(work);
+  // Keep the agent's changes (tracked and untracked) next to the checkout, before grading touches the test files: the
+  // checkout is deleted after the run, and the patch is enough to regrade (export the base commit, apply, grade).
+  try {
+    sh('git', ['add', '-A'], { cwd: work });
+    writeFileSync(path.join(path.dirname(work), 'agent.patch'), execFileSync('git', ['diff', '--cached', 'HEAD', '--binary'], { cwd: work, maxBuffer: 256 * 1024 * 1024 }));
+  } catch {
+    // not a git checkout (e.g. a unit test); nothing to save
+  }
   // Reset the test files the test patch touches, then apply it.
   // From the base commit in the bare clone (outside the agent's reach), not from the agent's HEAD, which it may have
   // committed to.
@@ -170,6 +185,12 @@ export async function grade(env: SweEnv, inst: Instance, work: string): Promise<
     }
   }
   const st = parseDjangoLog(log);
+  // No test result at all means the run itself failed (e.g. no disk space), not that every test failed.
+  if (st.size === 0) {
+    // Usually the environment (e.g. a broken virtualenv or a full disk); keep the underlying error for diagnosis.
+    const errLines = log.split('\n').filter((l) => /Error|error:|No space/.test(l)).slice(-3).join(' | ');
+    return { pass: false, score: 0, infra: true, details: `infra: no test results in the output (${errLines.slice(0, 400)})` };
+  }
   const ok = (n: string) => st.get(n) === 'ok' || st.get(n) === 'expected failure';
   const f2pOk = f2p.filter(ok).length;
   // A PASS_TO_PASS test skipped here (an optional dependency missing in this environment) cannot have been broken.
@@ -224,6 +245,8 @@ export function sweTasks(env: SweEnv = DJANGO4, ids?: string[]): Task[] {
         env: ({ work }: TaskContext) => envVars(e, work),
         toolsmithBrief: () => DJANGO_BRIEF(e),
         steps: [{ prompt: () => PROMPT(inst), check: ({ work }: TaskContext) => grade(e, inst, work) }],
+        // A Django checkout is ~100 MB; hundreds of runs fill the disk. agent.patch keeps what grading needs.
+        afterRun: ({ work }: TaskContext) => rmSync(work, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 }),
       }),
     );
 }

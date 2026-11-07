@@ -53,4 +53,6 @@ export interface Task {
   forgeSetup?(ctx: TaskContext): void;
   /** Extra environment variables for the agent's session (and the trod server), e.g. a virtualenv on PATH. */
   env?(ctx: TaskContext): Record<string, string>;
+  /** Called after the run's result is written, e.g. to delete a large checkout. */
+  afterRun?(ctx: TaskContext): void;
 }
