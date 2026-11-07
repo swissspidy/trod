@@ -10,7 +10,7 @@
  * AW_HOME (default experiments/appworld/.cache) holds venv/ (appworld installed) and data/ (appworld download data).
  */
 import { spawn } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import path from 'node:path';
 import type { CheckResult, Task, TaskContext } from '../lib/types.ts';
@@ -108,7 +108,7 @@ const PROMPT = (info: { instruction: string; supervisor: Record<string, string>;
 
 Task: ${info.instruction}
 
-You are working in AppWorld, a simulated world of apps (amazon, gmail, spotify, venmo, splitwise, simple_note, todoist, phone, file_system), plus a supervisor app (my profile, my account passwords, task completion) and api_docs. You act on my behalf through their APIs, by running Python with the \`aw\` command:
+You are working in AppWorld, a simulated world of apps (amazon, gmail, spotify, venmo, splitwise, simple_note, todoist, phone, file_system), plus a supervisor app (my profile, my account passwords, task completion) and api_docs. You act on my behalf through their APIs. The \`aw\` command runs Python against them:
 
     aw <<'EOF'
     print(apis.api_docs.show_app_descriptions())
@@ -130,6 +130,19 @@ They are often run by a smaller, cheaper model. Each needs to log in to apps wit
 
 Build trod tools (they run in Node; send Python to the REPL through /execute and parse what comes back) that make such tasks fast and reliable for a model that has never seen AppWorld. Typical capabilities: logging in to any app with the supervisor's credentials and keeping the token in the REPL; fetching ALL pages of any paginated API; finding people (contacts, roommates, family, coworkers) and their emails, phone numbers and app accounts; and searching an app's API docs compactly. Learn the APIs, parameter names, pagination limits and auth patterns by exploring this task's environment. Do NOT call apis.supervisor.complete_task: this session is only for building tools. Tools must work for any user and task: never hardcode this user's names, emails or passwords.`;
 
+/** AW_FORGE_DIGEST: a digest of graded train-split runs (digest.ts), for a forge that learns from experience. */
+function experience(): string {
+  const f = process.env.AW_FORGE_DIGEST;
+  if (!f) return '';
+  return `
+
+## Learn from experience
+
+A model ran train-split tasks WITHOUT tools; the digest below lists every task it failed, the unit tests it failed (the tests check the final database state and the answer), its last message, and AppWorld's reference solution for that task. Study the failures for the environment's CONVENTIONS that a newcomer gets wrong (how people and relationships are resolved, date ranges, what counts as a side effect, what to put in the answer, how to treat existing data such as cart contents, etc.) and build them into the tools: tools that do the error-prone parts the way the tests expect, and descriptions/whenToUse that state the conventions briefly. Also consider one tool that returns a compact checklist of these conventions, described as the first call of every task. The future tasks are DIFFERENT tasks: encode general conventions and capabilities, never task-specific answers.${process.env.AW_FORGE_SEED ? ' The tools in .trod/tools are an earlier library built without this experience: improve them in place, and add or remove tools as needed.' : ''}
+
+${readFileSync(f, 'utf8')}`;
+}
+
 export function appWorldTasks(ids: string[], experiment: string, forgeTaskId: string): Task[] {
   const envs = new Map<string, Running>();
   return ids.map(
@@ -140,7 +153,11 @@ export function appWorldTasks(ids: string[], experiment: string, forgeTaskId: st
       repetitions: 1,
       forgeKey: 'appworld',
       setup: () => ({ task_id: id }),
-      forgeSetup: () => {},
+      forgeSetup: ({ work }: TaskContext) => {
+        // AW_FORGE_SEED: start from an earlier library (its tools land in .trod/tools, to be improved in place).
+        const seed = process.env.AW_FORGE_SEED;
+        if (seed) cpSync(seed, path.join(work, '.trod', 'tools'), { recursive: true });
+      },
       serve: async ({ work }: TaskContext, forForge?: boolean) => {
         const env = await startEnvironment(forForge ? forgeTaskId : id, `${experiment}-${forForge ? 'forge' : path.basename(path.dirname(work))}`.replace(/[^a-zA-Z0-9_-]/g, '_'));
         envs.set(work, env);
@@ -148,7 +165,7 @@ export function appWorldTasks(ids: string[], experiment: string, forgeTaskId: st
         return { baseUrl: env.baseUrl, close: () => env.close(), info };
       },
       env: () => ({ PATH: `${BIN}:${process.env.PATH ?? ''}` }),
-      toolsmithBrief: () => BRIEF,
+      toolsmithBrief: () => BRIEF + experience(),
       steps: [
         {
           prompt: (ctx: TaskContext) => PROMPT(ctx.info),

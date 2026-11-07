@@ -1,0 +1,44 @@
+/**
+ * Experience digest for an AppWorld forge: what went wrong when a model ran train-split tasks without tools.
+ *
+ *   node experiments/appworld/digest.ts <runs dir> > digest.md
+ *
+ * For every failed run: the task, the unit tests it failed (AppWorld's requirement texts), the agent's last message,
+ * and AppWorld's reference solution for that task (train-split ground truth, which AppWorld provides for learning;
+ * never use this on test tasks). The forge reads it to learn the environment's conventions.
+ */
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+import { AW_HOME } from './appworld.ts';
+
+const dir = path.resolve(process.argv[2] ?? '');
+const out: string[] = [];
+let runs = 0;
+let failed = 0;
+for (const task of readdirSync(dir).sort()) {
+  for (const run of existsSync(path.join(dir, task)) ? readdirSync(path.join(dir, task)) : []) {
+    const res = path.join(dir, task, run, 'result.json');
+    if (!existsSync(res)) continue;
+    runs++;
+    const r = JSON.parse(readFileSync(res, 'utf8'));
+    if (r.check.pass) continue;
+    failed++;
+    const prompt = readFileSync(path.join(dir, task, run, 'prompt-1.txt'), 'utf8');
+    const instruction = prompt.split('Task: ')[1]?.split('\n')[0] ?? '';
+    const evalFile = path.join(dir, task, run, 'evaluation.json');
+    const fails = existsSync(evalFile) ? (JSON.parse(readFileSync(evalFile, 'utf8')).failures as { requirement: string }[]) : [];
+    let last = '';
+    for (const line of readFileSync(path.join(dir, task, run, 'stream-1.jsonl'), 'utf8').split('\n')) {
+      try {
+        const e = JSON.parse(line);
+        if (e.type === 'result') last = String(e.result ?? '');
+      } catch {}
+    }
+    const sol = path.join(AW_HOME, 'data', 'tasks', task, 'ground_truth', 'solution.py');
+    out.push(
+      `## ${task}: ${instruction}\n\nFailed tests:\n${fails.map((f) => `- ${f.requirement.replace(/\s+/g, ' ').slice(0, 300)}`).join('\n')}\n\nAgent's final message (excerpt):\n> ${last.replace(/\s+/g, ' ').slice(0, 500)}\n\n` +
+        (existsSync(sol) ? `Reference solution:\n\`\`\`python\n${readFileSync(sol, 'utf8').trim()}\n\`\`\`\n` : ''),
+    );
+  }
+}
+console.log(`# What went wrong without tools: ${failed} of ${runs} train-split runs failed\n\n${out.join('\n')}`);
