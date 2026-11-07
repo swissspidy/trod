@@ -1,0 +1,112 @@
+[
+  {
+    "db": "california_schools",
+    "ok": true,
+    "chars": 3984,
+    "costUsd": 0.34791940000000005,
+    "turns": 9,
+    "wallMs": 58928,
+    "trainQuestions": 36,
+    "model": "claude-opus-5-5"
+  },
+  {
+    "db": "card_games",
+    "ok": true,
+    "chars": 3966,
+    "costUsd": 0.4033734,
+    "turns": 10,
+    "wallMs": 62821,
+    "trainQuestions": 76,
+    "model": "claude-opus-5-5"
+  },
+  {
+    "db": "codebase_community",
+    "ok": true,
+    "chars": 3937,
+    "costUsd": 0.28444959999999997,
+    "turns": 6,
+    "wallMs": 38911,
+    "trainQuestions": 74,
+    "model": "claude-opus-5-5"
+  },
+  {
+    "db": "debit_card_specializing",
+    "ok": true,
+    "chars": 3962,
+    "costUsd": 0.2668198,
+    "turns": 9,
+    "wallMs": 48333,
+    "trainQuestions": 26,
+    "model": "claude-opus-5-5"
+  },
+  {
+    "db": "european_football_2",
+    "ok": true,
+    "chars": 3958,
+    "costUsd": 0.28986939999999994,
+    "turns": 10,
+    "wallMs": 49582,
+    "trainQuestions": 52,
+    "model": "claude-opus-5-5"
+  },
+  {
+    "db": "financial",
+    "ok": true,
+    "chars": 3997,
+    "costUsd": 0.2503112,
+    "turns": 9,
+    "wallMs": 48810,
+    "trainQuestions": 42,
+    "model": "claude-opus-5-5"
+  },
+  {
+    "db": "formula_1",
+    "ok": true,
+    "chars": 4011,
+    "costUsd": 0.39587180000000005,
+    "turns": 12,
+    "wallMs": 66834,
+    "trainQuestions": 70,
+    "model": "claude-opus-5-5"
+  },
+  {
+    "db": "student_club",
+    "ok": true,
+    "chars": 3829,
+    "costUsd": 0.21873560000000003,
+    "turns": 6,
+    "wallMs": 35250,
+    "trainQuestions": 63,
+    "model": "claude-opus-5-5"
+  },
+  {
+    "db": "superhero",
+    "ok": true,
+    "chars": 3938,
+    "costUsd": 0.2420848,
+    "turns": 7,
+    "wallMs": 42667,
+    "trainQuestions": 52,
+    "model": "claude-opus-5-5"
+  },
+  {
+    "db": "thrombosis_prediction",
+    "ok": true,
+    "chars": 3678,
+    "costUsd": 0.4516202,
+    "turns": 12,
+    "wallMs": 82153,
+    "trainQuestions": 65,
+    "model": "claude-opus-5-5"
+  },
+  {
+    "db": "toxicology",
+    "ok": true,
+    "chars": 3930,
+    "costUsd": 0.2070566,
+    "turns": 6,
+    "wallMs": 34588,
+    "trainQuestions": 58,
+    "model": "claude-opus-5-5"
+  }
+]

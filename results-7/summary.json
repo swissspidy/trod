@@ -1,0 +1,92 @@
+[
+  {
+    "condition": "baseline",
+    "label": "Haiku, no hint",
+    "runs": 330,
+    "passed": 202,
+    "ex": 0.612,
+    "byDifficulty": {
+      "simple": "157/222",
+      "moderate": "36/78",
+      "challenging": "9/30"
+    },
+    "meanTokens": 82133,
+    "meanCostUsd": 0.00245,
+    "meanTurns": 4.4
+  },
+  {
+    "condition": "notes",
+    "label": "Haiku + forged per-DB notes",
+    "runs": 330,
+    "passed": 207,
+    "ex": 0.627,
+    "byDifficulty": {
+      "simple": "152/222",
+      "moderate": "45/78",
+      "challenging": "10/30"
+    },
+    "meanTokens": 67376,
+    "meanCostUsd": 0.00233,
+    "meanTurns": 3.4
+  },
+  {
+    "condition": "memory",
+    "label": "Haiku + past questions (hint + SQL)",
+    "runs": 330,
+    "passed": 203,
+    "ex": 0.615,
+    "byDifficulty": {
+      "simple": "154/222",
+      "moderate": "42/78",
+      "challenging": "7/30"
+    },
+    "meanTokens": 83393,
+    "meanCostUsd": 0.00259,
+    "meanTurns": 4.3
+  },
+  {
+    "condition": "memory+notes",
+    "label": "Haiku + past questions + notes",
+    "runs": 330,
+    "passed": 209,
+    "ex": 0.633,
+    "byDifficulty": {
+      "simple": "157/222",
+      "moderate": "43/78",
+      "challenging": "9/30"
+    },
+    "meanTokens": 77385,
+    "meanCostUsd": 0.00255,
+    "meanTurns": 3.8
+  },
+  {
+    "condition": "hint (reference)",
+    "label": "Haiku + BIRD per-question hint",
+    "runs": 330,
+    "passed": 226,
+    "ex": 0.685,
+    "byDifficulty": {
+      "simple": "169/222",
+      "moderate": "47/78",
+      "challenging": "10/30"
+    },
+    "meanTokens": 75718,
+    "meanCostUsd": 0.00235,
+    "meanTurns": 4.2
+  },
+  {
+    "condition": "sonnet",
+    "label": "Sonnet, no hint (1 seed)",
+    "runs": 110,
+    "passed": 78,
+    "ex": 0.709,
+    "byDifficulty": {
+      "simple": "56/74",
+      "moderate": "17/26",
+      "challenging": "5/10"
+    },
+    "meanTokens": 59544,
+    "meanCostUsd": 0.02476,
+    "meanTurns": 3.5
+  }
+]
