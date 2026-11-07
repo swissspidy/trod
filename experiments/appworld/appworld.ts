@@ -3,14 +3,13 @@
  *
  * Each task runs in its own AppWorld environment process (aw_server.py) started by the runner. The agent reaches it
  * only through the `aw` command (Python code into the task's REPL with the `apis` object), the same interface
- * AppWorld's own agents get. Grading uses AppWorld's database-state unit tests through /evaluate, which needs a token
- * the agent never sees. The AppWorld data (including ground truth) lives in AW_HOME, readable by root only; run the
- * sessions as an unprivileged user (runner --as-user) so they cannot read it.
+ * AppWorld's own agents get. Grading runs AppWorld's database-state unit tests afterwards, in a separate process
+ * (aw_eval.py). Isolation is by OS user: the agent's sessions run as one user (runner --as-user) that cannot read
+ * AW_HOME at all, and the environment as another (AW_SERVER_USER) that cannot read the ground truth.
  *
  * AW_HOME (default experiments/appworld/.cache) holds venv/ (appworld installed) and data/ (appworld download data).
  */
 import { spawn } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import path from 'node:path';
@@ -19,6 +18,7 @@ import type { CheckResult, Task, TaskContext } from '../lib/types.ts';
 export const AW_HOME = path.resolve(process.env.AW_HOME ?? path.join(import.meta.dirname, '.cache'));
 const SERVER = path.join(import.meta.dirname, 'aw_server.py');
 const BIN = path.join(import.meta.dirname, 'bin');
+const EVAL = path.join(import.meta.dirname, 'aw_eval.py');
 
 export function datasetIds(name: string): string[] {
   const f = path.join(AW_HOME, 'data', 'datasets', `${name}.txt`);
@@ -38,18 +38,25 @@ function freePort(): Promise<number> {
 
 interface Running {
   baseUrl: string;
-  token: string;
+  taskId: string;
+  experiment: string;
   close(): void;
 }
 
-/** Starts the AppWorld environment for one task; resolves once it serves requests. */
+const PYTHON = () => path.join(AW_HOME, 'venv', 'bin', 'python');
+
+/**
+ * Starts the AppWorld environment for one task; resolves once it serves requests. With AW_SERVER_USER (e.g. awenv)
+ * it runs as that user, who must be able to read AW_HOME but not data/tasks/<id>/ground_truth (see aw_server.py).
+ */
 export async function startEnvironment(taskId: string, experiment: string): Promise<Running> {
   const port = await freePort();
-  const token = randomBytes(16).toString('hex');
-  const child = spawn(path.join(AW_HOME, 'venv', 'bin', 'python'), [SERVER, taskId, String(port), experiment], {
-    env: { PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '/root', APPWORLD_ROOT: AW_HOME, AW_EVAL_TOKEN: token },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+  const env = { PATH: process.env.PATH ?? '', HOME: AW_HOME, APPWORLD_ROOT: AW_HOME };
+  const args = [SERVER, taskId, String(port), experiment];
+  const user = process.env.AW_SERVER_USER;
+  const child = user
+    ? spawn('runuser', ['-u', user, '--', 'env', '-i', ...Object.entries(env).map(([k, v]) => `${k}=${v}`), PYTHON(), ...args], { stdio: ['ignore', 'pipe', 'pipe'] })
+    : spawn(PYTHON(), args, { env, stdio: ['ignore', 'pipe', 'pipe'] });
   let log = '';
   await new Promise<void>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`AppWorld environment for ${taskId} did not start: ${log.slice(-500)}`)), 120_000);
@@ -67,23 +74,31 @@ export async function startEnvironment(taskId: string, experiment: string): Prom
       reject(new Error(`AppWorld environment for ${taskId} exited (${code}): ${log.slice(-500)}`));
     });
   });
-  return { baseUrl: `http://127.0.0.1:${port}`, token, close: () => child.kill() };
+  return { baseUrl: `http://127.0.0.1:${port}`, taskId, experiment, close: () => child.kill() };
 }
 
 async function taskInfo(baseUrl: string): Promise<{ instruction: string; supervisor: Record<string, string>; datetime: string }> {
   return (await fetch(`${baseUrl}/task`)).json() as Promise<{ instruction: string; supervisor: Record<string, string>; datetime: string }>;
 }
 
+/** Grades the task from the databases its environment saved, in a separate process (aw_eval.py) as the runner's user. */
 export async function evaluate(env: Running, workDir?: string): Promise<CheckResult> {
-  const res = await fetch(`${env.baseUrl}/evaluate`, { method: 'POST', headers: { 'x-eval-token': env.token } });
-  if (!res.ok) return { pass: false, score: 0, infra: true, details: `infra: evaluate failed (${res.status})` };
-  const r = (await res.json()) as { success: boolean; difficulty?: number; num_tests: number; passes: unknown[]; failures: { label?: string; requirement?: string; trace?: string }[]; completed: boolean };
+  const out = await new Promise<{ code: number | null; text: string }>((resolve) => {
+    const child = spawn(PYTHON(), [EVAL, env.taskId, env.experiment], { env: { PATH: process.env.PATH ?? '', HOME: AW_HOME, APPWORLD_ROOT: AW_HOME }, stdio: ['ignore', 'pipe', 'pipe'] });
+    let text = '';
+    child.stdout.on('data', (c: Buffer) => (text += c));
+    child.stderr.on('data', (c: Buffer) => (text += c));
+    child.on('close', (code) => resolve({ code, text }));
+  });
+  const line = out.text.split('\n').reverse().find((l) => l.startsWith('{'));
+  if (out.code !== 0 || !line) return { pass: false, score: 0, infra: true, details: `infra: evaluation failed (${out.code}): ${out.text.slice(-300)}` };
+  const r = JSON.parse(line) as { success: boolean; difficulty?: number; num_tests: number; passes: unknown[]; failures: { label?: string; requirement?: string; trace?: string }[] };
   const passed = r.passes?.length ?? 0;
   if (workDir) writeFileSync(path.join(path.dirname(workDir), 'evaluation.json'), JSON.stringify(r, null, 2));
   return {
     pass: !!r.success,
     score: r.num_tests ? passed / r.num_tests : 0,
-    details: `${passed}/${r.num_tests} tests passed${r.completed ? '' : ' (complete_task was not called)'}${r.failures?.length ? `; failed: ${r.failures.slice(0, 2).map((f) => (f.requirement ?? f.label ?? '').slice(0, 120)).join(' | ')}` : ''}`,
+    details: `${passed}/${r.num_tests} tests passed${r.failures?.length ? `; failed: ${r.failures.slice(0, 2).map((f) => (f.requirement ?? f.label ?? '').slice(0, 120)).join(' | ')}` : ''}`,
   };
 }
 
@@ -99,7 +114,7 @@ You are working in AppWorld, a simulated world of apps (amazon, gmail, spotify, 
     print(apis.api_docs.show_app_descriptions())
     EOF
 
-The code runs in a persistent Python REPL with an \`apis\` object (apis.<app>.<api>(...)); variables persist between calls. Look up APIs with apis.api_docs.show_api_descriptions(app_name=...) and apis.api_docs.show_api_doc(app_name=..., api_name=...). My account passwords are in apis.supervisor.show_account_passwords(). Do exactly what the task asks, without side effects beyond it.
+The code runs in a persistent Python REPL with an \`apis\` object (apis.<app>.<api>(...)); variables persist between calls. Look up APIs with apis.api_docs.show_api_descriptions(app_name=...) and apis.api_docs.show_api_doc(app_name=..., api_name=...). My account passwords are in apis.supervisor.show_account_passwords(). Do exactly what the task asks, without side effects beyond it. Nobody can answer questions while you work: never stop to ask or to wait for confirmation; make reasonable decisions (as the task's author would want) and finish the task yourself.
 
 When you are done, call apis.supervisor.complete_task(answer=...) through aw, with the answer if the task asks a question (just the value, e.g. a name or a number), or apis.supervisor.complete_task() otherwise. Then reply DONE.`;
 };

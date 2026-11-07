@@ -1,23 +1,24 @@
 """One AppWorld task behind a tiny HTTP API, for agents that work through a shell.
 
-  POST /execute   {"code": "..."}  -> {"output": "..."}   runs code in the task's persistent REPL (apis.<app>...)
+  POST /execute   {"code": "..."}  -> {"output": "...", "completed": bool}   runs code in the task's persistent REPL
   GET  /task                       -> {"instruction", "supervisor", "datetime", "task_id"}
-  POST /evaluate  (X-Eval-Token)   -> {"success", "passes", "fails", "num_tests", "completed"}
 
-/evaluate needs the token from AW_EVAL_TOKEN, which only the experiment runner knows: the agent cannot grade itself.
+There is no grading here. The task is loaded without its ground truth, and the experiment runner starts this server
+as a user that cannot read the ground truth: AppWorld's in-process sandbox is not a security boundary (for example
+getattr(__builtins__, "open") still reads files), so the OS has to be. AppWorld saves the databases after every
+execute; aw_eval.py grades them afterwards in a separate process that can read the ground truth.
+
 Usage: python aw_server.py <task_id> <port> <experiment_name>   (APPWORLD_ROOT points at the AppWorld root)
 """
 
 import json
-import os
 import sys
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 from appworld import AppWorld
 
 task_id, port, experiment = sys.argv[1], int(sys.argv[2]), sys.argv[3]
-token = os.environ.get("AW_EVAL_TOKEN", "")
-world = AppWorld(task_id=task_id, experiment_name=experiment, max_interactions=1000, raise_on_failure=False)
+world = AppWorld(task_id=task_id, experiment_name=experiment, max_interactions=1000, raise_on_failure=False, load_ground_truth=False)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -44,11 +45,6 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/execute":
             output = world.execute(body.get("code", ""))
             return self._send(200, {"output": output, "completed": world.task_completed()})
-        if self.path == "/evaluate":
-            if not token or self.headers.get("x-eval-token") != token:
-                return self._send(403, {"error": "forbidden"})
-            result = world.evaluate().to_dict()
-            return self._send(200, {**result, "completed": world.task_completed()})
         return self._send(404, {"error": "not found"})
 
 
