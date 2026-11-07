@@ -77,6 +77,11 @@ if (values.suite && !pool.length) {
 }
 const wanted = values.tasks?.split(',') ?? (values.sample ? (JSON.parse(readFileSync(values.sample, 'utf8')) as string[]) : undefined);
 const tasks = wanted ? pool.filter((t) => wanted.includes(t.id)) : pool;
+const unknown = wanted?.filter((id) => !pool.some((t) => t.id === id)) ?? [];
+if (unknown.length) {
+  console.error(`unknown task ids: ${unknown.join(', ')}`);
+  process.exit(1);
+}
 const arms = values.arms!.split(',') as Arm[];
 const seeds = Number(values.seeds);
 const outDir = path.resolve(values.out ?? path.join(ROOT, 'results/runs', new Date().toISOString().replace(/[:.]/g, '-')));

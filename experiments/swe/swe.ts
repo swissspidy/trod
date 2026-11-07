@@ -12,7 +12,7 @@
  * PASS_TO_PASS test passes.
  */
 import { execFile, execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import type { CheckResult, Task, TaskContext } from '../lib/types.ts';
@@ -100,26 +100,48 @@ function moduleOf(name: string): string | undefined {
 export function parseDjangoLog(log: string): Map<string, string> {
   const status = new Map<string, string>();
   const lines = log.split('\n');
+  const RESULT = /^(ok|FAIL|ERROR|skipped.*|expected failure|unexpected success)\s*$/;
+  const norm = (s: string) => (s.startsWith('skipped') ? 'skipped' : s.trim());
+  // A test that writes to stderr splits "name ... " from its result; remember the pending names until a result line.
+  let pending: string[] = [];
   for (let i = 0; i < lines.length; i++) {
-    const m = lines[i]!.match(/^(.*?) \.\.\. ?(ok|FAIL|ERROR|skipped.*|expected failure|unexpected success)\s*$/);
-    if (!m) continue;
-    const s = m[2]!.startsWith('skipped') ? 'skipped' : m[2]!;
-    status.set(m[1]!.trim(), s);
-    // With a docstring, unittest prints "test_x (mod.Class)" on its own line and the docstring before " ... ok".
-    const prev = lines[i - 1]?.trim();
-    if (prev && /^\w+ \([\w.]+\)$/.test(prev)) status.set(prev, s);
+    const line = lines[i]!;
+    const m = line.match(/^(.*?) \.\.\. ?(.*)$/);
+    if (m) {
+      const names = [m[1]!.trim()];
+      // With a docstring, unittest prints "test_x (mod.Class)" on its own line and the docstring before " ... ".
+      const prev = lines[i - 1]?.trim();
+      if (prev && /^\w+ \([\w.]+\)$/.test(prev)) names.push(prev);
+      if (RESULT.test(m[2]!)) {
+        for (const n of names) status.set(n, norm(m[2]!));
+        pending = [];
+      } else pending = names;
+      continue;
+    }
+    if (pending.length && RESULT.test(line.trim())) {
+      for (const n of pending) status.set(n, norm(line.trim()));
+      pending = [];
+    }
   }
   return status;
 }
 
 export async function grade(env: SweEnv, inst: Instance, work: string): Promise<CheckResult> {
   // Reset the test files the test patch touches, then apply it.
+  // From the base commit in the bare clone (outside the agent's reach), not from the agent's HEAD, which it may have
+  // committed to.
   for (const f of patchedFiles(inst.test_patch)) {
+    let content: Buffer | undefined;
     try {
-      sh('git', ['cat-file', '-e', `HEAD:${f}`], { cwd: work });
-      sh('git', ['checkout', 'HEAD', '--', f], { cwd: work });
+      content = execFileSync('git', ['--git-dir', env.gitDir, 'show', `${inst.base_commit}:${f}`], { maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] });
     } catch {
-      rmSync(path.join(work, f), { force: true });
+      content = undefined;
+    }
+    const p = path.join(work, f);
+    if (content === undefined) rmSync(p, { force: true });
+    else {
+      mkdirSync(path.dirname(p), { recursive: true });
+      writeFileSync(p, content);
     }
   }
   try {
@@ -140,8 +162,12 @@ export async function grade(env: SweEnv, inst: Instance, work: string): Promise<
     });
     log = res.stdout + res.stderr;
   } catch (err) {
-    const e = err as { stdout?: string; stderr?: string };
+    const e = err as { stdout?: string; stderr?: string; code?: string | number; killed?: boolean; signal?: string };
     log = (e.stdout ?? '') + (e.stderr ?? '');
+    // A non-zero exit is normal when tests fail; a missing interpreter or a killed (timed-out) run is not a verdict.
+    if (e.code === 'ENOENT' || e.killed || e.signal) {
+      return { pass: false, score: 0, infra: true, details: `infra: test run did not complete (${e.code === 'ENOENT' ? 'python not found' : `killed${e.signal ? ` by ${e.signal}` : ''}`})` };
+    }
   }
   const st = parseDjangoLog(log);
   const ok = (n: string) => st.get(n) === 'ok' || st.get(n) === 'expected failure';

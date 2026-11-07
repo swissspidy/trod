@@ -5,6 +5,8 @@ export interface CheckResult {
   /** 0..1 */
   score: number;
   details: string;
+  /** The check could not be completed (infrastructure, not the agent): excluded from scores. */
+  infra?: boolean;
 }
 
 export interface TaskContext {

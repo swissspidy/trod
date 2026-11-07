@@ -30,7 +30,8 @@ await Promise.all(
         execFileSync('git', ['apply', '-'], { cwd: gold, input: inst.patch });
         exportCommit(env.gitDir, inst.base_commit, empty);
         const [g, e] = await Promise.all([grade(env, inst, gold), grade(env, inst, empty)]);
-        results[inst.instance_id] = { gold: g.details, empty: e.details, ok: g.pass && !e.pass };
+        // An incomplete run (infra) is not evidence either way: the instance is not valid here.
+        results[inst.instance_id] = { gold: g.details, empty: e.details, ok: g.pass && !e.pass && !e.infra };
         console.log(`${g.pass && !e.pass ? 'OK  ' : 'SKIP'} ${inst.instance_id} gold: ${g.details} | empty: ${e.details}`);
       } catch (err) {
         results[inst.instance_id] = { gold: `error: ${(err as Error).message.slice(0, 200)}`, empty: '', ok: false };
