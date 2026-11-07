@@ -55,7 +55,11 @@ class Handler(BaseHTTPRequestHandler):
                     state["done"] = True
                     results.append({"action": action, "observation": f"Step limit ({limit}) reached; the task has ended."})
                     continue
-                obs, _reward, done, info = env.step(str(action))
+                try:
+                    obs, _reward, done, info = env.step(str(action))
+                except Exception as e:  # keep the batch's earlier observations
+                    results.append({"action": action, "observation": f"Error: {e}"})
+                    break
                 state["moves"] += 1
                 state["score"] = info.get("score", state["score"])
                 state["done"] = bool(done)

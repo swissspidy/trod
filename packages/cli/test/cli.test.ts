@@ -147,6 +147,15 @@ describe('trod notes: validation', () => {
     expect(res.out).toContain('invalid matches pattern');
   });
 
+  it('rejects a check without an expectation', async () => {
+    const dir = project();
+    writeFileSync(path.join(dir, '.trod', 'notes.md'), '- x\n');
+    writeFileSync(path.join(dir, '.trod', 'notes.checks.json'), JSON.stringify([{ claim: 'x', tool: 'codes', expect: {} }]));
+    const res = await run(['notes', '--dir', dir]);
+    expect(res.code).toBe(1);
+    expect(res.out).toContain('expect needs contains, matches or equals');
+  });
+
   it('rejects contradicting or misplaced link flags', async () => {
     const dir = project();
     expect((await run(['notes', '--link', '--no-link', '--dir', dir])).code).toBe(1);

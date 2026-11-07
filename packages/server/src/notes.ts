@@ -65,6 +65,10 @@ export function readChecks(file: string): { checks: NoteCheck[]; errors: string[
       errors.push(`${CHECKS_FILE}[${i}]: needs {claim, tool, input?, expect: {contains|matches|equals…}}`);
       return;
     }
+    if (c.expect.contains === undefined && c.expect.matches === undefined && c.expect.equals === undefined) {
+      errors.push(`${CHECKS_FILE}[${i}] ("${c.claim}"): expect needs contains, matches or equals`);
+      return;
+    }
     if (c.expect.matches !== undefined) {
       try {
         new RegExp(String(c.expect.matches));

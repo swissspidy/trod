@@ -15832,6 +15832,10 @@ function readChecks(file) {
       errors.push(`${CHECKS_FILE}[${i}]: needs {claim, tool, input?, expect: {contains|matches|equals\u2026}}`);
       return;
     }
+    if (c.expect.contains === void 0 && c.expect.matches === void 0 && c.expect.equals === void 0) {
+      errors.push(`${CHECKS_FILE}[${i}] ("${c.claim}"): expect needs contains, matches or equals`);
+      return;
+    }
     if (c.expect.matches !== void 0) {
       try {
         new RegExp(String(c.expect.matches));
