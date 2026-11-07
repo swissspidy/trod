@@ -38,7 +38,9 @@ async function forge(task: string, train: number[]): Promise<void> {
   const dir = path.join(out, task);
   const work = path.join(dir, 'work');
   const home = path.join(dir, 'home');
-  if (existsSync(path.join(dir, 'result.json'))) return;
+  const done = path.join(dir, 'result.json');
+  // Skip only task types that already succeeded (an older version also saved failed attempts).
+  if (existsSync(done) && (JSON.parse(readFileSync(done, 'utf8')) as { ok?: boolean }).ok) return;
   mkdirSync(path.join(work, '.service'), { recursive: true });
   mkdirSync(path.join(home, '.claude'), { recursive: true });
   mkdirSync(path.join(home, 'tmp'), { recursive: true });

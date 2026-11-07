@@ -61,5 +61,5 @@ node experiments/runner/run.ts --suite sciworld:test --arms baseline --seeds 3 -
 SW_NOTES=$PWD/experiments/sciworld/notes node experiments/runner/run.ts --suite sciworld:test --arms baseline --seeds 3 --model claude-haiku-5-5 --as-user agent --out results/runs/sw-notes
 ```
 
-`runs.jsonl` has one record per run, `summary.json` the table above, `by-task.json` the per-task-type numbers and
+`runs.jsonl` has one record per run (with `infra`: whether grading itself failed; none of the 420 did, so no run was excluded), `summary.json` the table above, `by-task.json` the per-task-type numbers and
 `forge.json` the forge sessions; the notes are in `experiments/sciworld/notes/`.
