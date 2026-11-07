@@ -5,3 +5,4 @@ spike-server.log
 .trod/tools/
 .trod/logs/
 results/runs/
+experiments/swe/.cache/

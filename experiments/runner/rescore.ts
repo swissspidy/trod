@@ -28,11 +28,12 @@ for (const task of TASKS) {
     const work = path.join(dir, run, 'work');
     // Session mode wipes earlier sessions' outputs (fresh checkouts), so a step whose output is gone keeps its original
     // result instead of turning into a failure.
-    const steps = record.steps.map((s, i) => {
-      const check = task.steps[i]!.check({ work }, expected);
+    const steps: RunRecord['steps'] = [];
+    for (const [i, s] of record.steps.entries()) {
+      const check = await task.steps[i]!.check({ work }, expected);
       const gone = !check.pass && /missing|does not exist|ENOENT/.test(check.details);
-      return gone ? s : { ...s, check };
-    });
+      steps.push(gone ? s : { ...s, check });
+    }
     const scores = task.steps.map((_, i) => steps[i]?.check.score ?? 0);
     const check = {
       pass: steps.length === task.steps.length && steps.every((s) => s.check.pass),
