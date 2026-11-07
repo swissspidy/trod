@@ -1,0 +1,175 @@
+{
+  "instances": 67,
+  "excludedInfra": [],
+  "cells": {
+    "haiku/baseline": {
+      "model": "haiku",
+      "arm": "baseline",
+      "n": 201,
+      "resolved": 160,
+      "rate": 0.7960199004975125,
+      "tokens": 231938.21393034825,
+      "turns": 11.104477611940299,
+      "wallS": 45.29715920398008,
+      "costPerInstance": 0.006598665124378111,
+      "costPerResolved": 0.008289573062500003,
+      "usedTrod": 0,
+      "trodCalls": 0
+    },
+    "haiku/forged": {
+      "model": "haiku",
+      "arm": "forged",
+      "n": 201,
+      "resolved": 159,
+      "rate": 0.7910447761194029,
+      "tokens": 281742.94527363183,
+      "turns": 11.17910447761194,
+      "wallS": 46.11000995024878,
+      "costPerInstance": 0.00751559054726368,
+      "costPerResolved": 0.009500840880503143,
+      "usedTrod": 70,
+      "trodCalls": 157
+    },
+    "sonnet/baseline": {
+      "model": "sonnet",
+      "arm": "baseline",
+      "n": 134,
+      "resolved": 111,
+      "rate": 0.8283582089552238,
+      "tokens": 82886.73134328358,
+      "turns": 4.686567164179104,
+      "wallS": 23.912179104477612,
+      "costPerInstance": 0.03822507985074627,
+      "costPerResolved": 0.046145591891891886,
+      "usedTrod": 0,
+      "trodCalls": 0
+    },
+    "sonnet/forged": {
+      "model": "sonnet",
+      "arm": "forged",
+      "n": 134,
+      "resolved": 112,
+      "rate": 0.835820895522388,
+      "tokens": 96970.21641791044,
+      "turns": 4.977611940298507,
+      "wallS": 27.55266417910448,
+      "costPerInstance": 0.046324797761194046,
+      "costPerResolved": 0.05542431160714288,
+      "usedTrod": 17,
+      "trodCalls": 27
+    }
+  },
+  "comparisons": [
+    {
+      "x": "haiku/baseline",
+      "y": "haiku/forged",
+      "n": 201,
+      "instances": 67,
+      "both": 152,
+      "onlyX": 8,
+      "onlyY": 7,
+      "neither": 34,
+      "p": 1,
+      "instanceLevel": {
+        "xBetter": 7,
+        "yBetter": 4,
+        "p": 0.5488281250000002
+      },
+      "onlyXIds": [
+        "django__django-14011#2",
+        "django__django-14011#3",
+        "django__django-14534#3",
+        "django__django-15098#2",
+        "django__django-15280#2",
+        "django__django-15380#2",
+        "django__django-15563#3",
+        "django__django-15572#1"
+      ],
+      "onlyYIds": [
+        "django__django-14170#2",
+        "django__django-14170#3",
+        "django__django-14725#2",
+        "django__django-14725#3",
+        "django__django-14792#2",
+        "django__django-14792#3",
+        "django__django-15022#1"
+      ]
+    },
+    {
+      "x": "sonnet/baseline",
+      "y": "sonnet/forged",
+      "n": 134,
+      "instances": 67,
+      "both": 108,
+      "onlyX": 3,
+      "onlyY": 4,
+      "neither": 19,
+      "p": 1,
+      "instanceLevel": {
+        "xBetter": 2,
+        "yBetter": 4,
+        "p": 0.6875000000000006
+      },
+      "onlyXIds": [
+        "django__django-14792#1",
+        "django__django-14792#2",
+        "django__django-15128#2"
+      ],
+      "onlyYIds": [
+        "django__django-14011#2",
+        "django__django-14351#1",
+        "django__django-14534#2",
+        "django__django-15268#2"
+      ]
+    },
+    {
+      "x": "sonnet/baseline",
+      "y": "haiku/forged",
+      "n": 134,
+      "instances": 67,
+      "both": 100,
+      "onlyX": 11,
+      "onlyY": 6,
+      "neither": 17,
+      "p": 0.33230590820312567,
+      "instanceLevel": {
+        "xBetter": 8,
+        "yBetter": 5,
+        "p": 0.5810546875000012
+      },
+      "onlyXIds": [
+        "django__django-14140#1",
+        "django__django-14140#2",
+        "django__django-14376#1",
+        "django__django-14376#2",
+        "django__django-14534#1",
+        "django__django-15022#2",
+        "django__django-15098#1",
+        "django__django-15280#1",
+        "django__django-15280#2",
+        "django__django-15380#2",
+        "django__django-15572#1"
+      ],
+      "onlyYIds": [
+        "django__django-14170#2",
+        "django__django-14351#1",
+        "django__django-15127#2",
+        "django__django-15268#2",
+        "django__django-15563#1",
+        "django__django-15563#2"
+      ]
+    }
+  ],
+  "forge": {
+    "costUsd": 2.2857879999999993,
+    "turns": 73,
+    "tools": [
+      "django_find_tests",
+      "django_grep",
+      "django_run",
+      "django_source",
+      "django_test"
+    ],
+    "model": "claude-opus-5-5"
+  }
+}
