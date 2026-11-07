@@ -19,13 +19,15 @@ a{color:var(--accent)}.cards{display:grid;gap:12px;margin-top:24px}
 <body><main>
 <h1>Do self-made tools pay off?</h1>
 <p><a href="https://github.com/swissspidy/trod">trod</a> is an MCP server for Claude Code that turns files into live tools, so an agent can build its own tools mid-session. These experiments measure, in headless <code>claude -p</code> sessions, whether that makes agents cheaper or better than plain Bash.</p>
-<p><strong>Short answer:</strong> not as a mid-task trick, but yes as an asset. A library of tools built once cut later sessions' tokens by 26% with zero failures. Tools built by Sonnet cut Haiku's tokens by 36% (4.4× on a code-analysis task).</p>
+<p><strong>Short answer:</strong> not as a mid-task trick, but yes as an asset. <strong>Round 4:</strong> Haiku with a tool library that Opus forged once got every answer right in all 9 runs. Sonnet from scratch did so in 6 of 9. Haiku did it at 5–14% of Sonnet's cost.</p>
 <div class="cards">
+<a class="card" href="round-4/"><h2>Round 4: forge once with Opus, run with Haiku</h2><p><code>trod forge</code> plus library cards and code mode. Haiku with the forged library: <span class="k">9/9</span> perfect runs (Sonnet from scratch: 6/9), at <span class="k">5–14%</span> of Sonnet's cost; <span class="k">0.21–0.69×</span> Haiku's own tokens. Each forge pays for itself after about 12–22 sessions.</p></a>
+<a class="card" href="round-4-haiku/"><h2>Round 4: the Haiku runs</h2><p>Haiku 5.5 from scratch vs Haiku with the Opus-forged library: turns <span class="k">45 → 25</span>, <span class="k">54 → 20</span> and <span class="k">39 → 25</span>, up to 6× faster.</p></a>
 <a class="card" href="round-1/"><h2>Round 1: does an agent build tools on its own, and do they pay?</h2><p>120 sessions, trod 0.1. Agents almost never built tools unprompted (1 in 24). When required to, sessions cost <span class="k">1.84×</span> plain Bash: a script on disk is already a tool.</p></a>
 <a class="card" href="round-2/"><h2>Round 2: trod 0.2 within a session</h2><p>Single-file tools, <code>trod_run</code>, a validation hook. Unprompted tool building in <span class="k">16 of 18</span> sessions; overhead down to <span class="k">1.25×</span>, parity on one task. The library arm was the only arm with no failures.</p></a>
 <a class="card" href="round-2-haiku/"><h2>Round 2b: a cheaper model with a stronger model's tools</h2><p>Haiku 5.5 with tools Sonnet built: <span class="k">0.64×</span> tokens on average and <span class="k">0.23×</span> on code-qa, with perfect scores and far less variance.</p></a>
 <a class="card" href="round-3/"><h2>Round 3: a tool library across fresh sessions</h2><p>Ephemeral sessions against a quirky internal API. A library built once in a dedicated session: <span class="k">0.74×</span> tokens per session, no failures, break-even after about <span class="k">12 sessions</span>.</p></a>
 </div>
-<p class="meta">Write-ups: <a href="https://github.com/swissspidy/trod/blob/main/results/README.md">round 1</a> · <a href="https://github.com/swissspidy/trod/blob/main/results-2/README.md">rounds 2 and 3</a>. Raw per-run records are in the repository.</p>
+<p class="meta">Write-ups: <a href="https://github.com/swissspidy/trod/blob/main/results/README.md">round 1</a> · <a href="https://github.com/swissspidy/trod/blob/main/results-2/README.md">rounds 2 and 3</a> · <a href="https://github.com/swissspidy/trod/blob/main/results-4/README.md">round 4</a>. Raw per-run records are in the repository.</p>
 </main></body>
 </html>

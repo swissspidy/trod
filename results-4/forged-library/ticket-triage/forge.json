@@ -1,0 +1,39 @@
+{
+  "exitCode": 0,
+  "promoted": [
+    "support_customers",
+    "support_events",
+    "support_get",
+    "support_incidents",
+    "support_ticket_context",
+    "support_tickets"
+  ],
+  "rejected": [],
+  "unverified": [],
+  "costUsd": 0.8988670000000001,
+  "turns": 31,
+  "usage": {
+    "input_tokens": 51,
+    "cache_creation_input_tokens": 53827,
+    "cache_read_input_tokens": 1225940,
+    "output_tokens": 19217,
+    "output_tokens_details": {
+      "thinking_tokens": 2223
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 0,
+      "ephemeral_5m_input_tokens": 53827
+    },
+    "inference_geo": "global",
+    "iterations": [],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "wallMs": 198098,
+  "model": "claude-opus-5-5"
+}

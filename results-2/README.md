@@ -1,5 +1,7 @@
 # Rounds 2 and 3: making self-made tools pay off
 
+> Round 4 ([results-4/README.md](../results-4/README.md)) builds on this: forge once with Opus, run with Haiku.
+
 Round 1 ([results/README.md](../results/README.md)) ended with "not on these tasks". Rounds 2 and 3 asked why, fixed
 what was fixable in trod, and looked for the setting where tools do pay off. **Short answer: they pay off as an
 asset, not as a mid-task trick.**

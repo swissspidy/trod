@@ -1,0 +1,780 @@
+{
+  "model": "claude-sonnet-5-5",
+  "runs": 18,
+  "cells": [
+    {
+      "task": "code-qa",
+      "arm": "baseline",
+      "n": 3,
+      "passRate": 0,
+      "meanScore": 0.875,
+      "costUsd": 0.2710878666666667,
+      "tokens": 413176,
+      "outputTokens": 13281.333333333334,
+      "turns": 21.333333333333332,
+      "wallS": 98.30900000000001,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "code-qa",
+      "arm": "forged",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.18746126666666665,
+      "tokens": 400969.3333333333,
+      "outputTokens": 4424,
+      "turns": 20.666666666666668,
+      "wallS": 45.23733333333333,
+      "toolsCreated": 0,
+      "trodCalls": 15.333333333333334,
+      "callsPerTool": 0,
+      "creationTokens": 18963.333333333332,
+      "creationShare": 0.04846587549404922,
+      "runsWithTools": 0
+    },
+    {
+      "task": "ticket-triage",
+      "arm": "baseline",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.19006013333333335,
+      "tokens": 282573.3333333333,
+      "outputTokens": 7648.666666666667,
+      "turns": 15,
+      "wallS": 95.58466666666668,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "ticket-triage",
+      "arm": "forged",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.19025950000000003,
+      "tokens": 373374.6666666667,
+      "outputTokens": 4753.666666666667,
+      "turns": 19.666666666666668,
+      "wallS": 80.32166666666667,
+      "toolsCreated": 0,
+      "trodCalls": 15.333333333333334,
+      "callsPerTool": 0,
+      "creationTokens": 50542,
+      "creationShare": 0.13747381297481306,
+      "runsWithTools": 0
+    },
+    {
+      "task": "inventory-api",
+      "arm": "baseline",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.20869950000000004,
+      "tokens": 525861.6666666666,
+      "outputTokens": 7073.333333333333,
+      "turns": 29,
+      "wallS": 93.629,
+      "toolsCreated": 0,
+      "trodCalls": 0,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    },
+    {
+      "task": "inventory-api",
+      "arm": "forged",
+      "n": 3,
+      "passRate": 1,
+      "meanScore": 1,
+      "costUsd": 0.12738793333333334,
+      "tokens": 242786,
+      "outputTokens": 2006.6666666666667,
+      "turns": 12.666666666666666,
+      "wallS": 48.660666666666664,
+      "toolsCreated": 0,
+      "trodCalls": 14.333333333333334,
+      "callsPerTool": 0,
+      "creationTokens": 0,
+      "creationShare": 0,
+      "runsWithTools": 0
+    }
+  ],
+  "overall": [
+    {
+      "arm": "baseline",
+      "all": {
+        "n": 9,
+        "passRate": 0.6666666666666666,
+        "meanScore": 0.9583333333333334,
+        "tokensPerScore": 424908.17391304346,
+        "costUsd": 0.22328249999999997,
+        "costSd": 0.045630485770096714,
+        "tokens": 407203.6666666667,
+        "turns": 21.77777777777778,
+        "wallS": 95.84088888888888,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      },
+      "repetitive": {
+        "n": 9,
+        "passRate": 0.6666666666666666,
+        "meanScore": 0.9583333333333334,
+        "tokensPerScore": 424908.17391304346,
+        "costUsd": 0.22328249999999997,
+        "costSd": 0.045630485770096714,
+        "tokens": 407203.6666666667,
+        "turns": 21.77777777777778,
+        "wallS": 95.84088888888888,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      },
+      "control": {
+        "n": 0,
+        "passRate": 0,
+        "meanScore": 0,
+        "tokensPerScore": 0,
+        "costUsd": 0,
+        "costSd": 0,
+        "tokens": 0,
+        "turns": 0,
+        "wallS": 0,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      }
+    },
+    {
+      "arm": "scripts",
+      "all": {
+        "n": 0,
+        "passRate": 0,
+        "meanScore": 0,
+        "tokensPerScore": 0,
+        "costUsd": 0,
+        "costSd": 0,
+        "tokens": 0,
+        "turns": 0,
+        "wallS": 0,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      },
+      "repetitive": {
+        "n": 0,
+        "passRate": 0,
+        "meanScore": 0,
+        "tokensPerScore": 0,
+        "costUsd": 0,
+        "costSd": 0,
+        "tokens": 0,
+        "turns": 0,
+        "wallS": 0,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      },
+      "control": {
+        "n": 0,
+        "passRate": 0,
+        "meanScore": 0,
+        "tokensPerScore": 0,
+        "costUsd": 0,
+        "costSd": 0,
+        "tokens": 0,
+        "turns": 0,
+        "wallS": 0,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      }
+    },
+    {
+      "arm": "genesis",
+      "all": {
+        "n": 0,
+        "passRate": 0,
+        "meanScore": 0,
+        "tokensPerScore": 0,
+        "costUsd": 0,
+        "costSd": 0,
+        "tokens": 0,
+        "turns": 0,
+        "wallS": 0,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      },
+      "repetitive": {
+        "n": 0,
+        "passRate": 0,
+        "meanScore": 0,
+        "tokensPerScore": 0,
+        "costUsd": 0,
+        "costSd": 0,
+        "tokens": 0,
+        "turns": 0,
+        "wallS": 0,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      },
+      "control": {
+        "n": 0,
+        "passRate": 0,
+        "meanScore": 0,
+        "tokensPerScore": 0,
+        "costUsd": 0,
+        "costSd": 0,
+        "tokens": 0,
+        "turns": 0,
+        "wallS": 0,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      }
+    },
+    {
+      "arm": "nudged",
+      "all": {
+        "n": 0,
+        "passRate": 0,
+        "meanScore": 0,
+        "tokensPerScore": 0,
+        "costUsd": 0,
+        "costSd": 0,
+        "tokens": 0,
+        "turns": 0,
+        "wallS": 0,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      },
+      "repetitive": {
+        "n": 0,
+        "passRate": 0,
+        "meanScore": 0,
+        "tokensPerScore": 0,
+        "costUsd": 0,
+        "costSd": 0,
+        "tokens": 0,
+        "turns": 0,
+        "wallS": 0,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      },
+      "control": {
+        "n": 0,
+        "passRate": 0,
+        "meanScore": 0,
+        "tokensPerScore": 0,
+        "costUsd": 0,
+        "costSd": 0,
+        "tokens": 0,
+        "turns": 0,
+        "wallS": 0,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      }
+    },
+    {
+      "arm": "library",
+      "all": {
+        "n": 0,
+        "passRate": 0,
+        "meanScore": 0,
+        "tokensPerScore": 0,
+        "costUsd": 0,
+        "costSd": 0,
+        "tokens": 0,
+        "turns": 0,
+        "wallS": 0,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      },
+      "repetitive": {
+        "n": 0,
+        "passRate": 0,
+        "meanScore": 0,
+        "tokensPerScore": 0,
+        "costUsd": 0,
+        "costSd": 0,
+        "tokens": 0,
+        "turns": 0,
+        "wallS": 0,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      },
+      "control": {
+        "n": 0,
+        "passRate": 0,
+        "meanScore": 0,
+        "tokensPerScore": 0,
+        "costUsd": 0,
+        "costSd": 0,
+        "tokens": 0,
+        "turns": 0,
+        "wallS": 0,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      }
+    },
+    {
+      "arm": "toolsmith",
+      "all": {
+        "n": 0,
+        "passRate": 0,
+        "meanScore": 0,
+        "tokensPerScore": 0,
+        "costUsd": 0,
+        "costSd": 0,
+        "tokens": 0,
+        "turns": 0,
+        "wallS": 0,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      },
+      "repetitive": {
+        "n": 0,
+        "passRate": 0,
+        "meanScore": 0,
+        "tokensPerScore": 0,
+        "costUsd": 0,
+        "costSd": 0,
+        "tokens": 0,
+        "turns": 0,
+        "wallS": 0,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      },
+      "control": {
+        "n": 0,
+        "passRate": 0,
+        "meanScore": 0,
+        "tokensPerScore": 0,
+        "costUsd": 0,
+        "costSd": 0,
+        "tokens": 0,
+        "turns": 0,
+        "wallS": 0,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      }
+    },
+    {
+      "arm": "forged",
+      "all": {
+        "n": 9,
+        "passRate": 1,
+        "meanScore": 1,
+        "tokensPerScore": 339043.3333333333,
+        "costUsd": 0.1683695666666667,
+        "costSd": 0.03335154177613083,
+        "tokens": 339043.3333333333,
+        "turns": 17.666666666666668,
+        "wallS": 58.073222222222235,
+        "toolsCreated": 0,
+        "trodCalls": 135,
+        "runsWithTools": 0
+      },
+      "repetitive": {
+        "n": 9,
+        "passRate": 1,
+        "meanScore": 1,
+        "tokensPerScore": 339043.3333333333,
+        "costUsd": 0.1683695666666667,
+        "costSd": 0.03335154177613083,
+        "tokens": 339043.3333333333,
+        "turns": 17.666666666666668,
+        "wallS": 58.073222222222235,
+        "toolsCreated": 0,
+        "trodCalls": 135,
+        "runsWithTools": 0
+      },
+      "control": {
+        "n": 0,
+        "passRate": 0,
+        "meanScore": 0,
+        "tokensPerScore": 0,
+        "costUsd": 0,
+        "costSd": 0,
+        "tokens": 0,
+        "turns": 0,
+        "wallS": 0,
+        "toolsCreated": 0,
+        "trodCalls": 0,
+        "runsWithTools": 0
+      }
+    }
+  ],
+  "ratios": [
+    {
+      "task": "code-qa",
+      "kind": "repetitive",
+      "scripts": null,
+      "genesis": null,
+      "nudged": null,
+      "library": null,
+      "toolsmith": null,
+      "forged": {
+        "tokens": 0.9704564963437695,
+        "cost": 0.6915147806934921,
+        "turns": 0.9687500000000001,
+        "wall": 0.4601545467183404
+      }
+    },
+    {
+      "task": "ticket-triage",
+      "kind": "repetitive",
+      "scripts": null,
+      "genesis": null,
+      "nudged": null,
+      "library": null,
+      "toolsmith": null,
+      "forged": {
+        "tokens": 1.3213372339923561,
+        "cost": 1.0010489662569952,
+        "turns": 1.3111111111111111,
+        "wall": 0.840319577059082
+      }
+    },
+    {
+      "task": "inventory-api",
+      "kind": "repetitive",
+      "scripts": null,
+      "genesis": null,
+      "nudged": null,
+      "library": null,
+      "toolsmith": null,
+      "forged": {
+        "tokens": 0.46169176304287884,
+        "cost": 0.6103892598369106,
+        "turns": 0.43678160919540227,
+        "wall": 0.5197178936725444
+      }
+    }
+  ],
+  "stepCost": [
+    {
+      "arm": "baseline",
+      "steps": [
+        0.06479445555555555,
+        0.047459888888888885,
+        0.05480865555555556,
+        0.056219500000000006
+      ]
+    },
+    {
+      "arm": "forged",
+      "steps": [
+        0.05492241111111111,
+        0.03470393333333334,
+        0.0391172,
+        0.039626022222222224
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "run": "code-qa/forged-s1",
+      "task": "code-qa",
+      "arm": "forged",
+      "tool": "call_graph_query",
+      "calls": 9,
+      "errors": 4,
+      "revisions": 0,
+      "avgMs": 48
+    },
+    {
+      "run": "code-qa/forged-s1",
+      "task": "code-qa",
+      "arm": "forged",
+      "tool": "trod_eval",
+      "calls": 9,
+      "errors": 4,
+      "revisions": 0,
+      "avgMs": 86
+    },
+    {
+      "run": "code-qa/forged-s2",
+      "task": "code-qa",
+      "arm": "forged",
+      "tool": "call_graph_query",
+      "calls": 6,
+      "errors": 2,
+      "revisions": 0,
+      "avgMs": 55
+    },
+    {
+      "run": "code-qa/forged-s2",
+      "task": "code-qa",
+      "arm": "forged",
+      "tool": "trod_eval",
+      "calls": 6,
+      "errors": 2,
+      "revisions": 0,
+      "avgMs": 98
+    },
+    {
+      "run": "code-qa/forged-s3",
+      "task": "code-qa",
+      "arm": "forged",
+      "tool": "call_graph_query",
+      "calls": 8,
+      "errors": 4,
+      "revisions": 0,
+      "avgMs": 59
+    },
+    {
+      "run": "code-qa/forged-s3",
+      "task": "code-qa",
+      "arm": "forged",
+      "tool": "trod_eval",
+      "calls": 8,
+      "errors": 4,
+      "revisions": 0,
+      "avgMs": 106
+    },
+    {
+      "run": "inventory-api/forged-s1",
+      "task": "inventory-api",
+      "arm": "forged",
+      "tool": "trod_eval",
+      "calls": 5,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 3194
+    },
+    {
+      "run": "inventory-api/forged-s1",
+      "task": "inventory-api",
+      "arm": "forged",
+      "tool": "inventory_items",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 2534
+    },
+    {
+      "run": "inventory-api/forged-s1",
+      "task": "inventory-api",
+      "arm": "forged",
+      "tool": "inventory_movements",
+      "calls": 2,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 4055
+    },
+    {
+      "run": "inventory-api/forged-s1",
+      "task": "inventory-api",
+      "arm": "forged",
+      "tool": "inventory_warehouses",
+      "calls": 1,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 31
+    },
+    {
+      "run": "inventory-api/forged-s2",
+      "task": "inventory-api",
+      "arm": "forged",
+      "tool": "trod_eval",
+      "calls": 7,
+      "errors": 1,
+      "revisions": 0,
+      "avgMs": 2992
+    },
+    {
+      "run": "inventory-api/forged-s2",
+      "task": "inventory-api",
+      "arm": "forged",
+      "tool": "inventory_items",
+      "calls": 5,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 2500
+    },
+    {
+      "run": "inventory-api/forged-s2",
+      "task": "inventory-api",
+      "arm": "forged",
+      "tool": "inventory_movements",
+      "calls": 2,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 4059
+    },
+    {
+      "run": "inventory-api/forged-s2",
+      "task": "inventory-api",
+      "arm": "forged",
+      "tool": "inventory_warehouses",
+      "calls": 1,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 34
+    },
+    {
+      "run": "inventory-api/forged-s3",
+      "task": "inventory-api",
+      "arm": "forged",
+      "tool": "trod_eval",
+      "calls": 8,
+      "errors": 2,
+      "revisions": 0,
+      "avgMs": 3205
+    },
+    {
+      "run": "inventory-api/forged-s3",
+      "task": "inventory-api",
+      "arm": "forged",
+      "tool": "inventory_items",
+      "calls": 5,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 2505
+    },
+    {
+      "run": "inventory-api/forged-s3",
+      "task": "inventory-api",
+      "arm": "forged",
+      "tool": "inventory_movements",
+      "calls": 3,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 4237
+    },
+    {
+      "run": "inventory-api/forged-s3",
+      "task": "inventory-api",
+      "arm": "forged",
+      "tool": "inventory_warehouses",
+      "calls": 1,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 38
+    },
+    {
+      "run": "ticket-triage/forged-s1",
+      "task": "ticket-triage",
+      "arm": "forged",
+      "tool": "support_ticket_context",
+      "calls": 7,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 4610
+    },
+    {
+      "run": "ticket-triage/forged-s1",
+      "task": "ticket-triage",
+      "arm": "forged",
+      "tool": "trod_eval",
+      "calls": 7,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 4657
+    },
+    {
+      "run": "ticket-triage/forged-s1",
+      "task": "ticket-triage",
+      "arm": "forged",
+      "tool": "support_incidents",
+      "calls": 1,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 6
+    },
+    {
+      "run": "ticket-triage/forged-s2",
+      "task": "ticket-triage",
+      "arm": "forged",
+      "tool": "support_ticket_context",
+      "calls": 5,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 4878
+    },
+    {
+      "run": "ticket-triage/forged-s2",
+      "task": "ticket-triage",
+      "arm": "forged",
+      "tool": "trod_eval",
+      "calls": 5,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 4930
+    },
+    {
+      "run": "ticket-triage/forged-s2",
+      "task": "ticket-triage",
+      "arm": "forged",
+      "tool": "support_tickets",
+      "calls": 2,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 1242
+    },
+    {
+      "run": "ticket-triage/forged-s3",
+      "task": "ticket-triage",
+      "arm": "forged",
+      "tool": "support_ticket_context",
+      "calls": 8,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 5055
+    },
+    {
+      "run": "ticket-triage/forged-s3",
+      "task": "ticket-triage",
+      "arm": "forged",
+      "tool": "trod_eval",
+      "calls": 8,
+      "errors": 1,
+      "revisions": 0,
+      "avgMs": 4676
+    },
+    {
+      "run": "ticket-triage/forged-s3",
+      "task": "ticket-triage",
+      "arm": "forged",
+      "tool": "support_tickets",
+      "calls": 2,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 63
+    },
+    {
+      "run": "ticket-triage/forged-s3",
+      "task": "ticket-triage",
+      "arm": "forged",
+      "tool": "support_incidents",
+      "calls": 1,
+      "errors": 0,
+      "revisions": 0,
+      "avgMs": 1176
+    }
+  ]
+}

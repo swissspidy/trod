@@ -206,7 +206,34 @@ describe('trod_eval and library cards', () => {
     writeFileSync(path.join(paths.logsDir, 'old.jsonl'), ['s1', 's2'].map((s) => JSON.stringify({ type: 'call', ts: 't', sessionId: s, tool: 'inv_items', source: 'library', durationMs: 5, ok: true, inputChars: 1, outputChars: 1, truncated: false })).join('\n') + '\n');
     const { client } = await connect(paths);
     const instructions = client.getInstructions() ?? '';
-    expect(instructions).toContain('LIBRARY:');
-    expect(instructions).toContain('inv_items(warehouse: string, active?: boolean): Fetches all inventory items as clean records. When: Any question about stock. Verified: its 1 example(s) passed when it was promoted. Used 2× in 2 earlier session(s), 0 error(s).');
+    expect(instructions).toContain('LIBRARY (built and verified');
+    expect(instructions).toContain('- inv_items(warehouse: string, active?: boolean) [verified; used 2× in 2 session(s), 0 error(s)]: Fetches all inventory items as clean records. When: Any question about stock.');
+    expect(instructions.length).toBeLessThan(3900);
+  });
+});
+
+describe('library cards budget', () => {
+  it('keeps the instructions under the budget with many verbose tools, and trod_status shows the whole library', async () => {
+    const paths = tempProject();
+    for (let i = 0; i < 8; i++) {
+      writeTool(paths.libraryDir, `lib_tool_${i}`, { description: `Tool ${i}. ` + 'Very detailed documentation. '.repeat(40), whenToUse: 'Often.' });
+    }
+    const { client, call } = await connect(paths);
+    const instructions = client.getInstructions() ?? '';
+    expect(instructions.length).toBeLessThanOrEqual(3800);
+    for (let i = 0; i < 8; i++) expect(instructions).toContain(`- lib_tool_${i}(x?: string)`);
+    const all = (await call('trod_status', { name: 'library' })).text;
+    expect(all.match(/## lib_tool_/g)).toHaveLength(8);
+    expect(all).toContain('Very detailed documentation. '.repeat(40).trim());
+  });
+});
+
+describe('trod_eval file writes', () => {
+  it('does not lose an un-awaited write', async () => {
+    const paths = tempProject();
+    const { call } = await connect(paths);
+    const res = await call('trod_eval', { code: "fsp.writeFile(path.join(projectDir, 'out.json'), JSON.stringify({ big: 'x'.repeat(200000) })); return 'ok';" });
+    expect(res.isError).toBe(false);
+    expect(JSON.parse(readFileSync(path.join(paths.projectDir, 'out.json'), 'utf8')).big).toHaveLength(200000);
   });
 });

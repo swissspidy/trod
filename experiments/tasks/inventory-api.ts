@@ -75,7 +75,11 @@ function build() {
       .map((i) => i.sku)
       .sort(),
   };
-  return { items, movements, expected: [s1, s2, s3, s4] };
+  // Question 3 did not say whether archived items count (the shared text defines "active" for the other questions).
+  // Both readings are accepted, as long as one is applied consistently.
+  const archived = new Set(items.filter((i) => i.status === 'archived').map((i) => i.sku));
+  const s3Active = Object.fromEntries(Object.entries(s3).filter(([k]) => !archived.has(k)));
+  return { items, movements, expected: [s1, s2, s3, s4], alternatives: { 2: s3Active } as Record<number, Record<string, number>> };
 }
 const data = () => (cache ??= build());
 
@@ -104,7 +108,7 @@ const COMMON = (baseUrl?: string) =>
 const QUESTIONS = [
   `For each warehouse, compute the total stock value of active items (quantity × unit cost). Write ${OUT[0]}: {"<warehouse code>": <value in euros, rounded to 2 decimals>, …} for every warehouse.`,
   `Which active items in warehouses BER and LIS have a quantity below their reorder point? Write ${OUT[1]}: {"skus": [sorted SKUs]}.`,
-  `For warehouse AMS, compute the net stock movement per SKU over the last 14 days before 2026-11-01T00:00:00Z (movements at or after 2026-10-18T00:00:00Z). A reversal movement and the movement it reverses both do not count. Write ${OUT[2]}: {"<sku>": <net quantity>, …}, leaving out SKUs whose net is 0.`,
+  `For warehouse AMS, compute the net stock movement per SKU over the last 14 days before 2026-11-01T00:00:00Z (movements at or after 2026-10-18T00:00:00Z). A reversal movement and the movement it reverses both do not count. Include archived items. Write ${OUT[2]}: {"<sku>": <net quantity>, …}, leaving out SKUs whose net is 0.`,
   `Which active items were updated on or after 2026-10-11T00:00:00Z and have a unit cost that differs from their previous unit cost by more than 10% (relative to the previous cost)? Write ${OUT[3]}: {"skus": [sorted SKUs]}.`,
 ];
 
@@ -122,6 +126,12 @@ function check(i: number) {
       return { pass: ok === w.length && extra === 0, score, details: `${ok}/${w.length} SKUs, ${extra} extra` };
     }
     const norm = Object.fromEntries(Object.entries(got.value ?? {}).map(([k, v]) => [k, typeof v === 'number' ? Math.round(v * 100) / 100 : v]));
+    const alt = data().alternatives[i];
+    if (alt) {
+      const a = scoreKeyed(want as Record<string, unknown>, norm);
+      const b = scoreKeyed(alt, norm);
+      return b.score > a.score || (b.pass && !a.pass) ? { ...b, details: `${b.details} (archived items excluded)` } : a;
+    }
     return scoreKeyed(want as Record<string, unknown>, norm);
   };
 }

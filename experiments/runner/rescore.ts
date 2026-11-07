@@ -1,6 +1,6 @@
 /**
  * Re-runs the checkers on finished runs, for example after fixing a fixture's ground truth, and updates each
- * result.json. Usage: node experiments/runner/rescore.ts results/runs/<name> [--tasks a,b]
+ * result.json. Steps whose output files no longer exist (session mode) keep their original result. Usage: node experiments/runner/rescore.ts results/runs/<name> [--tasks a,b]
  */
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -26,7 +26,13 @@ for (const task of TASKS) {
     const record = JSON.parse(readFileSync(file, 'utf8')) as RunRecord;
     const expected = JSON.parse(readFileSync(path.join(dir, run, 'expected.json'), 'utf8'));
     const work = path.join(dir, run, 'work');
-    const steps = record.steps.map((s, i) => ({ ...s, check: task.steps[i]!.check({ work }, expected) }));
+    // Session mode wipes earlier sessions' outputs (fresh checkouts), so a step whose output is gone keeps its original
+    // result instead of turning into a failure.
+    const steps = record.steps.map((s, i) => {
+      const check = task.steps[i]!.check({ work }, expected);
+      const gone = !check.pass && /missing|does not exist|ENOENT/.test(check.details);
+      return gone ? s : { ...s, check };
+    });
     const scores = task.steps.map((_, i) => steps[i]?.check.score ?? 0);
     const check = {
       pass: steps.length === task.steps.length && steps.every((s) => s.check.pass),
