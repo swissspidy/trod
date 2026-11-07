@@ -105,6 +105,12 @@ Tools in `.trod/library/` were built and promoted in earlier sessions, and their
 description says so. **Call them directly (`trod_run`); do not read their source first.** `trod_status` lists them with their descriptions. Only read the source when a call fails
 or returns something that looks wrong.
 
+## Project notes
+
+`.trod/notes.md` holds verified notes about the project's environment (conventions, value meanings, traps), usually
+written by `trod forge` and loaded through `CLAUDE.md`. Follow them. If you find that a note is wrong, say so instead
+of silently working around it; `node plugin/bin/trod notes` runs their checks.
+
 ## Rules
 
 - Tools run **outside Claude Code's sandbox and permission prompts**, in a subprocess with a timeout. Keep them inside

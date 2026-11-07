@@ -14,6 +14,10 @@ See [`experiments/`](experiments/) and the results in [`results/`](results/READM
   at 5–14% of Sonnet's cost.
 - **SWE-bench:** on SWE-bench Verified (Django), the same approach changed nothing, because the models already know
   how to work in Django.
+- **Knowledge, not only code:** on AppWorld ([round 6](results-6/README.md)) the forged tools tied, but the forge's
+  lessons as always-loaded notes lifted Haiku from 87.5% to 95.0%. On BIRD ([round 7](results-7/README.md)), where
+  the missing knowledge is specific to each question, notes only saved tokens. So `trod forge` now also writes
+  verified notes ([ADR 0004](docs/adr/0004-verified-notes.md)).
 
 ## A tool
 
@@ -78,7 +82,10 @@ which is meant for ephemeral cloud containers. See [ADR 0001](docs/adr/0001-tool
 - `trod promote <name>` moves one to `.trod/library/` (committed). The library loads at startup.
 - `trod forge --brief @env.md [--model claude-opus-5-5]` runs a dedicated tool-building session (headless Claude
   Code) against an environment and promotes every tool whose examples pass: build the library once with a strong
-  model, use it in every later session.
+  model, use it in every later session. The forge also writes `.trod/notes.md` (conventions a newcomer gets wrong)
+  with checks in `.trod/notes.checks.json`, and links the notes into `CLAUDE.md` (`@.trod/notes.md`).
+- `trod verify` re-runs every library tool's examples and every note check: run it in CI to catch a drifted
+  environment. `trod notes` shows the notes' status.
 - `trod stats` summarizes `.trod/logs/*.jsonl`: tools created, called, reused, errors.
 - `trod check` validates every tool folder without running anything.
 
