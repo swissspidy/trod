@@ -60,6 +60,7 @@ const ORACLES: Record<string, (w: string, expected: any, i: number) => void> = {
   'control-bugfix': (w) =>
     put(w, 'src/stats.mjs', 'export function median(v) { const s = [...v].sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; }\n'),
   'control-question': (w, e) => put(w, 'answer.txt', e + '\n'),
+  'inventory-api': (w, e, i) => put(w, ['stock-value.json', 'reorder.json', 'movements.json', 'price-changes.json'][i]!, JSON.stringify(e[i])),
   'ticket-triage': (w, e, i) => put(w, `triage-${i + 1}.json`, JSON.stringify(e[i])),
   'code-qa': (w, _e, i) => {
     const { g, steps } = _codeQa.data();

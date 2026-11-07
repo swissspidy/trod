@@ -31,7 +31,7 @@ trod v0 targets **ephemeral cloud containers**, where the container is the secur
 - **Subprocess per call.** Every call starts a fresh `node` or `bash` process. Nothing persists in the server
   process, and a crashing tool cannot take the server down. Startup costs about 30–40 ms per call, which is small
   next to model latency.
-- **Timeout.** The default is 30 s; `tool.json` can set `timeoutMs` up to 300 s. The tool runs in its own
+- **Timeout.** The default is 120 s (30 s in trod 0.1, too short for tools that crawl a rate-limited API); `timeoutMs` can raise it to 600 s. The tool runs in its own
   process group (`detached`), and the whole group gets `SIGKILL` on timeout and after exit, so background
   children do not outlive the call.
 - **cwd confined to the project.** The process starts in the project directory and gets

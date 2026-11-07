@@ -6,6 +6,7 @@ import configMigrate from './config-migrate.ts';
 import controlBugfix from './control-bugfix.ts';
 import controlQuestion from './control-question.ts';
 import codeQa from './code-qa.ts';
+import inventoryApi from './inventory-api.ts';
 import csvClean from './csv-clean.ts';
 import logAnalysis from './log-analysis.ts';
 import mdLinks from './md-links.ts';
@@ -26,4 +27,6 @@ export const TASKS: Task[] = [
   // Round 2: per-item reasoning on top of fiddly, repeated lookups.
   codeQa,
   ticketTriage,
+  // Round 3: hard-won knowledge across fresh sessions (--mode sessions).
+  inventoryApi,
 ];

@@ -264,9 +264,8 @@ const task: Task = {
   },
   steps: [0, 1, 2, 3].map((i) => ({
     prompt: ({ baseUrl }: TaskContext) =>
-      i === 0
-        ? `Our support API runs at ${baseUrl} (docs in docs/API.md, credentials in .secrets/support-api.json). Triage every currently open ticket according to docs/TRIAGE.md and write ${OUT(0)}: a JSON object mapping ticket id to label. New tickets arrive regularly and I will ask you to triage them too. When finished, reply DONE.`
-        : `New tickets have arrived and the previous ones were closed. Triage all currently open tickets the same way and write ${OUT(i)}. When finished, reply DONE.`,
+      // Standalone: works as a follow-up and in a fresh session.
+      `Our support API runs at ${baseUrl} (docs in docs/API.md, credentials in .secrets/support-api.json). Triage every currently open ticket according to docs/TRIAGE.md and write ${OUT(i)}: a JSON object mapping ticket id to label. New tickets arrive regularly and will need triage too. When finished, reply DONE.`,
     check: check(i),
   })),
 };

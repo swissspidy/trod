@@ -21,6 +21,7 @@ describe('code-qa fixture', () => {
     const { g } = _codeQa.data();
     expect(g.all.length).toBeGreaterThan(200);
     for (const f of g.all) {
+      if (f.id === 'main.js:main') continue; // returns nothing; checked by loading main.js below
       const mod = await import(pathToFileURL(path.join(work, 'src', f.module)).href);
       const fn = f.isDefault ? mod.default : mod[f.name];
       expect(typeof fn, f.id).toBe('function');

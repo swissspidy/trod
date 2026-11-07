@@ -1,8 +1,8 @@
 import { spawn } from 'node:child_process';
 import type { RunResult, RunnerKind } from './types.ts';
 
-export const DEFAULT_TIMEOUT_MS = 30_000;
-export const MAX_TIMEOUT_MS = 300_000;
+export const DEFAULT_TIMEOUT_MS = 120_000;
+export const MAX_TIMEOUT_MS = 600_000;
 export const DEFAULT_MAX_OUTPUT_CHARS = 25_000;
 /** Hard cap on what is buffered from a subprocess, whatever the tool prints. */
 const MAX_CAPTURE_BYTES = 8 * 1024 * 1024;
