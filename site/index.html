@@ -129,9 +129,11 @@ p code,li code,td code{font-size:.92em;background:var(--surface-2);padding:1px 5
   <tr><td>Agent Skills (<code>SKILL.md</code>)</td><td>An author, by hand</td><td class="n">No</td><td class="n">No</td><td class="n">n/a; complementary: trod produces the know-how a skill would package</td></tr>
   <tr><td>Memory layers (Letta, MCP memory servers)</td><td>Stored history, retrieved later</td><td class="n">No</td><td class="n">No</td><td class="n">Vendor claims</td></tr>
   <tr><td>Runtime tool MCP servers (e.g. DIY Tools MCP)</td><td>The agent, one tool at a time</td><td class="n">Varies</td><td class="n">No</td><td class="n">n/a</td></tr>
+  <tr><td>Harness² (Google Research)</td><td>An editor agent per task, plus a persistent "improvement harness" of lessons</td><td>Contrastive probes on the same task (no ground truth)</td><td class="y">Yes, on each task</td><td>Up to +11.5 pts WorkBuddy-Bench, +4.5 JobBench, +11.8 pp LAB (GLM-5, Gemini 3.5 Flash); a research framework, not a Claude Code tool</td></tr>
+  <tr><td>Anthropic: components of agent memory</td><td>Claude, in sessions and in offline "dreaming" passes; notes, wikis, a small injected layer</td><td>Dreaming checks notes against transcripts</td><td class="y">Yes (learning loops)</td><td>CL-Bench: e.g. Opus 5.5 0.655 → 0.838; wiki + search 61% vs search 53%; research, not a product</td></tr>
   <tr><td>Research: Voyager, ExpeL, Agent Workflow Memory</td><td>The agent, from its own trajectories</td><td>Partly</td><td class="y">Yes</td><td>Strong (AWM: +24.6% / +51.1% relative on Mind2Web / WebArena), but not packaged for Claude Code</td></tr>
 </table></div>
-<p style="margin-top:10px;font-size:14px">Summaries of the other approaches come from their public descriptions as of November 2026. trod's results are on this site, with every run published.</p>
+<p style="margin-top:10px;font-size:14px">trod lines up with Anthropic's findings on agent memory: keep the injected layer small, record validated rules rather than raw logs, and let an offline pass (their "dreaming", trod's forge) correct and consolidate. trod adds a success check that the knowledge must pass and paired measurements per environment. Summaries of the other approaches come from their public descriptions as of November 2026. trod's results are on this site, with every run published.</p>
 
 <h2 id="install">Install</h2>
 <p>Set up a repository for every Claude Code session in it, whether local, cloud or started from the Claude mobile app, then forge:</p>

@@ -53,6 +53,12 @@ Tool code runs outside Claude Code's permission prompts, so execution is off unl
   apply to new tasks, and measures whether they help.
 - **Runtime tool servers (e.g. DIY Tools MCP):** let an agent add tools. trod adds validation, examples, a promoted
   library and the notes, and found that the notes matter more than the tools.
+- **Harness² (Google Research):** refines a whole harness per task with contrastive probes and keeps lessons in a
+  persistent improvement harness (up to +11.5 points on WorkBuddy-Bench). A research framework for other executors;
+  trod is a forge you run in Claude Code, gated by your own success check.
+- **Anthropic's [components of agent memory](https://www.anthropic.com/research/components-of-agent-memory):**
+  transcripts, notes, wikis and a small injected layer, organized by offline "dreaming". trod is a shippable instance
+  of the same lessons: a small injected layer of validated rules, written by an offline forge.
 - **Research (Voyager, ExpeL, Agent Workflow Memory):** the same idea of learning reusable skills from experience,
   packaged here for Claude Code with nine rounds of published, paired evaluations.
 
