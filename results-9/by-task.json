@@ -1,0 +1,422 @@
+{
+ "button-delay": {
+  "baseline": [
+   4,
+   5
+  ],
+  "notes": [
+   5,
+   5
+  ],
+  "sonnet": [
+   3,
+   5
+  ]
+ },
+ "click-button-sequence": {
+  "baseline": [
+   5,
+   5
+  ],
+  "notes": [
+   5,
+   5
+  ],
+  "sonnet": [
+   5,
+   5
+  ]
+ },
+ "click-checkboxes-soft": {
+  "baseline": [
+   5,
+   5
+  ],
+  "notes": [
+   5,
+   5
+  ],
+  "sonnet": [
+   5,
+   5
+  ]
+ },
+ "click-menu": {
+  "baseline": [
+   1,
+   5
+  ],
+  "notes": [
+   5,
+   5
+  ],
+  "sonnet": [
+   1,
+   5
+  ]
+ },
+ "click-menu-2": {
+  "baseline": [
+   3,
+   5
+  ],
+  "notes": [
+   3,
+   5
+  ],
+  "sonnet": [
+   5,
+   5
+  ]
+ },
+ "click-test-2": {
+  "baseline": [
+   5,
+   5
+  ],
+  "notes": [
+   5,
+   5
+  ],
+  "sonnet": [
+   5,
+   5
+  ]
+ },
+ "click-test-transfer": {
+  "baseline": [
+   5,
+   5
+  ],
+  "notes": [
+   5,
+   5
+  ],
+  "sonnet": [
+   5,
+   5
+  ]
+ },
+ "copy-paste": {
+  "baseline": [
+   5,
+   5
+  ],
+  "notes": [
+   5,
+   5
+  ],
+  "sonnet": [
+   2,
+   5
+  ]
+ },
+ "copy-paste-2": {
+  "baseline": [
+   4,
+   5
+  ],
+  "notes": [
+   5,
+   5
+  ],
+  "sonnet": [
+   1,
+   5
+  ]
+ },
+ "count-shape": {
+  "baseline": [
+   4,
+   5
+  ],
+  "notes": [
+   5,
+   5
+  ],
+  "sonnet": [
+   5,
+   5
+  ]
+ },
+ "count-sides": {
+  "baseline": [
+   5,
+   5
+  ],
+  "notes": [
+   4,
+   5
+  ],
+  "sonnet": [
+   5,
+   5
+  ]
+ },
+ "daily-calendar": {
+  "baseline": [
+   5,
+   5
+  ],
+  "notes": [
+   5,
+   5
+  ],
+  "sonnet": [
+   5,
+   5
+  ]
+ },
+ "drag-items": {
+  "baseline": [
+   3,
+   5
+  ],
+  "notes": [
+   5,
+   5
+  ],
+  "sonnet": [
+   3,
+   5
+  ]
+ },
+ "drag-items-grid": {
+  "baseline": [
+   3,
+   5
+  ],
+  "notes": [
+   4,
+   5
+  ],
+  "sonnet": [
+   2,
+   5
+  ]
+ },
+ "drag-shapes": {
+  "baseline": [
+   1,
+   5
+  ],
+  "notes": [
+   5,
+   5
+  ],
+  "sonnet": [
+   3,
+   5
+  ]
+ },
+ "draw-circle": {
+  "baseline": [
+   0,
+   5
+  ],
+  "notes": [
+   5,
+   5
+  ],
+  "sonnet": [
+   1,
+   5
+  ]
+ },
+ "email-inbox-nl-turk": {
+  "baseline": [
+   5,
+   5
+  ],
+  "notes": [
+   5,
+   5
+  ],
+  "sonnet": [
+   5,
+   5
+  ]
+ },
+ "enter-date": {
+  "baseline": [
+   4,
+   5
+  ],
+  "notes": [
+   5,
+   5
+  ],
+  "sonnet": [
+   2,
+   5
+  ]
+ },
+ "enter-text-2": {
+  "baseline": [
+   5,
+   5
+  ],
+  "notes": [
+   5,
+   5
+  ],
+  "sonnet": [
+   5,
+   5
+  ]
+ },
+ "form-sequence-2": {
+  "baseline": [
+   0,
+   5
+  ],
+  "notes": [
+   5,
+   5
+  ],
+  "sonnet": [
+   3,
+   5
+  ]
+ },
+ "hot-cold": {
+  "baseline": [
+   1,
+   5
+  ],
+  "notes": [
+   2,
+   5
+  ],
+  "sonnet": [
+   2,
+   5
+  ]
+ },
+ "hover-shape": {
+  "baseline": [
+   0,
+   5
+  ],
+  "notes": [
+   0,
+   5
+  ],
+  "sonnet": [
+   0,
+   5
+  ]
+ },
+ "order-food": {
+  "baseline": [
+   4,
+   5
+  ],
+  "notes": [
+   5,
+   5
+  ],
+  "sonnet": [
+   5,
+   5
+  ]
+ },
+ "right-angle": {
+  "baseline": [
+   5,
+   5
+  ],
+  "notes": [
+   5,
+   5
+  ],
+  "sonnet": [
+   5,
+   5
+  ]
+ },
+ "social-media-all": {
+  "baseline": [
+   3,
+   5
+  ],
+  "notes": [
+   5,
+   5
+  ],
+  "sonnet": [
+   1,
+   5
+  ]
+ },
+ "social-media-some": {
+  "baseline": [
+   1,
+   5
+  ],
+  "notes": [
+   4,
+   5
+  ],
+  "sonnet": [
+   0,
+   5
+  ]
+ },
+ "stock-market": {
+  "baseline": [
+   3,
+   5
+  ],
+  "notes": [
+   5,
+   5
+  ],
+  "sonnet": [
+   3,
+   5
+  ]
+ },
+ "tic-tac-toe": {
+  "baseline": [
+   1,
+   5
+  ],
+  "notes": [
+   4,
+   5
+  ],
+  "sonnet": [
+   4,
+   5
+  ]
+ },
+ "use-autocomplete": {
+  "baseline": [
+   0,
+   5
+  ],
+  "notes": [
+   4,
+   5
+  ],
+  "sonnet": [
+   5,
+   5
+  ]
+ },
+ "visual-addition": {
+  "baseline": [
+   0,
+   5
+  ],
+  "notes": [
+   5,
+   5
+  ],
+  "sonnet": [
+   5,
+   5
+  ]
+ }
+}
