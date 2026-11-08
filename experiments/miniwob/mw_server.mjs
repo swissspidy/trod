@@ -19,6 +19,9 @@ const [task, seed, port] = process.argv.slice(2);
 const HTML = path.join(process.env.MW_HOME ?? '/opt/miniwob', 'html', 'miniwob');
 const TOKEN = process.env.MW_SCORE_TOKEN ?? '';
 const MAX_ACTIONS = Number(process.env.MW_MAX_ACTIONS ?? 60);
+// Train mode (forges only, on train seeds): `reset` starts the next episode and `reward` shows how the last one went.
+const TRAIN = process.env.MW_TRAIN === '1';
+let episodeSeed = Number(seed);
 
 const HELP = `Actions (one per line; element ids come from the latest observation):
   observe                 list the task's elements again
@@ -32,21 +35,28 @@ const HELP = `Actions (one per line; element ids come from the latest observatio
   drag <id> <id>          drag one element onto another
   dragxy <x1> <y1> <x2> <y2>  drag between page coordinates
   scroll <id> <dy>        scroll an element by dy pixels
-  screenshot <file.png>   save a picture of the task area (Read it to look)`;
+  screenshot <file.png>   save a picture of the task area (Read it to look)${TRAIN ? `
+  reward                  how the current episode went: reward (−1..1, solved when > 0), whether it ended, why
+  reset                   start a new episode (next seed; a new instance of the same task type)` : ''}`;
 
 // The repository pins its own Playwright; MW_CHROMIUM (default: the machine's pre-installed Chromium) avoids a version mismatch.
 const exe = process.env.MW_CHROMIUM ?? '/opt/pw-browsers/chromium';
-const browser = await chromium.launch(existsSync(exe) ? { executablePath: exe, args: ['--headless=new', '--no-sandbox'] } : {});
+const browser = await chromium.launch({ ...(existsSync(exe) ? { executablePath: exe, args: ['--headless=new', '--no-sandbox'] } : {}), handleSIGTERM: false, handleSIGINT: false, handleSIGHUP: false });
+for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(sig, () => browser.close().finally(() => process.exit(0)));
 const page = await browser.newPage({ viewport: { width: 500, height: 420 } });
-await page.goto(`file://${HTML}/${task}.html`);
-await page.evaluate((s) => {
-  Math.seedrandom(s);
-  core.EPISODE_MAX_TIME = 24 * 3600 * 1000;
-  core.startEpisodeReal();
-}, seed);
-// The reward display is the agent's feedback channel in the original UI: hide it so the score stays with the runner.
-await page.addStyleTag({ content: '#reward-display, #timer-countdown, #episode-id, .info { display: none !important; }' });
+async function start(s) {
+  await page.goto(`file://${HTML}/${task}.html`);
+  await page.evaluate((v) => {
+    Math.seedrandom(v);
+    core.EPISODE_MAX_TIME = 24 * 3600 * 1000;
+    core.startEpisodeReal();
+  }, s);
+  // The reward display is the agent's feedback channel in the original UI: hide it so the score stays with the runner.
+  await page.addStyleTag({ content: '#reward-display, #timer-countdown, #episode-id, .info { display: none !important; }' });
+}
+await start(episodeSeed);
 let actions = 0;
+const reward = () => page.evaluate(() => ({ reward: WOB_RAW_REWARD_GLOBAL, done: WOB_DONE_GLOBAL, reason: WOB_REWARD_REASON }));
 
 async function observe() {
   return page.evaluate(() => {
@@ -98,6 +108,16 @@ async function act(line) {
   switch (cmd) {
     case 'observe':
       return observe();
+    case 'reward': {
+      if (!TRAIN) break;
+      const r = await reward();
+      return `reward ${r.reward}${r.done ? ' (episode ended)' : ' (episode still running)'}${r.reason ? `: ${r.reason}` : ''}`;
+    }
+    case 'reset':
+      if (!TRAIN) break;
+      await start(++episodeSeed);
+      actions = 0;
+      return `new episode\n${await observe()}`;
     case 'click':
       await el(rest[0]).click({ timeout: 3000, force: true });
       return `clicked ${rest[0]}`;
@@ -146,9 +166,8 @@ async function act(line) {
       const buf = await page.screenshot();
       return { screenshot: file, png: buf.toString('base64') };
     }
-    default:
-      throw new Error(`unknown action "${cmd}"\n${HELP}`);
   }
+  throw new Error(`unknown action "${cmd}"\n${HELP}`);
 }
 
 const body = (req) => new Promise((resolve) => {
@@ -167,7 +186,7 @@ createServer(async (req, res) => {
     if (req.method === 'GET' && req.url === '/task') return send(200, { task, utterance: await page.evaluate(() => document.getElementById('query')?.innerText.trim() ?? ''), help: HELP, observation: await observe() });
     if (req.method === 'POST' && req.url === '/score') {
       if (!TOKEN || req.headers['x-score-token'] !== TOKEN) return send(403, { error: 'forbidden' });
-      return send(200, await page.evaluate(() => ({ reward: WOB_RAW_REWARD_GLOBAL, done: WOB_DONE_GLOBAL, reason: WOB_REWARD_REASON })));
+      return send(200, await reward());
     }
     if (req.method === 'POST' && req.url === '/act') {
       const text = await body(req);
@@ -175,11 +194,12 @@ createServer(async (req, res) => {
         const out = [];
         const files = [];
         for (const line of text.split('\n').filter((l) => l.trim())) {
-          if (await page.evaluate(() => WOB_DONE_GLOBAL)) {
+          const train = TRAIN && /^(reset|reward)\b/.test(line.trim());
+          if (!train && (await page.evaluate(() => WOB_DONE_GLOBAL))) {
             out.push('The episode has ended; nothing more can be done.');
             break;
           }
-          if (++actions > MAX_ACTIONS) {
+          if (!train && ++actions > MAX_ACTIONS) {
             out.push(`Action limit (${MAX_ACTIONS}) reached.`);
             break;
           }
@@ -196,8 +216,9 @@ createServer(async (req, res) => {
           await page.waitForTimeout(150);
         }
         const done = await page.evaluate(() => WOB_DONE_GLOBAL);
-        if (done) out.push('The episode has ended.');
-        else if (!/^observe$/.test(text.trim().split('\n').at(-1) ?? '')) out.push(await observe());
+        const last = text.trim().split('\n').at(-1)?.trim() ?? '';
+        if (done && !/^(reset|reward)\b/.test(last)) out.push('The episode has ended.');
+        else if (!done && !/^(observe|reset|reward)\b/.test(last)) out.push(await observe());
         return { output: out.join('\n'), files, done, actions };
       });
       queue = run.catch(() => {});

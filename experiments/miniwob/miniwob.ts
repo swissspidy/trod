@@ -8,7 +8,7 @@
  *
  * Splits by seed: test = seeds 0..MW_PER_TASK−1, dev = seeds 500+, train = seeds 1000+ (forges use train only).
  * MW_TASKS=<a,b,...> restricts the task types (default: all, minus real-time tasks and -nodelay duplicates).
- * MW_NOTES=<dir> copies <dir>/<task>.md into the work dir as CLAUDE.md (notes forged from train seeds).
+ * MW_NOTES=<dir> copies <dir>/<task>.md into the work dir as CLAUDE.md (notes forged from train seeds: forge-notes.ts).
  * MW_HOME (default /opt/miniwob) holds html/ (the package's html directory).
  */
 import { spawn } from 'node:child_process';
@@ -55,15 +55,23 @@ export interface MwEnv {
   close(): void;
 }
 
-export async function startMw(task: string, seed: number): Promise<MwEnv> {
+export async function startMw(task: string, seed: number, extra: Record<string, string> = {}): Promise<MwEnv> {
   const port = await freePort();
   const token = randomBytes(16).toString('hex');
-  const env = { PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '/root', MW_HOME, MW_SCORE_TOKEN: token, MW_MAX_ACTIONS: String(MAX_ACTIONS) };
-  const child = spawn(process.execPath, [SERVER, task, String(seed), String(port)], { env, stdio: ['ignore', 'pipe', 'pipe'] });
+  const env = { PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '/root', MW_HOME, MW_SCORE_TOKEN: token, MW_MAX_ACTIONS: String(MAX_ACTIONS), ...extra };
+  // Its own process group, so close() also takes down the browser it launched.
+  const child = spawn(process.execPath, [SERVER, task, String(seed), String(port)], { env, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
+  const kill = () => {
+    try {
+      process.kill(-child.pid!, 'SIGKILL');
+    } catch {
+      // already gone
+    }
+  };
   let log = '';
   await new Promise<void>((resolve, reject) => {
     const timer = setTimeout(() => {
-      child.kill();
+      kill();
       reject(new Error(`MiniWoB ${task}/${seed} did not start: ${log.slice(-300)}`));
     }, 60_000);
     const onData = (c: Buffer) => {
@@ -84,7 +92,7 @@ export async function startMw(task: string, seed: number): Promise<MwEnv> {
       reject(new Error(`MiniWoB ${task}/${seed} exited (${code}): ${log.slice(-300)}`));
     });
   });
-  return { baseUrl: `http://127.0.0.1:${port}`, token, close: () => child.kill() };
+  return { baseUrl: `http://127.0.0.1:${port}`, token, close: kill };
 }
 
 async function score(env: MwEnv): Promise<CheckResult> {
