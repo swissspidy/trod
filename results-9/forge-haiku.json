@@ -1,0 +1,400 @@
+{
+ "model": "claude-haiku-5-5",
+ "seeds": "train 1000+ (practice mode)",
+ "notesPublished": 28,
+ "totalCostUsdAllAttempts": 0.79,
+ "tasks": [
+  {
+   "task": "button-delay",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1288,
+   "practice": {
+    "episodes": 52,
+    "solved": 25
+   },
+   "costUsd": 0.012195780000000002,
+   "turns": 17,
+   "wallMs": 147417,
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "task": "click-button-sequence",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1290,
+   "practice": {
+    "episodes": 5,
+    "solved": 4
+   },
+   "costUsd": 0.005324485,
+   "turns": 9,
+   "wallMs": 22621,
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "task": "click-checkboxes-soft",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1190,
+   "practice": {
+    "episodes": 10,
+    "solved": 9
+   },
+   "costUsd": 0.021092004999999997,
+   "turns": 26,
+   "wallMs": 104322,
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "task": "click-menu",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1422,
+   "practice": {
+    "episodes": 6,
+    "solved": 6
+   },
+   "costUsd": 0.011057029999999999,
+   "turns": 22,
+   "wallMs": 41000,
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "task": "click-menu-2",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1434,
+   "practice": {
+    "episodes": 6,
+    "solved": 4
+   },
+   "costUsd": 0.00984936,
+   "turns": 20,
+   "wallMs": 39195,
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "task": "click-test-2",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1393,
+   "practice": {
+    "episodes": 5,
+    "solved": 3
+   },
+   "costUsd": 0.0040525050000000005,
+   "turns": 9,
+   "wallMs": 20535,
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "task": "click-test-transfer",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1141,
+   "practice": {
+    "episodes": 6,
+    "solved": 4
+   },
+   "costUsd": 0.0046796749999999995,
+   "turns": 12,
+   "wallMs": 20616,
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "task": "copy-paste",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1494,
+   "practice": {
+    "episodes": 7,
+    "solved": 5
+   },
+   "costUsd": 0.008558870000000001,
+   "turns": 19,
+   "wallMs": 42318,
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "task": "copy-paste-2",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1392,
+   "practice": {
+    "episodes": 4,
+    "solved": 3
+   },
+   "costUsd": 0.005835155000000001,
+   "turns": 11,
+   "wallMs": 26275,
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "task": "count-shape",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1404,
+   "practice": {
+    "episodes": 11,
+    "solved": 9
+   },
+   "costUsd": 0.01331142,
+   "turns": 28,
+   "wallMs": 61804,
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "task": "count-sides",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1414,
+   "practice": {
+    "episodes": 4,
+    "solved": 4
+   },
+   "costUsd": 0.007374939999999999,
+   "turns": 18,
+   "wallMs": 28142,
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "task": "daily-calendar",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1341,
+   "practice": {
+    "episodes": 5,
+    "solved": 4
+   },
+   "costUsd": 0.030669165,
+   "turns": 46,
+   "wallMs": 130397,
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "task": "drag-items",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1301,
+   "practice": {
+    "episodes": 18,
+    "solved": 11
+   },
+   "costUsd": 0.02050143,
+   "turns": 40,
+   "wallMs": 92818,
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "task": "drag-items-grid",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1415,
+   "practice": {
+    "episodes": 51,
+    "solved": 20
+   },
+   "costUsd": 0.13492220000000002,
+   "turns": 101,
+   "wallMs": 411622,
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "task": "drag-shapes",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1291,
+   "practice": {
+    "episodes": 8,
+    "solved": 6
+   },
+   "costUsd": 0.017112315,
+   "turns": 35,
+   "wallMs": 71862,
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "task": "draw-circle",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1289,
+   "practice": {
+    "episodes": 21,
+    "solved": 9
+   },
+   "costUsd": 0.03665213,
+   "turns": 41,
+   "wallMs": 341308,
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "task": "email-inbox-nl-turk",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1466,
+   "practice": {
+    "episodes": 5,
+    "solved": 4
+   },
+   "costUsd": 0.018689974999999998,
+   "turns": 34,
+   "wallMs": 109469,
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "task": "enter-date",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1179,
+   "practice": {
+    "episodes": 6,
+    "solved": 4
+   },
+   "costUsd": 0.0061822199999999996,
+   "turns": 13,
+   "wallMs": 41490,
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "task": "enter-text-2",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1248,
+   "practice": {
+    "episodes": 6,
+    "solved": 4
+   },
+   "costUsd": 0.006405480000000001,
+   "turns": 15,
+   "wallMs": 36023,
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "task": "form-sequence-2",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1264,
+   "practice": {
+    "episodes": 4,
+    "solved": 3
+   },
+   "costUsd": 0.005863745000000001,
+   "turns": 12,
+   "wallMs": 28343,
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "task": "order-food",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1327,
+   "practice": {
+    "episodes": 4,
+    "solved": 4
+   },
+   "costUsd": 0.03264773,
+   "turns": 57,
+   "wallMs": 134293,
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "task": "right-angle",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1388,
+   "practice": {
+    "episodes": 191,
+    "solved": 30
+   },
+   "costUsd": 0.05441416999999999,
+   "turns": 41,
+   "wallMs": 420667,
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "task": "social-media-all",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1436,
+   "practice": {
+    "episodes": 4,
+    "solved": 3
+   },
+   "costUsd": 0.05001899499999999,
+   "turns": 83,
+   "wallMs": 215567,
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "task": "social-media-some",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1484,
+   "practice": {
+    "episodes": 6,
+    "solved": 4
+   },
+   "costUsd": 0.048945435,
+   "turns": 71,
+   "wallMs": 217978,
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "task": "stock-market",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1404,
+   "practice": {
+    "episodes": 23,
+    "solved": 5
+   },
+   "costUsd": 0.023646595,
+   "turns": 35,
+   "wallMs": 532444,
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "task": "tic-tac-toe",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1449,
+   "practice": {
+    "episodes": 4,
+    "solved": 3
+   },
+   "costUsd": 0.013019399999999999,
+   "turns": 31,
+   "wallMs": 59329,
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "task": "use-autocomplete",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1363,
+   "practice": {
+    "episodes": 6,
+    "solved": 5
+   },
+   "costUsd": 0.011664395,
+   "turns": 22,
+   "wallMs": 58896,
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "task": "visual-addition",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1051,
+   "practice": {
+    "episodes": 7,
+    "solved": 5
+   },
+   "costUsd": 0.008801485000000003,
+   "turns": 21,
+   "wallMs": 41899,
+   "model": "claude-haiku-5-5"
+  }
+ ]
+}

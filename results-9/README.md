@@ -46,6 +46,31 @@ episodes and is told whether each one succeeded.
 - **No help:** hover-shape stays at 0/5 in every arm (the mouse has to keep following a moving square), and hot-cold
   goes only from 1 to 2. The 4 broken runs are spread over 4 task types.
 
+## Round 9b: Haiku practises for itself
+
+The same forge, run by Haiku instead of Opus (same prompt, same practice mode, same gate: notes only after a solved
+practice episode). It cost **$0.79 for all 30 task types**, a tenth of Opus's $8.01, and published notes for 28 of
+them: hot-cold and hover-shape never solved a practice episode, so they got none (`self-forged-notes/`,
+`forge-haiku.json`).
+
+| arm | solved | full credit | tokens/run | $/run |
+|---|---|---|---|---|
+| Haiku, no notes | 102/150 (68.0%) | 97/150 | 136k | 0.0034 |
+| Haiku + notes Opus forged | 135/150 (90.0%) | 135/150 | 91k | 0.0025 |
+| **Haiku + notes Haiku forged** | **132/150 (88.0%)** | **124/150** | **119k** | **0.0031** |
+
+- **Against Haiku without notes:** 36 fixed, 6 broken (exact McNemar p = 3 × 10⁻⁶).
+- **Against Opus's notes:** 4 fixed, 7 broken (p = 0.55): no significant difference in solved runs. By full credit
+  Opus's notes are ahead (135 vs 124), and they save more tokens (91k vs 119k per run).
+- So the gain does not depend on a stronger teacher: the model that will use the notes can write them, from
+  practice alone, for under three cents per task type.
+
+## The whole suite
+
+The other 91 task types (Haiku was 4/4 on dev seeds) ran on test seeds 0–1 without notes: **178/182 (97.8%)**. With
+every task type weighted equally, Haiku solves about **90%** of MiniWoB++ without notes, and about **96%** with
+practice notes for the 30 hard types (Opus's notes; 95% with its own).
+
 ## Caveats
 
 - **Correction during review.** The first version of this write-up reported a baseline of 60%. Fifteen baseline runs
@@ -63,14 +88,13 @@ episodes and is told whether each one succeeded.
 - **Shared task descriptions are not leakage.** Most MiniWoB task descriptions are generic ("Click button ONE", "Find
   and click on the HOT area"), so 72 test runs share their description with a practice episode. The page itself (its
   layout, values and targets) comes from the seed, and train and test seeds do not overlap.
-- **The forge is the stronger model.** The notes are Opus's practice distilled for Haiku. Whether Haiku could practise
-  on its own and gain as much is untested.
+- **One run per seed.** Each arm ran each test seed once; per-type numbers (out of 5) are noisy, the totals less so.
 
 ## What this adds to rounds 5–8
 
 Round 8 needed gold trajectories, which few environments have. Here the forge needed only a practice environment and
-a success signal, and still gained 22 points. Notes once again cost less than a bigger model: forged once for $8.01
+a success signal, and still gained 22 points; with Haiku as its own teacher, 20 points for $0.79. Notes once again cost less than a bigger model: forged once for $8.01
 from practice runs, they let Haiku beat Sonnet while costing less per run than Haiku alone.
 
-Files: `summary.json`, `runs.jsonl` (one line per graded run), `by-task.json`, `forge.json` (per-task forge cost and
-turns), `forged-notes/`. Code: `experiments/miniwob/`.
+Files: `summary.json`, `runs.jsonl` (one line per graded run), `by-task.json`, `forge.json` and `forge-haiku.json`
+(per-task forge cost, turns and practice outcomes), `forged-notes/` (Opus), `self-forged-notes/` (Haiku). Code: `experiments/miniwob/`.

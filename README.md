@@ -21,7 +21,8 @@ See [`experiments/`](experiments/) and the results in [`results/`](results/READM
   ([round 8](results-8/README.md)), where whole procedures recur, forged notes took Haiku from 52% to 89% solved,
   past Sonnet (67%) at a tenth of its cost. On MiniWoB++ web tasks ([round 9](results-9/README.md)), notes Opus
   forged from **practice episodes** alone (no expert trajectories) took Haiku from 68% to 90% on the 30 hardest task
-  types, past Sonnet (67%) at 9% of its cost per run. So `trod forge` now also writes verified notes
+  types, past Sonnet (67%) at 9% of its cost per run; notes Haiku forged for itself ($0.79 for 30 task types) reached
+  88%. So `trod forge` now also writes verified notes, and can practise against a success check (`--practice`)
   ([ADR 0004](docs/adr/0004-verified-notes.md)).
 
 ## A tool
