@@ -48,7 +48,8 @@ Commit and push what `init`, `learn` and `forge` wrote (`.mcp.json`, `.claude/`,
 ones included, loads it.
 
 Or install the Claude Code plugin: `claude plugin marketplace add swissspidy/trod`, then
-`claude plugin install trod@trod`. Other MCP clients run `npx -y trod mcp`.
+`claude plugin install trod@trod`. In Antigravity: `agy plugin install https://github.com/swissspidy/trod` (or
+`npx trod init --antigravity` per repository). Other MCP clients run `npx -y trod mcp`.
 
 ## How it works
 

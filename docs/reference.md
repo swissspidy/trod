@@ -76,8 +76,34 @@ claude plugin marketplace add swissspidy/trod
 claude plugin install trod@trod
 ```
 
-**Other MCP clients** (Antigravity, Cursor, VS Code, ...): run `npx -y trod mcp` as a stdio server, with
-`TROD_ALLOW_EXEC=1` in its environment and the project directory as its working directory (or `TROD_PROJECT_DIR`).
+**Antigravity**, as a plugin for every workspace (the repository root is an Antigravity plugin: it runs the bundled
+server, so it needs no npm release; the install clones the repository, about 6 MB):
+
+```sh
+agy plugin install https://github.com/swissspidy/trod
+```
+
+or per repository, committed like `trod init` for Claude Code:
+
+```sh
+npx trod init --antigravity --allow-exec   # .agents/mcp_config.json, .agents/skills/trod/SKILL.md
+```
+
+Antigravity starts MCP servers outside the project (reportedly in the home directory) and passes no project path, so
+when neither `TROD_PROJECT_DIR` nor `CLAUDE_PROJECT_DIR` is set, the server asks the client for its workspace through
+MCP roots and moves to the first one; until then it creates nothing in the home directory, and `trod_status` names
+the directory it uses. If Antigravity does not answer with a root, set `TROD_PROJECT_DIR` for the server. Notes reach
+Antigravity through `.agents/rules/trod-notes.md`, an always-on rule that inlines `.trod/notes.md`; `trod init
+--antigravity`, `trod forge` and `trod learn` write it in projects with an `.agents/` folder. The plugin turns
+execution on: Antigravity asks before each MCP tool call unless you allowed it. Antigravity's PostToolUse hooks
+cannot send messages to the agent, so instead of the validation hook the skill tells the agent to check
+`trod_status` after writing a tool. `trod forge` and `trod learn` run Claude Code sessions, so they need the
+`claude` CLI; `trod learn` reads Claude Code's transcripts, not Antigravity's. Verified here with an MCP client that
+behaves like Antigravity (starts the server in an empty home directory, reports a workspace root); not yet tested in
+Antigravity itself.
+
+**Other MCP clients** (Cursor, VS Code, ...): run `npx -y trod mcp` as a stdio server, with `TROD_ALLOW_EXEC=1` in
+its environment and the project directory as its working directory, `TROD_PROJECT_DIR`, or an MCP root.
 Tools written mid-session appear through `notifications/tools/list_changed`; clients that ignore it can still call
 every tool through `trod_run` and `trod_eval`. The skill and the validation hook are Claude Code features; elsewhere,
 put the skill's text (`plugin/skills/trod/SKILL.md`) into the client's rules file.
@@ -125,7 +151,7 @@ The CLI is `npx trod <command>`, or bundled at `plugin/bin/trod` in this reposit
 | Variable | Default | |
 |---|---|---|
 | `TROD_ALLOW_EXEC` | unset | `1` lets the server execute tools |
-| `TROD_PROJECT_DIR` | `CLAUDE_PROJECT_DIR`, then cwd | where `.trod/` lives |
+| `TROD_PROJECT_DIR` | `CLAUDE_PROJECT_DIR`, then the client's first MCP root, then cwd | where `.trod/` lives |
 | `TROD_MAX_OUTPUT_CHARS` | 25000 | longer outputs are truncated with a marker |
 | `TROD_ENV_PASSTHROUGH` | empty | comma-separated extra variables tools may see |
 | `TROD_SESSION_ID` | `CLAUDE_CODE_SESSION_ID` | session id for logs |

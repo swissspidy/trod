@@ -2,6 +2,10 @@
 
 ## 0.5.0
 
+- Antigravity: the repository root is an Antigravity plugin (`agy plugin install https://github.com/swissspidy/trod`),
+  and `trod init --antigravity` sets a repository up (`.agents/mcp_config.json`, an Antigravity skill). Notes reach
+  Antigravity through `.agents/rules/trod-notes.md`. The server follows the client's workspace through MCP roots when
+  no project directory is configured, and creates nothing in the home directory meanwhile.
 - `trod learn`: distil notes from the transcripts of sessions that already happened (Claude Code keeps them in
   `~/.claude/projects/`), comparing failed sessions with passed ones; optional `--outcomes` from CI or a grader.
   Many kinds of task get general rules plus an index in `.trod/notes.md` and one page each in `.trod/wiki/`.

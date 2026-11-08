@@ -1,15 +1,18 @@
 import { existsSync, mkdirSync, watch, type FSWatcher } from 'node:fs';
+import { homedir } from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { CallToolRequestSchema, ListToolsRequestSchema, type CallToolResult, type Tool } from '@modelcontextprotocol/sdk/types.js';
 import { DEFAULT_MAX_OUTPUT_CHARS, EVAL_RUNNER, MAX_TIMEOUT_MS, executeTool } from './executor.ts';
 import { CallLog, readLogs } from './logs.ts';
+import { trodPaths } from './paths.ts';
 import { computeStats } from './stats.ts';
 import { Registry, describeForClient, type RegistryChange } from './registry.ts';
 import type { LoadedTool, TrodPaths } from './types.ts';
 import { validateInput } from './validate.ts';
 
-export const VERSION = '0.4.0';
+export const VERSION = '0.5.0';
 
 export interface TrodServerOptions {
   paths: TrodPaths;
@@ -148,9 +151,9 @@ export function sessionIdFromEnv(env: NodeJS.ProcessEnv): string | undefined {
 
 export class TrodServer {
   readonly server: Server;
-  readonly registry: Registry;
-  readonly log: CallLog;
-  readonly paths: TrodPaths;
+  registry: Registry;
+  log: CallLog;
+  paths: TrodPaths;
   readonly execAllowed: boolean;
   readonly sessionId?: string;
   private env: NodeJS.ProcessEnv;
@@ -194,25 +197,83 @@ export class TrodServer {
     return [STATUS_TOOL, RUN_TOOL, EVAL_TOOL, ...dynamic];
   }
 
+  /**
+   * True while the project directory is the home directory: a client that starts servers there (and tells them
+   * nothing else) has not said which project it works in yet, so trod creates nothing there.
+   */
+  private get unplaced(): boolean {
+    return this.paths.projectDir === path.resolve(homedir());
+  }
+
   async start(): Promise<void> {
-    mkdirSync(this.paths.toolsDir, { recursive: true });
-    const change = await this.registry.reload();
-    this.lastFingerprint = this.registry.fingerprint();
-    this.logChange(change);
-    this.log.write({
-      type: 'server',
-      ts: new Date().toISOString(),
-      sessionId: this.sessionId,
-      event: 'start',
-      execAllowed: this.execAllowed,
-      version: VERSION,
-      tools: [...this.registry.active.keys()],
-    });
+    await this.load('start');
     // Library cards go into the instructions the client receives at initialize (the server connects after start()).
     const stats = new Map(computeStats(readLogs(this.paths.logsDir)).tools.map((t) => [t.tool, t]));
     const cards = libraryCards([...this.registry.active.values()], stats);
     if (cards) (this.server as unknown as { _instructions?: string })._instructions = LIBRARY_INSTRUCTIONS + cards;
     this.watch();
+  }
+
+  private async load(event: 'start' | 'relocate'): Promise<void> {
+    if (!this.unplaced) mkdirSync(this.paths.toolsDir, { recursive: true });
+    const change = await this.registry.reload();
+    this.lastFingerprint = this.registry.fingerprint();
+    this.logChange(change);
+    if (!this.unplaced) {
+      this.log.write({
+        type: 'server',
+        ts: new Date().toISOString(),
+        sessionId: this.sessionId,
+        event,
+        execAllowed: this.execAllowed,
+        version: VERSION,
+        tools: [...this.registry.active.keys()],
+      });
+    }
+  }
+
+  /**
+   * Moves the server to another project directory (its own .trod/), e.g. the workspace a client reports through MCP
+   * roots after the server started elsewhere. Returns false when it is already there.
+   */
+  async relocate(projectDir: string): Promise<boolean> {
+    const next = path.resolve(projectDir);
+    if (next === this.paths.projectDir) return false;
+    this.stopWatching();
+    this.paths = trodPaths(next);
+    this.registry = new Registry({ paths: this.paths, execAllowed: this.execAllowed, sessionId: this.sessionId, env: this.env });
+    this.log = new CallLog(this.paths.logsDir);
+    await this.load('relocate');
+    this.watch();
+    if (this.connected) {
+      try {
+        await this.server.sendToolListChanged();
+      } catch {
+        // client gone
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Uses the client's first file:// workspace root as the project directory (MCP roots). For clients that start
+   * servers outside the project and pass no project path, such as Antigravity. Returns the directory, if any.
+   */
+  async adoptClientRoots(): Promise<string | undefined> {
+    if (!this.server.getClientCapabilities()?.roots) return undefined;
+    const { roots } = await this.server.listRoots();
+    const uri = roots.map((r) => r.uri).find((u) => u.startsWith('file:'));
+    if (!uri) return undefined;
+    const dir = fileURLToPath(uri);
+    await this.relocate(dir);
+    return dir;
+  }
+
+  private stopWatching(): void {
+    this.watcher?.close();
+    this.watcher = undefined;
+    clearInterval(this.pollTimer);
+    clearTimeout(this.debounceTimer);
   }
 
   /** Marks the server connected; list_changed notifications are only sent after that. */
@@ -417,6 +478,7 @@ export class TrodServer {
     const invalid = all.filter((t) => !t.ok);
     const lines = [
       `trod ${VERSION}: ${this.registry.active.size} live tool(s), ${invalid.length} invalid. Execution ${this.execAllowed ? 'enabled' : 'DISABLED (set TROD_ALLOW_EXEC=1)'}.`,
+      `project: ${this.paths.projectDir}${this.unplaced ? ' (the home directory: the client named no workspace; set TROD_PROJECT_DIR for the trod server)' : ''}`,
       `session tools: ${rel(this.paths.toolsDir)}/<name>/  library: ${rel(this.paths.libraryDir)}/<name>/`,
     ];
     if (this.registry.active.size) {
@@ -437,9 +499,7 @@ export class TrodServer {
   }
 
   async close(): Promise<void> {
-    this.watcher?.close();
-    clearInterval(this.pollTimer);
-    clearTimeout(this.debounceTimer);
+    this.stopWatching();
     await this.server.close();
   }
 }

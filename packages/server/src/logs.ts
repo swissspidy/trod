@@ -30,7 +30,7 @@ export interface ServerRecord {
   type: 'server';
   ts: string;
   sessionId?: string;
-  event: 'start';
+  event: 'start' | 'relocate';
   execAllowed: boolean;
   version: string;
   tools: string[];

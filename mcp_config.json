@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "server": {
+      "command": "node",
+      "args": ["${PLUGIN_ROOT}/plugin/server/trod-server.mjs"],
+      "env": { "TROD_ALLOW_EXEC": "1" },
+      "timeoutSeconds": 600
+    }
+  }
+}

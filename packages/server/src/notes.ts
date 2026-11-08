@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { executeTool } from './executor.ts';
 import type { ExampleExpectation, LoadedTool, TrodPaths } from './types.ts';
@@ -88,8 +88,37 @@ export function notesLinked(paths: TrodPaths): boolean {
   return existsSync(claudeMd) && readFileSync(claudeMd, 'utf8').split('\n').some((l) => l.trim() === NOTES_IMPORT);
 }
 
-/** Adds the `@.trod/notes.md` import to CLAUDE.md (creating it if needed). Returns false if it was already there. */
+/** Antigravity does not read CLAUDE.md: it loads rules from .agents/rules/, which can inline a file. */
+export const ANTIGRAVITY_NOTES_RULE = path.join('.agents', 'rules', 'trod-notes.md');
+const ANTIGRAVITY_RULE_TEXT = `---
+trigger: always_on
+---
+
+# Project notes (trod)
+
+Verified notes about this project's environment, kept by trod (\`trod forge\`, \`trod learn\`, \`trod verify\`):
+
+@[trod notes](../../.trod/notes.md)
+`;
+
+/**
+ * For projects set up for Antigravity (an .agents/ folder, e.g. from `trod init --antigravity`): writes the rule that
+ * loads .trod/notes.md into every Antigravity conversation. Returns true when it wrote the rule.
+ */
+export function linkAntigravityNotes(paths: TrodPaths): boolean {
+  const rule = path.join(paths.projectDir, ANTIGRAVITY_NOTES_RULE);
+  if (!existsSync(path.join(paths.projectDir, '.agents')) || existsSync(rule)) return false;
+  mkdirSync(path.dirname(rule), { recursive: true });
+  writeFileSync(rule, ANTIGRAVITY_RULE_TEXT);
+  return true;
+}
+
+/**
+ * Adds the `@.trod/notes.md` import to CLAUDE.md (creating it if needed), and the Antigravity rule when the project
+ * has an .agents/ folder. Returns false if CLAUDE.md already imported the notes.
+ */
 export function linkNotes(paths: TrodPaths): boolean {
+  linkAntigravityNotes(paths);
   if (notesLinked(paths)) return false;
   const { claudeMd } = notesPaths(paths);
   const block = `\n## Project notes (trod)\n\nVerified notes about this project's environment, kept by trod (\`trod forge\`, \`trod verify\`):\n\n${NOTES_IMPORT}\n`;

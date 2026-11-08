@@ -10,7 +10,10 @@ How trod reaches users, what is ready, and what needs the repository owner.
 | Cloud environment (every session, any repo) | setup script with the two commands above, plus `TROD_ALLOW_EXEC=1` as an environment variable of the cloud environment (not in the script) | works (tested in a fresh cloud session) |
 | Per repository (local, cloud, mobile app) | `npx trod init --allow-exec`, commit the files | ready; needs the npm release |
 | Per repository, no network at start | `npx trod init --vendor --allow-exec` (server and CLI copied into `.trod/pkg/`; `git add -f .trod/pkg` if `bin/` is gitignored) | ready; needs the npm release |
-| Any MCP client (Antigravity, Cursor, VS Code, ...) | `npx -y trod mcp`, `TROD_ALLOW_EXEC=1` | ready; needs the npm release; untested in those clients |
+| Antigravity plugin (every workspace) | `agy plugin install https://github.com/swissspidy/trod` (repository root: `.antigravity-plugin/plugin.json`, `mcp_config.json`, `skills/`) | ready; runs the bundled server, no npm release needed; tested with an Antigravity-like MCP client, not yet in Antigravity |
+| Antigravity, per repository | `npx trod init --antigravity --allow-exec` (`.agents/mcp_config.json`, skill, notes rule) | ready; needs the npm release |
+| Antigravity Marketplace | submit through the partner intake form (`agy plugin validate --strict` first) | owner step |
+| Any other MCP client (Cursor, VS Code, ...) | `npx -y trod mcp`, `TROD_ALLOW_EXEC=1` (project from cwd, `TROD_PROJECT_DIR` or MCP roots) | ready; needs the npm release; untested in those clients |
 | MCP Registry | listed as `io.github.swissspidy/trod` (`plugin/server.json`) | published by the Release workflow |
 
 ## Owner steps for the first release

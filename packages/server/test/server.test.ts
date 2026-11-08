@@ -1,9 +1,12 @@
-import { mkdirSync, rmSync, writeFileSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync, readdirSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { ToolListChangedNotificationSchema } from '@modelcontextprotocol/sdk/types.js';
+import { ListRootsRequestSchema, ToolListChangedNotificationSchema } from '@modelcontextprotocol/sdk/types.js';
 import { afterEach, describe, expect, it } from 'vitest';
+import { trodPaths } from '../src/paths.ts';
 import { TrodServer } from '../src/server.ts';
 import type { TrodPaths } from '../src/types.ts';
 import { tempProject, writeTool } from './helpers.ts';
@@ -235,5 +238,56 @@ describe('trod_eval file writes', () => {
     const res = await call('trod_eval', { code: "fsp.writeFile(path.join(projectDir, 'out.json'), JSON.stringify({ big: 'x'.repeat(200000) })); return 'ok';" });
     expect(res.isError).toBe(false);
     expect(JSON.parse(readFileSync(path.join(paths.projectDir, 'out.json'), 'utf8')).big).toHaveLength(200000);
+  });
+});
+
+describe('MCP roots', () => {
+  it("moves to the client's workspace root and announces the new tool list", async () => {
+    const start = tempProject();
+    writeTool(start.toolsDir, 'only_here', {});
+    const workspace = tempProject();
+    writeTool(workspace.libraryDir, 'from_workspace', {});
+    const trod = new TrodServer({ paths: start, env: { TROD_ALLOW_EXEC: '1', PATH: process.env.PATH }, debounceMs: 30, pollMs: 0 });
+    servers.push(trod);
+    await trod.start();
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    await trod.server.connect(a);
+    trod.markConnected();
+    const client = new Client({ name: 'roots-client', version: '0' }, { capabilities: { roots: { listChanged: true } } });
+    client.setRequestHandler(ListRootsRequestSchema, async () => ({ roots: [{ uri: pathToFileURL(workspace.projectDir).href, name: 'ws' }] }));
+    let changed = false;
+    client.setNotificationHandler(ToolListChangedNotificationSchema, async () => {
+      changed = true;
+    });
+    await client.connect(b);
+    expect((await client.listTools()).tools.map((t) => t.name)).toContain('only_here');
+    expect(await trod.adoptClientRoots()).toBe(workspace.projectDir);
+    const names = (await client.listTools()).tools.map((t) => t.name);
+    expect(names).toContain('from_workspace');
+    expect(names).not.toContain('only_here');
+    expect(trod.paths.projectDir).toBe(workspace.projectDir);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(changed).toBe(true);
+    // Same root again: nothing to do.
+    expect(await trod.relocate(workspace.projectDir)).toBe(false);
+  });
+
+  it('ignores clients without roots', async () => {
+    const { trod } = await connect(tempProject());
+    expect(await trod.adoptClientRoots()).toBeUndefined();
+  });
+
+  it('creates nothing in the home directory while it waits for a workspace', async () => {
+    const home = mkdtempSync(path.join(tmpdir(), 'trod-home-'));
+    const saved = process.env.HOME;
+    process.env.HOME = home;
+    try {
+      const trod = new TrodServer({ paths: trodPaths(home), env: { PATH: process.env.PATH }, pollMs: 0 });
+      servers.push(trod);
+      await trod.start();
+      expect(existsSync(path.join(home, '.trod'))).toBe(false);
+    } finally {
+      process.env.HOME = saved;
+    }
   });
 });
