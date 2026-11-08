@@ -10,6 +10,7 @@
  * MW_TASKS=<a,b,...> restricts the task types (default: all, minus real-time tasks and -nodelay duplicates).
  * MW_NOTES=<dir> copies <dir>/<task>.md into the work dir as CLAUDE.md (notes forged from train seeds: forge-notes.ts).
  * MW_WIKI=<dir> and MW_NOTES_ALL=<file> (build-wiki.ts) give all task types' notes without routing: a wiki index, or one file.
+ * MW_LEARNED=<project dir> gives what `trod learn` wrote there (.trod/notes.md and .trod/wiki/).
  * MW_HOME (default /opt/miniwob) holds html/ (the package's html directory).
  */
 import { spawn } from 'node:child_process';
@@ -145,6 +146,12 @@ export function miniwobTasks(sample: { task: string; seed: number }[]): Task[] {
         }
         // MW_NOTES_ALL=<file>: every task type's notes in one always-loaded CLAUDE.md.
         if (process.env.MW_NOTES_ALL) cpSync(process.env.MW_NOTES_ALL, path.join(work, 'CLAUDE.md'));
+        // MW_LEARNED=<project dir> (trod learn): its .trod/notes.md as CLAUDE.md, plus its .trod/wiki/ pages if any.
+        if (process.env.MW_LEARNED) {
+          cpSync(path.join(process.env.MW_LEARNED, '.trod', 'notes.md'), path.join(work, 'CLAUDE.md'));
+          const wiki = path.join(process.env.MW_LEARNED, '.trod', 'wiki');
+          if (existsSync(wiki)) cpSync(wiki, path.join(work, '.trod', 'wiki'), { recursive: true });
+        }
         return { task, seed };
       },
       serve: async ({ work }: TaskContext, forForge?: boolean) => {

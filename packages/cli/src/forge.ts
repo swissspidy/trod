@@ -58,6 +58,8 @@ export interface ForgeOptions {
   practice?: PracticeOptions;
   /** The Claude Code executable (default: TROD_CLAUDE_BIN or `claude`). */
   claudeBin?: string;
+  /** Replaces FORGE_PROMPT (trod learn uses LEARN_PROMPT). */
+  prompt?: string;
 }
 
 export interface ForgeResult {
@@ -125,7 +127,7 @@ export async function forge(opts: ForgeOptions): Promise<ForgeResult> {
   const env = { ...baseEnv, TROD_ALLOW_EXEC: '1', TROD_PROJECT_DIR: opts.projectDir, ...(opts.practice ? { PATH: `${path.join(scratch, 'bin')}${path.delimiter}${baseEnv.PATH ?? ''}` } : {}) };
   const mcpConfig = path.join(scratch, 'mcp.json');
   writeFileSync(mcpConfig, JSON.stringify({ mcpServers: { trod: { command: process.execPath, args: [opts.server ?? defaultServerPath()] } } }));
-  const prompt = `${FORGE_PROMPT}\n\n## The environment\n\n${opts.brief}${opts.practice ? `\n\n${PRACTICE_PROMPT(!!opts.practice.reset)}` : ''}`;
+  const prompt = `${opts.prompt ?? FORGE_PROMPT}\n\n## The environment\n\n${opts.brief}${opts.practice ? `\n\n${PRACTICE_PROMPT(!!opts.practice.reset)}` : ''}`;
   const args = [
     '-p', prompt,
     '--output-format', 'stream-json', '--verbose',

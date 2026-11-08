@@ -1,0 +1,154 @@
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
+import { main } from '../src/cli.ts';
+import { digestTranscript, findTranscripts, LEARN_PROMPT, readOutcomes, transcriptDir, writeDigests } from '../src/learn.ts';
+
+const tmp = () => mkdtempSync(path.join(tmpdir(), 'trod-learn-'));
+
+/** A Claude Code session transcript: the prompt, one tool call that fails, one that works, a final message. */
+function transcript(dir: string, id: string, task: string): string {
+  const file = path.join(dir, `${id}.jsonl`);
+  const lines = [
+    { type: 'queue-operation', operation: 'enqueue' },
+    { type: 'user', message: { role: 'user', content: task } },
+    { type: 'user', isMeta: true, message: { role: 'user', content: 'a reminder the digest skips' } },
+    { type: 'assistant', message: { role: 'assistant', content: [{ type: 'tool_use', id: 't1', name: 'Bash', input: { command: 'mw press Enter' } }] } },
+    { type: 'user', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't1', is_error: true, content: 'Enter does not submit' }] } },
+    { type: 'assistant', isSidechain: true, message: { role: 'assistant', content: [{ type: 'text', text: 'a subagent the digest skips' }] } },
+    { type: 'assistant', message: { role: 'assistant', content: [{ type: 'tool_use', id: 't2', name: 'Bash', input: { command: 'mw click 7' } }] } },
+    { type: 'user', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't2', content: [{ type: 'text', text: 'clicked 7' }] }] } },
+    { type: 'assistant', message: { role: 'assistant', content: [{ type: 'text', text: 'Submitted. DONE' }] } },
+  ];
+  writeFileSync(file, lines.map((l) => JSON.stringify(l)).join('\n') + '\n{"torn":');
+  return file;
+}
+
+describe('digestTranscript', () => {
+  it('keeps the task, tool calls, errors and the final message, and skips meta and sidechain events', () => {
+    const d = digestTranscript(transcript(tmp(), 's1', 'Fill the form and submit it.'), { outcome: 'pass' })!;
+    expect(d).toMatchObject({ id: 's1', task: 'Fill the form and submit it.', outcome: 'pass', toolCalls: 2, errors: 1 });
+    expect(d.text).toContain('# Session s1: PASS');
+    expect(d.text).toContain('CALL Bash: mw press Enter');
+    expect(d.text).toContain('ERROR: Enter does not submit');
+    expect(d.text).toContain('RESULT: clicked 7');
+    expect(d.text).toContain('ASSISTANT: Submitted. DONE');
+    expect(d.text).not.toContain('reminder');
+    expect(d.text).not.toContain('subagent');
+  });
+
+  it('shortens long sessions, keeping their start and end', () => {
+    const dir = tmp();
+    const file = path.join(dir, 'long.jsonl');
+    const steps = Array.from({ length: 300 }, (_, i) => JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Bash', input: { command: `step ${i}` } }] } }));
+    writeFileSync(file, [JSON.stringify({ type: 'user', message: { content: 'task' } }), ...steps].join('\n'));
+    const d = digestTranscript(file, { maxChars: 3000 })!;
+    expect(d.text.length).toBeLessThan(3600);
+    expect(d.text).toContain('step 0');
+    expect(d.text).toContain('step 299');
+    expect(d.text).toContain('middle of the session omitted');
+  });
+
+  it('returns undefined for a transcript with no conversation', () => {
+    const file = path.join(tmp(), 'empty.jsonl');
+    writeFileSync(file, '{"type":"queue-operation"}\n');
+    expect(digestTranscript(file)).toBeUndefined();
+  });
+});
+
+describe('outcomes, digests and transcript locations', () => {
+  it('reads outcomes as booleans, words or scores', () => {
+    const file = path.join(tmp(), 'o.json');
+    writeFileSync(file, JSON.stringify({ a: true, 'b.jsonl': false, c: 'pass', d: 0.5, e: 0, f: null }));
+    expect(Object.fromEntries(readOutcomes(file))).toEqual({ a: 'pass', b: 'fail', c: 'pass', d: 'pass', e: 'fail', f: 'unknown' });
+  });
+
+  it('writes one file per session and an index', () => {
+    const dir = tmp();
+    const d1 = digestTranscript(transcript(dir, 'x', 'You are a helper.\nTask: Select Legra'), { outcome: 'fail' })!;
+    const d2 = digestTranscript(transcript(dir, 'y', 'Task: Select Natala'))!;
+    const out = path.join(dir, 'sessions');
+    expect(writeDigests(out, [d1, d2])).toEqual({ pass: 0, fail: 1, unknown: 1 });
+    expect(readdirSync(out).sort()).toEqual(['001-fail.md', '002-unknown.md', 'INDEX.md']);
+    const index = readFileSync(path.join(out, 'INDEX.md'), 'utf8');
+    expect(index).toContain('| 001-fail.md | fail | 2 | 1 | Task: Select Legra |');
+  });
+
+  it("finds Claude Code's transcripts for a project", () => {
+    expect(transcriptDir('/home/u/my.repo', '/home/u')).toBe('/home/u/.claude/projects/-home-u-my-repo');
+    const dir = tmp();
+    mkdirSync(path.join(dir, 'a', 'b'), { recursive: true });
+    writeFileSync(path.join(dir, 'a', 'b', 's.jsonl'), '');
+    writeFileSync(path.join(dir, 'a', 'notes.md'), '');
+    expect(findTranscripts([dir, path.join(dir, 'missing')])).toEqual([path.join(dir, 'a', 'b', 's.jsonl')]);
+  });
+
+  it('tells the learner where the sessions are and to compare failures with successes', () => {
+    const p = LEARN_PROMPT('/tmp/s', { pass: 3, fail: 2, unknown: 1 });
+    expect(p).toContain('/tmp/s');
+    expect(p).toContain('3 passed, 2 failed, 1 with unknown outcome');
+    expect(p).toContain('.trod/wiki/');
+  });
+});
+
+describe('trod learn', () => {
+  const saved = process.env.TROD_CLAUDE_BIN;
+  afterEach(() => {
+    if (saved === undefined) delete process.env.TROD_CLAUDE_BIN;
+    else process.env.TROD_CLAUDE_BIN = saved;
+  });
+
+  it('digests the sessions, runs the learner and links the notes it wrote', async () => {
+    const dir = tmp();
+    const sessions = path.join(dir, 'sessions');
+    mkdirSync(sessions);
+    transcript(sessions, 'good', 'Task: submit the form');
+    transcript(sessions, 'bad', 'Task: submit the form');
+    // An earlier forge session in the same transcript folder must not be learned from.
+    transcript(sessions, 'forge', 'You are a toolsmith. Build tools.');
+    const outcomes = path.join(dir, 'o.json');
+    writeFileSync(outcomes, JSON.stringify({ good: true, bad: false }));
+    const project = path.join(dir, 'project');
+    mkdirSync(project);
+    // The fake learner records its prompt and writes notes.
+    const fake = path.join(dir, 'fake-claude');
+    writeFileSync(fake, `#!/bin/sh\nprintf '%s' "$2" > ${JSON.stringify(path.join(dir, 'prompt.txt'))}\nmkdir -p .trod && printf '# Notes\\n- Enter does not submit; click Submit.\\n' > .trod/notes.md\necho '{"type":"result","subtype":"success","total_cost_usd":0.02,"num_turns":4}'\n`);
+    chmodSync(fake, 0o755);
+    process.env.TROD_CLAUDE_BIN = fake;
+    const lines: string[] = [];
+    const code = await main(['learn', '--dir', project, '--from', sessions, '--outcomes', outcomes], (s) => lines.push(s));
+    expect(lines[0]).toBe('learning from 2 session(s) (1 passed, 1 failed, 0 unknown)');
+    expect(code).toBe(0);
+    const prompt = readFileSync(path.join(dir, 'prompt.txt'), 'utf8');
+    expect(prompt).toContain('You are distilling experience');
+    expect(prompt).toContain('No brief: learn from the sessions');
+    const sessionsDir = prompt.match(/condensed in (\S+): INDEX\.md/)![1]!;
+    expect(readdirSync(sessionsDir).map((f) => f.replace(/^\d+-/, '')).sort()).toEqual(['INDEX.md', 'fail.md', 'pass.md']);
+    expect(readFileSync(path.join(project, 'CLAUDE.md'), 'utf8')).toContain('@.trod/notes.md');
+  });
+
+  it('fails clearly when there is nothing to learn from', async () => {
+    const lines: string[] = [];
+    const empty = tmp();
+    expect(await main(['learn', '--dir', empty, '--from', path.join(empty, 'none')], (s) => lines.push(s))).toBe(1);
+    expect(lines.join('\n')).toContain('no session transcripts found');
+    expect(existsSync(path.join(empty, 'CLAUDE.md'))).toBe(false);
+  });
+
+  it('rejects a bad --limit', async () => {
+    const dir = tmp();
+    transcript(dir, 's', 'Task: x');
+    const lines: string[] = [];
+    expect(await main(['learn', '--dir', dir, '--from', dir, '--limit', '0'], (s) => lines.push(s))).toBe(1);
+    expect(lines.join('\n')).toContain('--limit must be a positive integer');
+  });
+});
+
+describe('--timeout', () => {
+  it('rejects a timeout that is not a positive number', async () => {
+    const lines: string[] = [];
+    expect(await main(['learn', '--timeout', 'soon'], (s) => lines.push(s))).toBe(1);
+    expect(lines.join('\n')).toContain('--timeout must be a positive number');
+  });
+});

@@ -3263,8 +3263,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path9) {
-      let input = path9;
+    function removeDotSegments(path10) {
+      let input = path10;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3338,11 +3338,11 @@ var require_utils = __commonJS({
       }
       return output.join("");
     }
-    function removeDotSegmentsRelative(path9) {
-      if (path9 === "" || path9[0] === "/") {
-        return removeDotSegments(path9);
+    function removeDotSegmentsRelative(path10) {
+      if (path10 === "" || path10[0] === "/") {
+        return removeDotSegments(path10);
       }
-      const segments = path9.split("/");
+      const segments = path10.split("/");
       const last = segments.length - 1;
       const output = [];
       let trailingDirectory = false;
@@ -3705,8 +3705,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path9 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path9 && path9 !== "/" ? path9 : void 0;
+        const path10 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path10 && path10 !== "/" ? path10 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -7257,7 +7257,7 @@ var require_dist = __commonJS({
 });
 
 // packages/cli/src/cli.ts
-import { readFileSync as readFileSync7 } from "node:fs";
+import { mkdtempSync as mkdtempSync2, readFileSync as readFileSync8, statSync as statSync2 } from "node:fs";
 
 // packages/cli/src/forge.ts
 import { spawn as spawn2 } from "node:child_process";
@@ -8036,10 +8036,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path9) {
-  if (!path9)
+function getElementAtPath(obj, path10) {
+  if (!path10)
     return obj;
-  return path9.reduce((acc, key) => acc?.[key], obj);
+  return path10.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -8379,11 +8379,11 @@ function explicitlyAborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path9, issues) {
+function prefixIssues(path10, issues) {
   return issues.map((iss) => {
     var _a3;
     (_a3 = iss).path ?? (_a3.path = []);
-    iss.path.unshift(path9);
+    iss.path.unshift(path10);
     return iss;
   });
 }
@@ -8841,16 +8841,16 @@ function flattenError(error2, mapper = (issue2) => issue2.message) {
 }
 function formatError(error2, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error3, path9 = []) => {
+  const processError = (error3, path10 = []) => {
     for (const issue2 of error3.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path9, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path10, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
       } else {
-        const fullpath = [...path9, ...issue2.path];
+        const fullpath = [...path10, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -15965,7 +15965,7 @@ async function forge(opts) {
   const env = { ...baseEnv, TROD_ALLOW_EXEC: "1", TROD_PROJECT_DIR: opts.projectDir, ...opts.practice ? { PATH: `${path6.join(scratch, "bin")}${path6.delimiter}${baseEnv.PATH ?? ""}` } : {} };
   const mcpConfig = path6.join(scratch, "mcp.json");
   writeFileSync3(mcpConfig, JSON.stringify({ mcpServers: { trod: { command: process.execPath, args: [opts.server ?? defaultServerPath()] } } }));
-  const prompt = `${FORGE_PROMPT}
+  const prompt = `${opts.prompt ?? FORGE_PROMPT}
 
 ## The environment
 
@@ -16040,35 +16040,168 @@ ${PRACTICE_PROMPT(!!opts.practice.reset)}` : ""}`;
   return { exitCode, promoted, rejected, unverified, notes: notes.exists ? { ...notes, linked: notes.linked || notesLinkedNow } : void 0, costUsd: result?.total_cost_usd, turns: result?.num_turns, usage: result?.usage, practice };
 }
 
-// packages/cli/src/init.ts
-import { copyFileSync, existsSync as existsSync6, mkdirSync as mkdirSync4, readFileSync as readFileSync6, writeFileSync as writeFileSync4 } from "node:fs";
+// packages/cli/src/learn.ts
+import { existsSync as existsSync6, mkdirSync as mkdirSync4, readdirSync as readdirSync4, readFileSync as readFileSync6, statSync, writeFileSync as writeFileSync4 } from "node:fs";
+import { homedir } from "node:os";
 import path7 from "node:path";
+function transcriptDir(projectDir, home = process.env.CLAUDE_CONFIG_DIR ? path7.dirname(process.env.CLAUDE_CONFIG_DIR) : homedir()) {
+  return path7.join(home, ".claude", "projects", path7.resolve(projectDir).replace(/[^a-zA-Z0-9]/g, "-"));
+}
+function findTranscripts(sources) {
+  const found = [];
+  const walk = (p) => {
+    if (!existsSync6(p)) return;
+    if (statSync(p).isDirectory()) for (const e of readdirSync4(p).sort()) walk(path7.join(p, e));
+    else if (p.endsWith(".jsonl")) found.push(p);
+  };
+  for (const s of sources) walk(s);
+  return found;
+}
+var clip = (s, n) => s.length > n ? `${s.slice(0, n)} \u2026[${s.length - n} more chars]` : s;
+function textOf(content) {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) return content.map((c) => typeof c === "string" ? c : c?.type === "text" ? c.text : c?.type === "image" ? "[image]" : "").join("\n");
+  return "";
+}
+function digestTranscript(file, opts = {}) {
+  const maxChars = opts.maxChars ?? 8e3;
+  const events = [];
+  for (const line of readFileSync6(file, "utf8").split("\n")) {
+    if (!line.trim()) continue;
+    try {
+      events.push(JSON.parse(line));
+    } catch {
+    }
+  }
+  let task = opts.task ?? "";
+  const steps = [];
+  let toolCalls = 0;
+  let errors = 0;
+  let final = "";
+  for (const e of events) {
+    if (e.isSidechain || e.isMeta) continue;
+    const msg = e.message;
+    if (e.type === "user" && msg) {
+      if (typeof msg.content === "string" || Array.isArray(msg.content) && msg.content.some((c) => c?.type === "text")) {
+        const t = textOf(msg.content).trim();
+        if (!t || t.startsWith("<")) continue;
+        if (!task) task = t;
+        else steps.push(`USER: ${clip(t, 600)}`);
+        continue;
+      }
+      for (const c of msg.content ?? []) {
+        if (c?.type !== "tool_result") continue;
+        if (c.is_error) errors++;
+        steps.push(`${c.is_error ? "ERROR" : "RESULT"}: ${clip(textOf(c.content).trim(), 700)}`);
+      }
+    } else if (e.type === "assistant" && msg && Array.isArray(msg.content)) {
+      for (const c of msg.content) {
+        if (c?.type === "text" && c.text?.trim()) {
+          final = c.text.trim();
+          steps.push(`ASSISTANT: ${clip(final, 500)}`);
+        } else if (c?.type === "tool_use") {
+          toolCalls++;
+          const input = c.input;
+          const shown = typeof input?.command === "string" ? input.command : JSON.stringify(input);
+          steps.push(`CALL ${c.name}: ${clip(shown ?? "", 500)}`);
+        }
+      }
+    } else if (e.type === "result" && typeof e.result === "string") {
+      final = e.result;
+    }
+  }
+  if (!task && !steps.length) return void 0;
+  const id = path7.basename(file, ".jsonl");
+  const outcome = opts.outcome ?? "unknown";
+  const head = `# Session ${id}: ${outcome.toUpperCase()}
+
+## Task
+
+${clip(task, 1500)}
+
+## Steps (${toolCalls} tool calls, ${errors} errors)
+
+`;
+  let body = steps.map((s, i) => `${i + 1}. ${s}`).join("\n");
+  const budget = Math.max(1e3, maxChars - head.length);
+  if (body.length > budget) body = `${body.slice(0, Math.floor(budget * 0.6))}
+\u2026[middle of the session omitted]\u2026
+${body.slice(-Math.floor(budget * 0.4))}`;
+  return { id, file, task, outcome, toolCalls, errors, text: `${head}${body}
+${final && !body.includes(clip(final, 500)) ? `
+## Final message
+
+${clip(final, 800)}
+` : ""}` };
+}
+function readOutcomes(file) {
+  const raw = JSON.parse(readFileSync6(file, "utf8"));
+  const map = /* @__PURE__ */ new Map();
+  for (const [k, v] of Object.entries(raw)) {
+    const o = v === true || v === "pass" || typeof v === "number" && v > 0 ? "pass" : v === false || v === "fail" || v === 0 ? "fail" : "unknown";
+    map.set(path7.basename(k, ".jsonl"), o);
+  }
+  return map;
+}
+function writeDigests(dir, digests) {
+  mkdirSync4(dir, { recursive: true });
+  const counts = { pass: 0, fail: 0, unknown: 0 };
+  const index = ["# Sessions", "", "| file | outcome | tool calls | errors | task (first line) |", "|---|---|---|---|---|"];
+  digests.forEach((d, i) => {
+    counts[d.outcome]++;
+    const name = `${String(i + 1).padStart(3, "0")}-${d.outcome}.md`;
+    writeFileSync4(path7.join(dir, name), d.text);
+    const firstLine = d.task.split("\n").find((l) => /\w/.test(l) && !/^you are\b/i.test(l)) ?? d.task.split("\n")[0] ?? "";
+    index.push(`| ${name} | ${d.outcome} | ${d.toolCalls} | ${d.errors} | ${clip(firstLine.replace(/\|/g, "/").trim(), 160)} |`);
+  });
+  writeFileSync4(path7.join(dir, "INDEX.md"), index.join("\n") + "\n");
+  return counts;
+}
+var LEARN_PROMPT = (dir, counts) => `You are distilling experience. You are not solving a task: you are writing the notes that future sessions in this project will load, so that they avoid the mistakes earlier sessions made and repeat what worked.
+
+Earlier sessions in this environment are condensed in ${dir}: INDEX.md lists them (${counts.pass} passed, ${counts.fail} failed, ${counts.unknown} with unknown outcome), one file per session. Future sessions start fresh and see only what you write.
+
+1. Read INDEX.md, then the sessions. Group them by kind of task. Within a group, compare failed sessions with passed ones: find the step where a failed session went wrong, and what the passed sessions did instead. For sessions with an unknown outcome, judge from errors, retries, user corrections and the final message.
+2. Keep only lessons that hold across sessions or that explain a failure clearly. Do not invent rules that no session supports. Where you can, confirm a lesson against the environment itself (read the code, run a harmless command).
+3. Write .trod/notes.md as RULES, each with the action to take: "X ends the attempt; do Y first", "Z is required even when the task does not say so". Put the rules that apply to most tasks first. Then, for each kind of task that needs its own rules, add a short recipe that worked, with <placeholders> for what differs between tasks. Keep the whole file under 4000 characters if you can.
+4. If there are many kinds of task and the rules do not fit, keep .trod/notes.md as the general rules plus an index, and put each kind's rules and recipe into .trod/wiki/<kind>.md (under 2000 characters each). Each index line must say when to read the page, e.g. "- Tasks like "<typical task wording>": read \`.trod/wiki/<kind>.md\` first". Start the index with: "Before acting, read the page that matches your task."
+5. If .trod/notes.md already exists, merge: keep its rules unless the sessions show they are wrong.
+6. Build a trod tool (.trod/tools/<name>.mjs, with examples) only if several sessions repeated the same fiddly multi-step procedure that a tool would make reliable, and back checkable claims with .trod/notes.checks.json as described in the project's trod skill. Most lessons need neither.
+
+Never copy answers to one particular task into the notes: write what transfers to the next task. When finished, reply with the list of rules you wrote and DONE.`;
+
+// packages/cli/src/cli.ts
+import { tmpdir as tmpdir2 } from "node:os";
+
+// packages/cli/src/init.ts
+import { copyFileSync, existsSync as existsSync7, mkdirSync as mkdirSync5, readFileSync as readFileSync7, writeFileSync as writeFileSync5 } from "node:fs";
+import path8 from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 function defaultPackageRoot() {
-  return path7.resolve(path7.dirname(fileURLToPath2(import.meta.url)), "..");
+  return path8.resolve(path8.dirname(fileURLToPath2(import.meta.url)), "..");
 }
 function packageVersion(root) {
   try {
-    return JSON.parse(readFileSync6(path7.join(root, "package.json"), "utf8")).version;
+    return JSON.parse(readFileSync7(path8.join(root, "package.json"), "utf8")).version;
   } catch {
     return void 0;
   }
 }
 function readJson(file) {
-  if (!existsSync6(file)) return {};
-  const raw = readFileSync6(file, "utf8").trim();
+  if (!existsSync7(file)) return {};
+  const raw = readFileSync7(file, "utf8").trim();
   const value = raw ? JSON.parse(raw) : {};
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${file} must contain a JSON object`);
   return value;
 }
 function writeIfChanged(file, content, res, projectDir) {
-  const rel = path7.relative(projectDir, file);
-  if (existsSync6(file) && readFileSync6(file, "utf8") === content) {
+  const rel = path8.relative(projectDir, file);
+  if (existsSync7(file) && readFileSync7(file, "utf8") === content) {
     res.unchanged.push(rel);
     return;
   }
-  mkdirSync4(path7.dirname(file), { recursive: true });
-  writeFileSync4(file, content);
+  mkdirSync5(path8.dirname(file), { recursive: true });
+  writeFileSync5(file, content);
   res.written.push(rel);
 }
 function init(opts) {
@@ -16085,13 +16218,13 @@ function init(opts) {
       ["bin/trod", ".trod/pkg/bin/trod"],
       ["package.json", ".trod/pkg/package.json"]
     ]) {
-      const src = path7.join(root, from);
-      if (!existsSync6(src)) throw new Error(`trod init --vendor: ${src} not found`);
-      const dest = path7.join(dir, to);
-      const before = existsSync6(dest) ? readFileSync6(dest) : void 0;
-      mkdirSync4(path7.dirname(dest), { recursive: true });
+      const src = path8.join(root, from);
+      if (!existsSync7(src)) throw new Error(`trod init --vendor: ${src} not found`);
+      const dest = path8.join(dir, to);
+      const before = existsSync7(dest) ? readFileSync7(dest) : void 0;
+      mkdirSync5(path8.dirname(dest), { recursive: true });
       copyFileSync(src, dest);
-      (before?.equals(readFileSync6(dest)) ? res.unchanged : res.written).push(to);
+      (before?.equals(readFileSync7(dest)) ? res.unchanged : res.written).push(to);
     }
     server = { command: "node", args: [".trod/pkg/server/trod-server.mjs"] };
     hookCommand = 'node "$CLAUDE_PROJECT_DIR/.trod/pkg/bin/trod" hook';
@@ -16100,13 +16233,13 @@ function init(opts) {
     server = { command: "npx", args: ["-y", spec, "mcp"] };
     hookCommand = `npx -y ${spec} hook`;
   }
-  const mcpFile = path7.join(dir, ".mcp.json");
+  const mcpFile = path8.join(dir, ".mcp.json");
   const mcp = readJson(mcpFile);
   const servers = mcp.mcpServers ?? {};
   servers.trod = { ...server, ...opts.allowExec ? { env: { TROD_ALLOW_EXEC: "1" } } : {} };
   mcp.mcpServers = servers;
   writeIfChanged(mcpFile, JSON.stringify(mcp, null, 2) + "\n", res, dir);
-  const settingsFile = path7.join(dir, ".claude", "settings.json");
+  const settingsFile = path8.join(dir, ".claude", "settings.json");
   const settings = readJson(settingsFile);
   settings.enableAllProjectMcpServers = true;
   const hooks = settings.hooks ?? {};
@@ -16116,11 +16249,11 @@ function init(opts) {
   hooks.PostToolUse = post;
   settings.hooks = hooks;
   writeIfChanged(settingsFile, JSON.stringify(settings, null, 2) + "\n", res, dir);
-  const skill = path7.join(root, "skills", "trod", "SKILL.md");
-  if (existsSync6(skill)) writeIfChanged(path7.join(dir, ".claude", "skills", "trod", "SKILL.md"), readFileSync6(skill, "utf8"), res, dir);
+  const skill = path8.join(root, "skills", "trod", "SKILL.md");
+  if (existsSync7(skill)) writeIfChanged(path8.join(dir, ".claude", "skills", "trod", "SKILL.md"), readFileSync7(skill, "utf8"), res, dir);
   else res.notes.push(`skill not found at ${skill}; skipped`);
-  const ignoreFile = path7.join(dir, ".gitignore");
-  const ignore = existsSync6(ignoreFile) ? readFileSync6(ignoreFile, "utf8") : "";
+  const ignoreFile = path8.join(dir, ".gitignore");
+  const ignore = existsSync7(ignoreFile) ? readFileSync7(ignoreFile, "utf8") : "";
   const missing = [".trod/tools/", ".trod/logs/"].filter((l) => !ignore.split(/\r?\n/).includes(l));
   if (missing.length) writeIfChanged(ignoreFile, `${ignore}${ignore && !ignore.endsWith("\n") ? "\n" : ""}# trod: per-session tools and logs (the library in .trod/library is committed)
 ${missing.join("\n")}
@@ -16133,7 +16266,7 @@ ${missing.join("\n")}
 
 // packages/cli/src/cli.ts
 import { pathToFileURL } from "node:url";
-import path8 from "node:path";
+import path9 from "node:path";
 import { parseArgs } from "node:util";
 var USAGE = `trod: self-morphing tools for Claude Code
 
@@ -16158,8 +16291,15 @@ Usage:
                            --practice: a shell command whose exit code 0 means the current attempt succeeded (e.g.
                            a test suite, a grader); the forge practises against it before writing notes, and its
                            notes are linked only if it passed at least once. --reset starts a fresh attempt.
+  trod learn [--from <dir|file>]... [--outcomes <file>] [--limit <n>] [--brief <text|@file>] [--model <id>]
+                           Distil notes from sessions that already happened: condenses Claude Code's transcripts of
+                           this project (default: ~/.claude/projects/<project>/), compares failed with passed
+                           sessions in a forge session and writes rules into .trod/notes.md (and .trod/wiki/ pages
+                           when there are many kinds of task). --outcomes: JSON mapping session ids to true/false
+                           (e.g. from CI); without it the outcome is judged from each transcript. Takes --practice too.
 
 Options:
+  --timeout <minutes>      forge and learn: stop the session after this long (default 30)
   --dir <path>             Project directory (default: TROD_PROJECT_DIR, CLAUDE_PROJECT_DIR or cwd)
   --logs <path>            Logs directory for stats (default: <dir>/.trod/logs)
 `;
@@ -16181,6 +16321,10 @@ async function main(argv, out = console.log) {
       "no-link": { type: "boolean", default: false },
       practice: { type: "string" },
       reset: { type: "string" },
+      from: { type: "string", multiple: true },
+      outcomes: { type: "string" },
+      limit: { type: "string" },
+      timeout: { type: "string" },
       vendor: { type: "boolean", default: false },
       "allow-exec": { type: "boolean", default: false },
       version: { type: "boolean", short: "v", default: false }
@@ -16199,11 +16343,15 @@ async function main(argv, out = console.log) {
     out("trod: --link and --no-link contradict each other");
     return 1;
   }
-  if (values.link && command !== "notes" || values["no-link"] && command !== "forge") {
-    out(`trod ${command}: ${values.link ? "--link only applies to trod notes" : "--no-link only applies to trod forge"}`);
+  if (values.link && command !== "notes" || values["no-link"] && command !== "forge" && command !== "learn") {
+    out(`trod ${command}: ${values.link ? "--link only applies to trod notes" : "--no-link only applies to trod forge and trod learn"}`);
     return 1;
   }
-  const paths = trodPaths(values.dir ? path8.resolve(values.dir) : resolveProjectDir());
+  if (values.timeout !== void 0 && !(Number(values.timeout) > 0)) {
+    out("trod: --timeout must be a positive number of minutes");
+    return 1;
+  }
+  const paths = trodPaths(values.dir ? path9.resolve(values.dir) : resolveProjectDir());
   switch (command) {
     case "mcp": {
       await import(pathToFileURL(values.server ?? defaultServerPath()).href);
@@ -16225,12 +16373,12 @@ async function main(argv, out = console.log) {
         return 1;
       }
       const res = await promoteTool(paths, name);
-      out(`promoted ${name} -> ${path8.relative(paths.projectDir, res.to)}${res.replaced ? " (replaced the previous library version)" : ""}${res.examplesPassed ? `, ${res.examplesPassed} example(s) passed` : ""}`);
+      out(`promoted ${name} -> ${path9.relative(paths.projectDir, res.to)}${res.replaced ? " (replaced the previous library version)" : ""}${res.examplesPassed ? `, ${res.examplesPassed} example(s) passed` : ""}`);
       out("Commit .trod/library/ so later sessions load it.");
       return 0;
     }
     case "stats": {
-      const stats = computeStats(readLogs(values.logs ? path8.resolve(values.logs) : paths.logsDir));
+      const stats = computeStats(readLogs(values.logs ? path9.resolve(values.logs) : paths.logsDir));
       out(values.json ? JSON.stringify(stats, null, 2) : formatStats(stats));
       return 0;
     }
@@ -16252,18 +16400,45 @@ async function main(argv, out = console.log) {
         out("trod forge: --brief is required (text, or @path/to/brief.md)");
         return 1;
       }
-      const brief = values.brief.startsWith("@") ? readFileSync7(values.brief.slice(1), "utf8") : values.brief;
+      const brief = values.brief.startsWith("@") ? readFileSync8(values.brief.slice(1), "utf8") : values.brief;
       if (values.reset && !values.practice) {
         out("trod forge: --reset needs --practice");
         return 1;
       }
       const practice = values.practice ? { check: values.practice, reset: values.reset } : void 0;
-      const res = await forge({ projectDir: paths.projectDir, brief, model: values.model, server: values.server, maxBudgetUsd: values.budget, streamFile: values.stream, out, linkNotes: !values["no-link"], practice });
-      out(`forge: ${res.promoted.length} tool(s) promoted${res.unverified.length ? ` (${res.unverified.length} without examples)` : ""}, ${res.rejected.length} rejected${res.costUsd !== void 0 ? `, $${res.costUsd.toFixed(3)}, ${res.turns} turns` : ""}`);
-      if (values.json) out(JSON.stringify(res, null, 2));
-      const notesFailed = !!res.notes && (res.notes.checks.some((c) => !c.ok) || res.notes.errors.length > 0);
-      const notesVerified = !!res.notes && !notesFailed && (res.notes.checks.length > 0 || (res.practice?.passed ?? 0) > 0);
-      return (res.promoted.length || notesVerified) && !notesFailed && res.exitCode === 0 ? 0 : 1;
+      const res = await forge({ projectDir: paths.projectDir, brief, model: values.model, server: values.server, maxBudgetUsd: values.budget, timeoutMs: values.timeout ? Number(values.timeout) * 6e4 : void 0, streamFile: values.stream, out, linkNotes: !values["no-link"], practice });
+      return forgeExit("forge", res, values.json, out);
+    }
+    case "learn": {
+      if (values.reset && !values.practice) {
+        out("trod learn: --reset needs --practice");
+        return 1;
+      }
+      const sources = values.from?.length ? values.from.map((f) => path9.resolve(f)) : [transcriptDir(paths.projectDir)];
+      const outcomes = values.outcomes ? readOutcomes(values.outcomes) : void 0;
+      const digests = [];
+      for (const file of findTranscripts(sources)) {
+        const d = digestTranscript(file, { outcome: outcomes?.get(path9.basename(file, ".jsonl")) });
+        if (d && !/^You are (a toolsmith|distilling experience)/.test(d.task)) digests.push(d);
+      }
+      const limit = values.limit ? Number(values.limit) : 200;
+      if (!Number.isInteger(limit) || limit < 1) {
+        out("trod learn: --limit must be a positive integer");
+        return 1;
+      }
+      digests.sort((a, b) => statSync2(b.file).mtimeMs - statSync2(a.file).mtimeMs);
+      const picked = digests.slice(0, limit);
+      if (!picked.length) {
+        out(`trod learn: no session transcripts found in ${sources.join(", ")} (pass --from <dir|file>)`);
+        return 1;
+      }
+      const dir = mkdtempSync2(path9.join(tmpdir2(), "trod-learn-"));
+      const counts = writeDigests(path9.join(dir, "sessions"), picked);
+      out(`learning from ${picked.length} session(s) (${counts.pass} passed, ${counts.fail} failed, ${counts.unknown} unknown)${digests.length > picked.length ? `, the ${limit} most recent of ${digests.length}` : ""}`);
+      const brief = values.brief ? values.brief.startsWith("@") ? readFileSync8(values.brief.slice(1), "utf8") : values.brief : "No brief: learn from the sessions and the project's files.";
+      const practice = values.practice ? { check: values.practice, reset: values.reset } : void 0;
+      const res = await forge({ projectDir: paths.projectDir, brief, model: values.model, server: values.server, maxBudgetUsd: values.budget, timeoutMs: values.timeout ? Number(values.timeout) * 6e4 : void 0, streamFile: values.stream, out, linkNotes: !values["no-link"], practice, prompt: LEARN_PROMPT(path9.join(dir, "sessions"), counts) });
+      return forgeExit("learn", res, values.json, out);
     }
     case "verify": {
       const report = [];
@@ -16314,6 +16489,13 @@ ${USAGE}`);
       return 1;
   }
 }
+function forgeExit(command, res, json, out) {
+  out(`${command}: ${res.promoted.length} tool(s) promoted${res.unverified.length ? ` (${res.unverified.length} without examples)` : ""}, ${res.rejected.length} rejected${res.notes ? `, notes ${res.notes.linked ? "linked" : "not linked"}` : ", no notes"}${res.costUsd !== void 0 ? `, $${res.costUsd.toFixed(3)}, ${res.turns} turns` : ""}`);
+  if (json) out(JSON.stringify(res, null, 2));
+  const notesFailed = !!res.notes && (res.notes.checks.some((c) => !c.ok) || res.notes.errors.length > 0);
+  const notesVerified = !!res.notes && !notesFailed && (command === "learn" || res.notes.checks.length > 0 || (res.practice?.passed ?? 0) > 0);
+  return (res.promoted.length || notesVerified) && !notesFailed && res.exitCode === 0 ? 0 : 1;
+}
 async function readStdin() {
   let raw = "";
   for await (const chunk of process.stdin) raw += chunk;
@@ -16332,7 +16514,7 @@ async function hookMessage(raw, env = process.env) {
   if (!m) return void 0;
   const [, projectDir, kind, first] = m;
   const source = kind === "library" ? "library" : "session";
-  const entry = path8.join(projectDir, ".trod", kind, first);
+  const entry = path9.join(projectDir, ".trod", kind, first);
   const execAllowed = env.TROD_ALLOW_EXEC === "1";
   const tool = await loadToolEntry(entry, source, { execAllowed, env });
   if (tool.ok) await runToolExamples(tool, { projectDir, execAllowed, env });
