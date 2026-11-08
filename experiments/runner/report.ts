@@ -61,7 +61,10 @@ function findResults(dir: string): RunRecord[] {
   return out;
 }
 
-export function aggregate(records: RunRecord[]) {
+export function aggregate(all: RunRecord[]) {
+  // A check that could not be completed (infra) says nothing about the agent: leave those runs out of every aggregate.
+  const records = all.filter((r) => !r.check.infra && !(r.steps ?? []).some((st) => st.check?.infra));
+  const infraExcluded = all.length - records.length;
   const cells: Cell[] = [];
   for (const task of TASKS) {
     for (const arm of ARMS) {
@@ -152,7 +155,7 @@ export function aggregate(records: RunRecord[]) {
       library: ts.map((r) => r.toolsmith.library),
     };
   }
-  return { cells, overall, ratios, stepCost, tools, investment };
+  return { cells, overall, ratios, stepCost, tools, investment, infraExcluded };
 }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -191,7 +194,7 @@ function groupedBars(cells: Cell[], metric: keyof Cell, label: string, unit: (v:
   return svg + '</svg>';
 }
 
-export function renderHtml(agg: ReturnType<typeof aggregate>, meta: { model: string; runs: number; generated: string; writeup: string; title: string }): string {
+export function renderHtml(agg: ReturnType<typeof aggregate>, meta: { model: string; runs: number; infraExcluded?: number; generated: string; writeup: string; title: string }): string {
   const { cells, overall, ratios, stepCost, tools, investment } = agg;
   const investmentHtml = investment
     ? `<h2>The toolsmith investment</h2><p>One dedicated session built the library before the measured sessions (mean of ${investment.n}): ${Math.round(investment.tokens / 1000)}k tokens, $${fmt(investment.costUsd, 3)}, ${fmt(investment.turns, 0)} turns. Tools built: ${investment.library.map((l) => l.map((x) => `<code>${esc(x)}</code>`).join(', ')).join(' · ')}.</p><p>Each measured session with the library used <strong>${Math.round(investment.savedTokensPerSession / 1000)}k fewer tokens</strong> than baseline ($${fmt(investment.savedCostPerSession, 3)} less). The investment pays for itself after <strong>${investment.breakEvenSessions ?? '–'} sessions</strong> (in tokens).</p>`
@@ -241,7 +244,7 @@ figure{margin:0}figcaption{font-weight:600;font-size:14px;margin-bottom:4px}
 .writeup{background:var(--surface-2);border-radius:10px;padding:4px 20px 12px}code{font-size:12.5px}
 </style></head><body><main>
 <h1>${esc(meta.title)}</h1>
-<div class="meta">trod experiment · ${esc(meta.model)} · ${meta.runs} runs (task × arm × seed; each repetitive run is a multi-step session or series of sessions) · generated ${esc(meta.generated)}</div>
+<div class="meta">trod experiment · ${esc(meta.model)} · ${meta.runs} runs (task × arm × seed; each repetitive run is a multi-step session or series of sessions)${meta.infraExcluded ? `, ${meta.infraExcluded} more excluded as infrastructure failures` : ''} · generated ${esc(meta.generated)}</div>
 <div class="tiles">${overall.filter((o) => o.all.n).map(tile).join('')}</div>
 <div class="writeup">${meta.writeup}</div>
 ${investmentHtml}
@@ -276,7 +279,7 @@ if (import.meta.main) {
   const agg = aggregate(records);
   mkdirSync(values.out!, { recursive: true });
   const writeup = values.writeup && existsSync(values.writeup) ? readFileSync(values.writeup, 'utf8') : '<p>No write-up yet.</p>';
-  writeFileSync(path.join(values.out!, 'summary.json'), JSON.stringify({ model: records[0]?.model, runs: records.length, ...agg }, null, 2));
-  writeFileSync(path.join(values.out!, 'report.html'), renderHtml(agg, { model: records[0]?.model ?? '?', runs: records.length, generated: new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC', writeup, title: values.title! }));
-  console.log(`${records.length} runs -> ${values.out}/summary.json, ${values.out}/report.html`);
+  writeFileSync(path.join(values.out!, 'summary.json'), JSON.stringify({ model: records[0]?.model, runs: records.length - agg.infraExcluded, ...agg }, null, 2));
+  writeFileSync(path.join(values.out!, 'report.html'), renderHtml(agg, { model: records[0]?.model ?? '?', runs: records.length - agg.infraExcluded, infraExcluded: agg.infraExcluded, generated: new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC', writeup, title: values.title! }));
+  console.log(`${records.length} runs${agg.infraExcluded ? ` (${agg.infraExcluded} infra failures excluded)` : ''} -> ${values.out}/summary.json, ${values.out}/report.html`);
 }

@@ -15,7 +15,8 @@ See [`experiments/`](experiments/) and the results in [`results/`](results/READM
 - **SWE-bench:** on SWE-bench Verified (Django), the same approach changed nothing, because the models already know
   how to work in Django.
 - **Knowledge, not only code:** on AppWorld ([round 6](results-6/README.md)) the forged tools tied, but the forge's
-  lessons as always-loaded notes lifted Haiku from 87.5% to 95.0%. On BIRD ([round 7](results-7/README.md)), where
+  lessons as always-loaded notes lifted Haiku from 87.5% to 95.0% (notes `trod forge` wrote itself reached only
+  86.7–90%: a few specific rules made the difference). On BIRD ([round 7](results-7/README.md)), where
   the missing knowledge is specific to each question, notes only saved tokens. On ScienceWorld
   ([round 8](results-8/README.md)), where whole procedures recur, forged notes took Haiku from 52% to 89% solved,
   past Sonnet (67%) at a tenth of its cost. So `trod forge` now also writes verified notes
