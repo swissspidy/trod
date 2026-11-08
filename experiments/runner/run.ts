@@ -25,6 +25,7 @@ import { TASKS } from '../tasks/index.ts';
 import { sweTasks } from '../swe/swe.ts';
 import { appWorldTasks, datasetIds } from '../appworld/appworld.ts';
 import { birdTasks, birdTestSample } from '../bird/bird.ts';
+import { miniwobTasks, mwSample } from '../miniwob/miniwob.ts';
 import { sciworldTasks, swTestSample } from '../sciworld/sciworld.ts';
 import type { FixtureState, Task } from '../lib/types.ts';
 import { collectMetrics, type RunRecord, type StepOutcome } from './metrics.ts';
@@ -89,7 +90,10 @@ const pool =
         : // sciworld:test: ScienceWorld test variations, SW_PER_TASK (default 2) per task type (experiments/sciworld).
           values.suite === 'sciworld:test'
           ? sciworldTasks(swTestSample(Number(process.env.SW_PER_TASK ?? 2)))
-          : TASKS;
+          : // miniwob:<test|dev>: MiniWoB++ episodes, MW_PER_TASK (default 2) seeds per task type (experiments/miniwob).
+            values.suite === 'miniwob:test' || values.suite === 'miniwob:dev'
+            ? miniwobTasks(mwSample(values.suite.slice('miniwob:'.length) as 'test' | 'dev', Number(process.env.MW_PER_TASK ?? 2)))
+            : TASKS;
 if (values.suite && !pool.length) {
   console.error(`suite ${values.suite}: no instances (run experiments/swe/setup.sh, or set SWE_HOME)`);
   process.exit(1);
