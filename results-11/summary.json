@@ -1,0 +1,62 @@
+[
+  {
+    "condition": "learned",
+    "label": "Haiku + notes Opus learned from 120 sessions",
+    "runs": 150,
+    "solved": 124,
+    "solvedRate": 0.827,
+    "fullCredit": 114,
+    "meanReward": 0.792,
+    "meanTokens": 164292,
+    "meanCostUsd": 0.00386,
+    "meanTurns": 7.5
+  },
+  {
+    "condition": "learned-nolabels",
+    "label": "Same, without pass/fail labels",
+    "runs": 150,
+    "solved": 121,
+    "solvedRate": 0.807,
+    "fullCredit": 115,
+    "meanReward": 0.785,
+    "meanTokens": 148275,
+    "meanCostUsd": 0.00353,
+    "meanTurns": 6.8
+  },
+  {
+    "condition": "learned-haiku",
+    "label": "Haiku + notes Haiku learned from its own sessions",
+    "runs": 150,
+    "solved": 122,
+    "solvedRate": 0.813,
+    "fullCredit": 115,
+    "meanReward": 0.788,
+    "meanTokens": 146454,
+    "meanCostUsd": 0.00364,
+    "meanTurns": 7.1
+  },
+  {
+    "condition": "learned-round2",
+    "label": "Haiku + notes after a second round (240 sessions)",
+    "runs": 150,
+    "solved": 132,
+    "solvedRate": 0.88,
+    "fullCredit": 121,
+    "meanReward": 0.842,
+    "meanTokens": 128214,
+    "meanCostUsd": 0.00321,
+    "meanTurns": 5.9
+  },
+  {
+    "condition": "round2-sessions",
+    "label": "Round 2 sessions (dev seeds 504-507, round 1 notes loaded)",
+    "runs": 120,
+    "solved": 100,
+    "solvedRate": 0.833,
+    "fullCredit": 90,
+    "meanReward": 0.783,
+    "meanTokens": 173790,
+    "meanCostUsd": 0.00388,
+    "meanTurns": 7.9
+  }
+]

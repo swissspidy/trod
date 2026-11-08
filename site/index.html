@@ -85,11 +85,11 @@ p code,li code,td code{font-size:.92em;background:var(--surface-2);padding:1px 5
 <div class="tiles">
   <div class="tile"><div class="tl">MiniWoB++ web tasks, hardest 30 types</div><div class="big">68% → 90%</div><div class="sub">Haiku, with practice notes · Sonnet alone: 67%</div></div>
   <div class="tile"><div class="tl">ScienceWorld</div><div class="big">52% → 89%</div><div class="sub">Haiku, with forged notes · Sonnet alone: 67%</div></div>
-  <div class="tile"><div class="tl">Haiku as its own teacher</div><div class="big">$0.79</div><div class="sub">forge cost for 30 task types · 88% solved</div></div>
+  <div class="tile"><div class="tl">Learned from past sessions alone</div><div class="big">68% → 88%</div><div class="sub">MiniWoB++, <code>trod learn</code> over 240 transcripts · no setup</div></div>
 </div>
 
 <h2>Where it shines</h2>
-<p>Forged knowledge pays in proportion to how much of tomorrow's work today's lessons cover. Across nine rounds of paired experiments, each with fresh test cases the forge never saw:</p>
+<p>Forged knowledge pays in proportion to how much of tomorrow's work today's lessons cover. Across eleven rounds of paired experiments, each with fresh test cases the forge never saw:</p>
 <div class="chart" role="figure" aria-label="Share of tasks Haiku solved alone and with forged notes (a forged tool library for SWE-bench), per benchmark">
   <div class="legend"><span><i class="sw" style="background:var(--series-2)"></i>Haiku alone</span><span><i class="sw" style="background:var(--series-1)"></i>Haiku with forged notes (SWE-bench: forged tool library)</span></div>
   <div id="rows"></div>
@@ -115,6 +115,7 @@ p code,li code,td code{font-size:.92em;background:var(--surface-2);padding:1px 5
 <h2>How it works</h2>
 <div class="steps">
   <div class="step"><h3>Forge</h3><p><code>trod forge</code> runs a dedicated headless session with any model. It probes the environment, builds general tools with tested examples, and writes <code>.trod/notes.md</code>: rules a newcomer gets wrong, each with the action to take.</p></div>
+  <div class="step"><h3>Learn</h3><p><code>trod learn</code> reads the transcripts Claude Code already keeps for your project, compares sessions that failed with ones that worked, and writes the rules that would have prevented the failures. No brief, no labels needed.</p></div>
   <div class="step"><h3>Practise</h3><p>With <code>--practice 'npm test'</code> (or any command where exit 0 means success) the forge learns from real attempts. It must pass at least once, or its notes are not linked.</p></div>
   <div class="step"><h3>Reuse and verify</h3><p>Tools whose examples pass go to <code>.trod/library</code>, and the notes are imported into <code>CLAUDE.md</code>, so every later session starts informed. <code>trod verify</code> in CI re-runs every example and note check to catch drift.</p></div>
 </div>
@@ -124,7 +125,7 @@ p code,li code,td code{font-size:.92em;background:var(--surface-2);padding:1px 5
 <p>Learning from experience is not a new idea. What trod adds is a forge you can run, gates that hold back notes whose checks fail or that never passed your success check, and published measurements of when it helps.</p>
 <div class="scroll"><table>
   <tr><th></th><th>Who writes the knowledge</th><th>Verified?</th><th>Learns by practice?</th><th>Measured gains</th></tr>
-  <tr class="us"><td>trod</td><td class="y">A dedicated forge session (any model)</td><td class="y">Tool examples, note checks, <code>trod verify</code></td><td class="y">Yes, against your success check</td><td class="y">9 paired rounds, positive and negative</td></tr>
+  <tr class="us"><td>trod</td><td class="y">A dedicated forge session (any model), from probing, practice or past sessions</td><td class="y">Tool examples, note checks, <code>trod verify</code></td><td class="y">Yes, against your success check</td><td class="y">11 paired rounds, positive and negative</td></tr>
   <tr><td><code>CLAUDE.md</code>, auto memory</td><td>You, or the agent as it goes</td><td class="n">No</td><td class="n">No</td><td class="n">n/a</td></tr>
   <tr><td>Cline Memory Bank</td><td>The agent, on request, as markdown files</td><td class="n">No</td><td class="n">No</td><td class="n">n/a</td></tr>
   <tr><td>Agent Skills (<code>SKILL.md</code>)</td><td>An author, by hand</td><td class="n">No</td><td class="n">No</td><td class="n">n/a; complementary: trod produces the know-how a skill would package</td></tr>
@@ -137,8 +138,9 @@ p code,li code,td code{font-size:.92em;background:var(--surface-2);padding:1px 5
 <p style="margin-top:10px;font-size:14px">trod lines up with Anthropic's findings on agent memory: keep the injected layer small, record validated rules rather than raw logs, and let an offline pass (their "dreaming", trod's forge) correct and consolidate. trod adds a success check that the knowledge must pass and paired measurements per environment. Summaries of the other approaches come from their public descriptions as of November 2026. trod's results are on this site, with every run published.</p>
 
 <h2 id="install">Install</h2>
-<p>Set up a repository for every Claude Code session in it, whether local, cloud or started from the Claude mobile app, then forge:</p>
+<p>Set up a repository for every Claude Code session in it, whether local, cloud or started from the Claude mobile app, then learn from the sessions you already had, or forge against something new:</p>
 <pre><code>npx trod init --allow-exec          # .mcp.json, settings, skill; commit them
+npx trod learn                      # notes from your past sessions
 npx trod forge --brief @env.md --practice 'npm test'
 npx trod verify                     # in CI</code></pre>
 <p style="margin-top:12px">As a Claude Code plugin: <code>claude plugin marketplace add swissspidy/trod</code>, then <code>claude plugin install trod@trod</code>. Other MCP clients run <code>npx -y trod mcp</code>. Tool code runs outside Claude Code's permission prompts, so execution stays off unless <code>TROD_ALLOW_EXEC=1</code> is set; that is meant for ephemeral containers. See the <a href="https://github.com/swissspidy/trod/blob/main/docs/reference.md">reference</a> for every install route.</p>

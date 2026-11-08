@@ -9,7 +9,7 @@ cost per run ([site](https://swissspidy.github.io/trod/), [all experiments](http
 
 | Haiku 5.5, solved | alone | with forged notes |
 |---|---|---|
-| [MiniWoB++](results-9/README.md), 30 hardest web task types | 68% | **90%** (88% with notes Haiku forged itself, $0.79) |
+| [MiniWoB++](results-9/README.md), 30 hardest web task types | 68% | **90%** (88% [learned from past sessions](results-11/README.md) alone) |
 | [ScienceWorld](results-8/README.md), 30 science task types | 52% | **89%** |
 | [AppWorld](results-6/README.md), everyday app chores | 87.5% | **95%** (`trod forge`'s own notes: 87–90%) |
 | [BIRD](results-7/README.md) text-to-SQL (each question needs its own fact) | 61% | 63% |
@@ -21,17 +21,28 @@ knows, and tasks where each one needs a fact no earlier task taught.
 
 ## Quick start
 
-Write `env.md`: a few lines on the API, tooling or workflow the forge should study. Then:
+Already using Claude Code in this repo? Learn from the sessions you have had, with no setup:
 
 ```sh
 npx trod init --allow-exec        # set this repo up for every Claude Code session: local, cloud, mobile app
+npx trod learn                    # distil notes from Claude Code's transcripts of this project's sessions
+```
+
+`trod learn` compares sessions that failed with ones that worked and writes rules (plus a page per kind of task when
+there are many). On MiniWoB++ it took Haiku from 68% to 81–83% from 120 old sessions, and to 88% after one more
+round of sessions and learning ([round 11](results-11/README.md)). Run it again from time to time and review the
+diff like any other change.
+
+To study something new instead, write `env.md` (a few lines on the API, tooling or workflow) and forge:
+
+```sh
 npx trod forge --brief @env.md --practice 'npm test'   # use your project's own success check
 npx trod verify                   # in CI: re-check every tool and note against the environment
 ```
 
-Commit and push what `init` and the forge wrote (`.mcp.json`, `.claude/`, `.gitignore`, `.trod/library`,
-`.trod/notes.md`, `.trod/notes.checks.json`, the `CLAUDE.md` import) so every later session, cloud ones included,
-loads it.
+Commit and push what `init`, `learn` and `forge` wrote (`.mcp.json`, `.claude/`, `.gitignore`, `.trod/library`,
+`.trod/notes.md`, `.trod/notes.checks.json`, `.trod/wiki/`, the `CLAUDE.md` import) so every later session, cloud
+ones included, loads it.
 
 Or install the Claude Code plugin: `claude plugin marketplace add swissspidy/trod`, then
 `claude plugin install trod@trod`. Other MCP clients run `npx -y trod mcp`.
@@ -43,7 +54,9 @@ Or install the Claude Code plugin: `claude plugin marketplace add swissspidy/tro
 2. **The forge.** `trod forge` runs a dedicated session (any model) that builds general tools with tested examples
    and writes `.trod/notes.md`: rules a newcomer gets wrong, each with the action to take. Tools whose examples pass
    go to `.trod/library`; notes are linked into `CLAUDE.md`.
-3. **Verified, not just written.** Every note can carry a check that is re-run by `trod verify`, and with
+3. **Learning from experience.** `trod learn` runs the same kind of session over the transcripts of past sessions:
+   what failed, what worked instead, which rule would have prevented the failure.
+4. **Verified, not just written.** Every note can carry a check that is re-run by `trod verify`, and with
    `--practice` the forge must pass your success check at least once, or its notes are not linked.
 
 Tool code runs outside Claude Code's permission prompts, so execution is off unless `TROD_ALLOW_EXEC=1` is set
@@ -52,7 +65,7 @@ Tool code runs outside Claude Code's permission prompts, so execution is off unl
 ## Compared with
 
 - **`CLAUDE.md`, auto memory, Cline's Memory Bank:** notes you or the agent write as you go. trod writes them in a
-  dedicated session, from probing or practice, and does not link notes whose checks fail (or, with `--practice`,
+  dedicated session, from probing, practice or many past sessions at once, and does not link notes whose checks fail (or, with `--practice`,
   notes from a forge that never passed your check).
 - **Agent Skills (`SKILL.md`):** packaged know-how that someone authors. trod produces the know-how; a forged
   library and notes work alongside skills.
@@ -67,13 +80,13 @@ Tool code runs outside Claude Code's permission prompts, so execution is off unl
   transcripts, notes, wikis and a small injected layer, organized by offline "dreaming". trod is a shippable instance
   of the same lessons: a small injected layer of validated rules, written by an offline forge.
 - **Research (Voyager, ExpeL, Agent Workflow Memory):** the same idea of learning reusable skills from experience,
-  packaged here for Claude Code with nine rounds of published, paired evaluations.
+  packaged here for Claude Code with eleven rounds of published, paired evaluations.
 
 ## More
 
 - [Reference](docs/reference.md): tool format, every install route (plugin, `trod init`, cloud environments, other
   MCP clients), CLI, configuration, releasing.
-- [Experiments](experiments/) and results: [round 1](results/README.md) … [round 10](results-10/README.md);
+- [Experiments](experiments/) and results: [round 1](results/README.md) … [round 11](results-11/README.md);
   decisions in [docs/adr](docs/adr/); [distribution](docs/distribution.md); [changelog](CHANGELOG.md).
 
 ```sh

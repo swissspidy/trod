@@ -108,6 +108,11 @@ which is meant for ephemeral cloud containers. See [ADR 0001](adr/0001-tool-exec
   Haiku picks the right page itself). `--outcomes` is a JSON object mapping session ids to `true`/`false` (from
   CI, a grader, or your own judgment); without it the learner judges each session from its errors, retries and
   your corrections. No brief and no practice environment are needed; `--brief` and `--practice` still work.
+  Like the forge, the learner is a Claude Code session that may run commands to confirm a lesson against the
+  project ([round 11](../results-11/README.md) found it starting the project's own test server); run it where that
+  is fine. It sees the transcripts on the machine where it runs: on your own machine that is every session you had
+  in this project; a cloud container only holds its own session's transcripts, so point `--from` at transcripts you
+  collected (for example from CI runs of `claude -p`).
 - `trod verify` re-runs every library tool's examples and every note check: run it in CI to catch a drifted
   environment. `trod notes` shows the notes' status.
 - `trod stats` summarizes `.trod/logs/*.jsonl`: tools created, called, reused, errors.

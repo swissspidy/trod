@@ -5,6 +5,8 @@
 - `trod learn`: distil notes from the transcripts of sessions that already happened (Claude Code keeps them in
   `~/.claude/projects/`), comparing failed sessions with passed ones; optional `--outcomes` from CI or a grader.
   Many kinds of task get general rules plus an index in `.trod/notes.md` and one page each in `.trod/wiki/`.
+  Round 11: from 120 old MiniWoB++ sessions, Haiku 68% → 81–83%; 88% after a second round.
+- `--timeout <minutes>` for `trod forge` and `trod learn`.
 - `trod forge --practice '<check>' [--reset '<cmd>']`: the forge practises against a success check (any shell
   command; exit code 0 = success) before writing notes, and its notes are linked only if it passed at least once.
   The approach comes from round 9 (MiniWoB++), where an experiment harness (`experiments/miniwob/forge-notes.ts`)
