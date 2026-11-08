@@ -186,7 +186,10 @@ createServer(async (req, res) => {
           try {
             const r = await act(line);
             if (typeof r === 'string') out.push(r);
-            else files.push(r), out.push(`screenshot saved to ${r.screenshot}`);
+            else {
+              files.push(r);
+              out.push(`screenshot saved to ${r.screenshot}`);
+            }
           } catch (e) {
             out.push(`error in "${line.trim()}": ${e.message.split('\n')[0]}`);
           }
