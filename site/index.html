@@ -3,42 +3,168 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>trod experiments</title>
+<title>trod</title>
+<meta name="description" content="Teach a small model your environment once: trod forges verified tools and notes that every later Claude Code session loads.">
 <style>
-:root{color-scheme:light;--surface:#fcfcfb;--surface-2:#f3f2ef;--text:#0b0b0b;--text-2:#52514e;--muted:#8a8984;--line:#e6e5e0;--accent:#2a78d6}
-@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){color-scheme:dark;--surface:#1a1a19;--surface-2:#242422;--text:#f0efec;--text-2:#c3c2b7;--muted:#8f8e86;--line:#33332f;--accent:#3987e5}}
-:root[data-theme="dark"]{color-scheme:dark;--surface:#1a1a19;--surface-2:#242422;--text:#f0efec;--text-2:#c3c2b7;--muted:#8f8e86;--line:#33332f;--accent:#3987e5}
-*{box-sizing:border-box}body{margin:0;background:var(--surface);color:var(--text);font:15px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
-main{max-width:860px;margin:0 auto;padding:40px 16px 64px}h1{font-size:30px;margin:0 0 6px}p{color:var(--text-2);max-width:70ch}
-a{color:var(--accent)}.cards{display:grid;gap:12px;margin-top:24px}
-.card{display:block;background:var(--surface-2);border-radius:10px;padding:16px 18px;text-decoration:none;color:inherit;border:1px solid transparent}
-.card:hover{border-color:var(--line)}.card h2{font-size:17px;margin:0 0 4px;color:var(--text)}.card p{margin:0;font-size:14px}
-.k{font-variant-numeric:tabular-nums;font-weight:600;color:var(--text)}.meta{color:var(--muted);font-size:13px;margin-top:28px}
-pre.install{background:var(--surface-2,#f3f2ef);border-radius:10px;padding:12px 14px;overflow-x:auto;font-size:13px}
+:root{color-scheme:light;--surface:#fcfcfb;--surface-2:#f3f2ef;--text:#0b0b0b;--text-2:#52514e;--muted:#6b6a66;--line:#e6e5e0;--accent:#2a78d6;--series-1:#2a78d6;--series-2:#eb6834}
+@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){color-scheme:dark;--surface:#1a1a19;--surface-2:#242422;--text:#f0efec;--text-2:#c3c2b7;--muted:#8f8e86;--line:#33332f;--accent:#3987e5;--series-1:#3987e5;--series-2:#d95926}}
+:root[data-theme="dark"]{color-scheme:dark;--surface:#1a1a19;--surface-2:#242422;--text:#f0efec;--text-2:#c3c2b7;--muted:#8f8e86;--line:#33332f;--accent:#3987e5;--series-1:#3987e5;--series-2:#d95926}
+*{box-sizing:border-box}
+body{margin:0;background:var(--surface);color:var(--text);font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:920px;margin:0 auto;padding:48px 16px 72px}
+a{color:var(--accent)}
+h1{font-size:clamp(30px,5vw,44px);line-height:1.15;margin:0 0 12px;letter-spacing:-.01em}
+h2{font-size:22px;margin:56px 0 12px}
+h3{font-size:16px;margin:0 0 6px}
+p{color:var(--text-2);max-width:68ch;margin:0 0 12px}
+.lead{font-size:18px}
+.eyebrow{font-size:13px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin:0 0 10px}
+.cta{display:flex;flex-wrap:wrap;gap:10px;margin:22px 0 0}
+.btn{display:inline-block;padding:9px 16px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px}
+.btn.primary{background:var(--accent);color:#fff}
+.btn.ghost{border:1px solid var(--line);color:var(--text)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:36px 0 0}
+.tile{background:var(--surface-2);border-radius:10px;padding:16px 18px}
+.tile .big{font-size:30px;font-weight:650;font-variant-numeric:tabular-nums;margin:2px 0}
+.tile .tl,.tile .sub{font-size:13px;color:var(--text-2)}
+/* chart */
+.chart{margin:16px 0 8px}
+.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--text-2);margin:0 0 14px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:12px;height:12px;border-radius:3px;display:inline-block}
+.row{display:grid;grid-template-columns:minmax(120px,210px) 1fr;gap:4px 14px;align-items:center;margin:0 0 16px}
+.row .name{font-size:14px;color:var(--text);line-height:1.3}
+.row .name small{display:block;color:var(--muted);font-size:12px}
+.bars{display:grid;gap:2px}
+.bar{position:relative;height:16px;margin-right:48px;outline:none}
+.bar .fill{height:100%;border-radius:0 4px 4px 0;min-width:2px}
+.bar .val{position:absolute;top:0;line-height:16px}
+.bar .val{font-size:12px;color:var(--text-2);margin-left:6px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.bar.notes .fill{background:var(--series-1)}
+.bar.base .fill{background:var(--series-2)}
+.bar .tip{position:absolute;left:0;bottom:calc(100% + 6px);background:var(--text);color:var(--surface);font-size:12px;padding:5px 8px;border-radius:6px;width:max-content;max-width:min(300px,calc(100vw - 64px));opacity:0;visibility:hidden;pointer-events:none;transition:opacity .12s;z-index:2}
+.bar:hover .tip,.bar:focus .tip{opacity:1;visibility:visible}
+.axis{display:grid;grid-template-columns:minmax(120px,210px) 1fr;gap:14px;font-size:11px;color:var(--muted)}
+.axis div:last-child{display:flex;justify-content:space-between;border-top:1px solid var(--line);padding-top:3px;margin-right:48px}
+details{margin:10px 0 0;font-size:14px;color:var(--text-2)}
+summary{cursor:pointer}
+/* cards and tables */
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.card{background:var(--surface-2);border-radius:10px;padding:16px 18px}
+.card p{font-size:15px;margin:0}
+.card ul{margin:6px 0 0;padding-left:18px;color:var(--text-2);font-size:15px}
+.steps{counter-reset:s;display:grid;gap:12px}
+.step{background:var(--surface-2);border-radius:10px;padding:16px 18px 16px 56px;position:relative}
+.step::before{counter-increment:s;content:counter(s);position:absolute;left:18px;top:15px;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font-weight:650;font-size:14px;display:grid;place-items:center}
+.step p{font-size:15px;margin:0}
+.scroll{overflow-x:auto;margin:8px 0 0}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:640px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--text-2);font-weight:600;font-size:13px}
+td:first-child{font-weight:600;white-space:nowrap}
+tr.us td{background:var(--surface-2)}
+.y{color:var(--text)}.n{color:var(--muted)}
+pre{background:var(--surface-2);border-radius:10px;padding:14px 16px;overflow-x:auto;font-size:13.5px;line-height:1.55;margin:8px 0 0}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+p code,li code,td code{font-size:.92em;background:var(--surface-2);padding:1px 5px;border-radius:4px}
+.meta{font-size:13px;color:var(--muted);margin-top:48px}
+@media (max-width:560px){.row,.axis{grid-template-columns:1fr}.axis div:first-child{display:none}}
 </style>
 </head>
 <body><main>
-<h1>Do self-made tools pay off?</h1>
-<p><a href="https://github.com/swissspidy/trod">trod</a> is an MCP server for Claude Code that turns files into live tools, so an agent can build its own tools mid-session. These experiments measure, in headless <code>claude -p</code> sessions, whether that makes agents cheaper or better than plain Bash.</p>
-<p><strong>Short answer:</strong> not as a mid-task trick, but yes as an asset. <strong>Round 4:</strong> Haiku with a tool library that Opus forged once got every answer right in all 9 runs. Sonnet from scratch did so in 6 of 9. Haiku did it at 5–14% of Sonnet's cost. <strong>Round 5:</strong> on SWE-bench (Django) the same approach does nothing, because the models already know Django; the gains come from knowledge that cannot be guessed. <strong>Round 6:</strong> on AppWorld a tool library ties, but the same forged lessons as always-loaded notes lift Haiku from 87.5% to 95%. <strong>Round 7:</strong> on BIRD text-to-SQL the same idea only saves tokens, because the missing knowledge is specific to each question. <strong>Round 8:</strong> on ScienceWorld, where whole procedures recur, forged notes take Haiku from 52% to 89%, past Sonnet. <strong>Round 9:</strong> on MiniWoB++ web tasks, notes forged from practice episodes alone take Haiku from 68% to 90% on the hardest task types, again past Sonnet; notes Haiku forged for itself reach 88%.</p>
-<h2 style="margin-top:28px">Try it</h2>
-<p>In any repository, for every Claude Code session in it (local, cloud, and sessions started from the Claude mobile app):</p>
-<pre class="install"><code>npx trod init --allow-exec   # .mcp.json, settings, skill; commit them
-trod forge --brief @env.md --practice ./check.sh   # learn rules from real attempts</code></pre>
-<p>Or as a plugin: <code>claude plugin marketplace add swissspidy/trod</code> then <code>claude plugin install trod@trod</code>. Other MCP clients run <code>npx -y trod mcp</code>. <a href="https://github.com/swissspidy/trod#install">Install guide</a>.</p>
-<div class="cards">
-<a class="card" href="round-9/"><h2>Round 9: MiniWoB++: notes forged from practice take Haiku from 68% to 90%</h2><p>30 hard web task types × 5 test seeds. Opus practised each type on train seeds with only a success signal and wrote rules ($8.01 for 30). Haiku solves <span class="k">68.0% → 90.0%</span> (37 fixed, 4 broken, p = 1×10⁻⁷) with 33% fewer tokens, past Sonnet without notes (<span class="k">67.3%</span>) at 9% of its cost per run. Round 9b: Haiku as its own teacher ($0.79 for 30 types) reaches <span class="k">88%</span>. One note games the grader (draw-circle); without it, 70% → 90%.</p></a>
-<a class="card" href="round-8/"><h2>Round 8: ScienceWorld: forged notes take Haiku from 52% to 89%, past Sonnet</h2><p>30 task types × 2 test variations × 3 seeds of a text-based science simulator. Per-task-type notes forged by Opus from train variations ($6.55): Haiku solves <span class="k">52.2% → 88.9%</span> (67 fixed, 1 broken, p = 5×10⁻¹⁹) with 39% fewer tokens, beating Sonnet without notes (<span class="k">66.7%</span>) at a tenth of the cost per run.</p></a>
-<a class="card" href="round-7/"><h2>Round 7: BIRD text-to-SQL: knowledge that does not transfer</h2><p>110 questions on 11 real databases, 3 seeds. Notes forged from earlier questions, or the earlier questions themselves, leave Haiku at <span class="k">61–63%</span> (not significant); the question's own expert hint gives <span class="k">68.5%</span>. BIRD's missing knowledge is per question, so the notes mostly save tokens (<span class="k">−18%</span>).</p></a>
-<a class="card" href="round-6/"><h2>Round 6: AppWorld: the tools tie, the distilled notes win</h2><p>40 scenarios × 3 variants of everyday app chores, graded by database-state tests. A forged tool library ties (Haiku <span class="k">87.5%</span> either way). The same lessons as an always-loaded <code>CLAUDE.md</code>: <span class="k">95.0%</span> (11 tasks fixed, 2 broken, p = 0.022), at no extra tokens. The forge's useful output was knowledge, not code. Round 6d: notes that <code>trod forge</code> wrote itself reach only <span class="k">86.7–90%</span>; the 95% hinged on a few rules one forge found.</p></a>
-<a class="card" href="round-5/"><h2>Round 5: SWE-bench Verified (Django): no effect, and why</h2><p>67 instances, 670 graded runs, one Opus forge. The library changed neither model's resolve rate (Haiku <span class="k">79.6% → 79.1%</span>, Sonnet <span class="k">82.8% → 83.6%</span>) and cost 15–22% more tokens. The models already know how to work in Django. Forged libraries help in proportion to how much of an environment's working knowledge cannot be guessed.</p></a>
-<a class="card" href="round-4/"><h2>Round 4: forge once with Opus, run with Haiku</h2><p><code>trod forge</code> plus library cards and code mode. Haiku with the forged library: <span class="k">9/9</span> perfect runs (Sonnet from scratch: 6/9), at <span class="k">5–14%</span> of Sonnet's cost; <span class="k">0.21–0.69×</span> Haiku's own tokens. Each forge pays for itself after about 12–22 sessions.</p></a>
-<a class="card" href="round-4-haiku/"><h2>Round 4: the Haiku runs</h2><p>Haiku 5.5 from scratch vs Haiku with the Opus-forged library: turns <span class="k">45 → 25</span>, <span class="k">54 → 20</span> and <span class="k">39 → 25</span>, up to 6× faster.</p></a>
-<a class="card" href="round-1/"><h2>Round 1: does an agent build tools on its own, and do they pay?</h2><p>120 sessions, trod 0.1. Agents almost never built tools unprompted (1 in 24). When required to, sessions cost <span class="k">1.84×</span> plain Bash: a script on disk is already a tool.</p></a>
-<a class="card" href="round-2/"><h2>Round 2: trod 0.2 within a session</h2><p>Single-file tools, <code>trod_run</code>, a validation hook. Unprompted tool building in <span class="k">16 of 18</span> sessions; overhead down to <span class="k">1.25×</span>, parity on one task. The library arm was the only arm with no failures.</p></a>
-<a class="card" href="round-2-haiku/"><h2>Round 2b: a cheaper model with a stronger model's tools</h2><p>Haiku 5.5 with tools Sonnet built: <span class="k">0.64×</span> tokens on average and <span class="k">0.23×</span> on code-qa, with perfect scores and far less variance.</p></a>
-<a class="card" href="round-3/"><h2>Round 3: a tool library across fresh sessions</h2><p>Ephemeral sessions against a quirky internal API. A library built once in a dedicated session: <span class="k">0.74×</span> tokens per session, no failures, break-even after about <span class="k">12 sessions</span>.</p></a>
+
+<p class="eyebrow">trod · for Claude Code</p>
+<h1>Teach a small model your environment once.</h1>
+<p class="lead">trod runs one dedicated session that studies, or practises on, your API, tooling or workflow. It writes a verified tool library and short, rule-shaped notes. Every later session loads them, so a cheap model works like one that already knows the place.</p>
+<div class="cta">
+  <a class="btn primary" href="#install">Get started</a>
+  <a class="btn ghost" href="https://github.com/swissspidy/trod">GitHub</a>
+  <a class="btn ghost" href="experiments.html">All experiments</a>
 </div>
-<p class="meta">Write-ups: <a href="https://github.com/swissspidy/trod/blob/main/results/README.md">round 1</a> · <a href="https://github.com/swissspidy/trod/blob/main/results-2/README.md">rounds 2 and 3</a> · <a href="https://github.com/swissspidy/trod/blob/main/results-4/README.md">round 4</a> · <a href="https://github.com/swissspidy/trod/blob/main/results-5/README.md">round 5</a> · <a href="https://github.com/swissspidy/trod/blob/main/results-6/README.md">round 6</a> · <a href="https://github.com/swissspidy/trod/blob/main/results-7/README.md">round 7</a> · <a href="https://github.com/swissspidy/trod/blob/main/results-8/README.md">round 8</a>. Raw per-run records are in the repository.</p>
-</main></body>
-</html>
+
+<div class="tiles">
+  <div class="tile"><div class="tl">MiniWoB++ web tasks, hardest 30 types</div><div class="big">68% → 90%</div><div class="sub">Haiku, with practice notes · Sonnet alone: 67%</div></div>
+  <div class="tile"><div class="tl">ScienceWorld</div><div class="big">52% → 89%</div><div class="sub">Haiku, with forged notes · Sonnet alone: 67%</div></div>
+  <div class="tile"><div class="tl">Haiku as its own teacher</div><div class="big">$0.79</div><div class="sub">forge cost for 30 task types · 88% solved</div></div>
+</div>
+
+<h2>Where it shines</h2>
+<p>Forged knowledge pays in proportion to how much of tomorrow's work today's lessons cover. Across nine rounds of paired experiments, each with fresh test cases the forge never saw:</p>
+<div class="chart" role="figure" aria-label="Share of tasks Haiku solved alone and with forged notes (a forged tool library for SWE-bench), per benchmark">
+  <div class="legend"><span><i class="sw" style="background:var(--series-2)"></i>Haiku alone</span><span><i class="sw" style="background:var(--series-1)"></i>Haiku with forged notes (SWE-bench: forged tool library)</span></div>
+  <div id="rows"></div>
+  <div class="axis"><div></div><div><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div></div>
+  <details><summary>Table view and sources</summary>
+    <div class="scroll"><table id="tbl"><tr><th>Benchmark</th><th>Haiku alone</th><th>With forged notes</th><th>Runs per arm</th></tr></table></div>
+  </details>
+</div>
+<div class="grid2" style="margin-top:20px">
+  <div class="card"><h3>Great fit</h3><ul>
+    <li>Internal or quirky APIs: auth, paging, soft deletes, units</li>
+    <li>Unfamiliar codebases and in-house tooling</li>
+    <li>Web and app workflows with hidden rules</li>
+    <li>Anything with a success check to practise against: tests, graders, smoke tests</li>
+  </ul></div>
+  <div class="card"><h3>Little or no effect</h3><ul>
+    <li>Domains the model already knows well (SWE-bench on Django: no change)</li>
+    <li>Tasks that each need a fact no earlier task taught (BIRD: tokens saved, accuracy flat)</li>
+    <li>Building tools mid-task instead of forging once: no cheaper than writing a script</li>
+  </ul></div>
+</div>
+
+<h2>How it works</h2>
+<div class="steps">
+  <div class="step"><h3>Forge</h3><p><code>trod forge</code> runs a dedicated headless session with any model. It probes the environment, builds general tools with tested examples, and writes <code>.trod/notes.md</code>: rules a newcomer gets wrong, each with the action to take.</p></div>
+  <div class="step"><h3>Practise</h3><p>With <code>--practice 'npm test'</code> (or any command where exit 0 means success) the forge learns from real attempts. It must pass at least once, or its notes are not linked.</p></div>
+  <div class="step"><h3>Reuse and verify</h3><p>Tools whose examples pass go to <code>.trod/library</code>, and the notes are imported into <code>CLAUDE.md</code>, so every later session starts informed. <code>trod verify</code> in CI re-runs every example and note check to catch drift.</p></div>
+</div>
+<p style="margin-top:14px">Underneath sits a live MCP tool server. The agent can write <code>.trod/tools/&lt;name&gt;.mjs</code> mid-session, and trod validates it, runs its examples and registers it without a restart.</p>
+
+<h2>Compared with</h2>
+<p>Learning from experience is not a new idea. What trod adds is a forge you can run, gates that hold back notes whose checks fail or that never passed your success check, and published measurements of when it helps.</p>
+<div class="scroll"><table>
+  <tr><th></th><th>Who writes the knowledge</th><th>Verified?</th><th>Learns by practice?</th><th>Measured gains</th></tr>
+  <tr class="us"><td>trod</td><td class="y">A dedicated forge session (any model)</td><td class="y">Tool examples, note checks, <code>trod verify</code></td><td class="y">Yes, against your success check</td><td class="y">9 paired rounds, positive and negative</td></tr>
+  <tr><td><code>CLAUDE.md</code>, auto memory</td><td>You, or the agent as it goes</td><td class="n">No</td><td class="n">No</td><td class="n">n/a</td></tr>
+  <tr><td>Cline Memory Bank</td><td>The agent, on request, as markdown files</td><td class="n">No</td><td class="n">No</td><td class="n">n/a</td></tr>
+  <tr><td>Agent Skills (<code>SKILL.md</code>)</td><td>An author, by hand</td><td class="n">No</td><td class="n">No</td><td class="n">n/a; complementary: trod produces the know-how a skill would package</td></tr>
+  <tr><td>Memory layers (Letta, MCP memory servers)</td><td>Stored history, retrieved later</td><td class="n">No</td><td class="n">No</td><td class="n">Vendor claims</td></tr>
+  <tr><td>Runtime tool MCP servers (e.g. DIY Tools MCP)</td><td>The agent, one tool at a time</td><td class="n">Varies</td><td class="n">No</td><td class="n">n/a</td></tr>
+  <tr><td>Harness² (Google Research)</td><td>An editor agent per task, plus a persistent "improvement harness" of lessons</td><td>Contrastive probes on the same task (no ground truth)</td><td class="y">Yes, on each task</td><td>Up to +11.5 pts WorkBuddy-Bench, +4.5 JobBench, +11.8 pp LAB (GLM-5, Gemini 3.5 Flash); a research framework, not a Claude Code tool</td></tr>
+  <tr><td>Anthropic: components of agent memory</td><td>Claude, in sessions and in offline "dreaming" passes; notes, wikis, a small injected layer</td><td>Dreaming checks notes against transcripts</td><td class="y">Yes (learning loops)</td><td>CL-Bench: e.g. Opus 5.5 0.655 → 0.838; wiki + search 61% vs search 53%; research, not a product</td></tr>
+  <tr><td>Research: Voyager, ExpeL, Agent Workflow Memory</td><td>The agent, from its own trajectories</td><td>Partly</td><td class="y">Yes</td><td>Strong (AWM: +24.6% / +51.1% relative on Mind2Web / WebArena), but not packaged for Claude Code</td></tr>
+</table></div>
+<p style="margin-top:10px;font-size:14px">trod lines up with Anthropic's findings on agent memory: keep the injected layer small, record validated rules rather than raw logs, and let an offline pass (their "dreaming", trod's forge) correct and consolidate. trod adds a success check that the knowledge must pass and paired measurements per environment. Summaries of the other approaches come from their public descriptions as of November 2026. trod's results are on this site, with every run published.</p>
+
+<h2 id="install">Install</h2>
+<p>Set up a repository for every Claude Code session in it, whether local, cloud or started from the Claude mobile app, then forge:</p>
+<pre><code>npx trod init --allow-exec          # .mcp.json, settings, skill; commit them
+npx trod forge --brief @env.md --practice 'npm test'
+npx trod verify                     # in CI</code></pre>
+<p style="margin-top:12px">As a Claude Code plugin: <code>claude plugin marketplace add swissspidy/trod</code>, then <code>claude plugin install trod@trod</code>. Other MCP clients run <code>npx -y trod mcp</code>. Tool code runs outside Claude Code's permission prompts, so execution stays off unless <code>TROD_ALLOW_EXEC=1</code> is set; that is meant for ephemeral containers. See the <a href="https://github.com/swissspidy/trod/blob/main/docs/reference.md">reference</a> for every install route.</p>
+
+<p class="meta">MIT licensed · <a href="https://github.com/swissspidy/trod">github.com/swissspidy/trod</a> · <a href="experiments.html">all experiments</a></p>
+
+<script>
+const data = [
+  { name: 'MiniWoB++', note: '30 hardest web task types', base: 68.0, notes: 90.0, runs: 150, href: 'round-9/' },
+  { name: 'ScienceWorld', note: '30 science task types', base: 52.2, notes: 88.9, runs: 180, href: 'round-8/' },
+  { name: 'AppWorld', note: 'everyday app chores', base: 87.5, notes: 95.0, runs: 120, href: 'round-6/' },
+  { name: 'BIRD text-to-SQL', note: 'each question needs its own fact', base: 61.2, notes: 62.7, runs: 330, href: 'round-7/' },
+  { name: 'SWE-bench Verified', note: 'Django, the model knows it; bar: tool library', base: 79.6, notes: 79.1, runs: 201, href: 'round-5/', label: 'with forged tool library' },
+];
+const rows = document.getElementById('rows');
+const tbl = document.getElementById('tbl');
+const pct = (v) => `${v.toFixed(v % 1 ? 1 : 0)}%`;
+for (const d of data) {
+  const row = document.createElement('div');
+  row.className = 'row';
+  const bar = (cls, v, who) => `<div class="bar ${cls}" tabindex="0" aria-label="${d.name}, ${who}: ${pct(v)}"><div class="fill" style="width:${v}%"></div><span class="val" style="left:calc(${v}% + 6px)">${pct(v)}</span><span class="tip">${d.name} · ${who}: ${pct(v)} solved (${d.runs} runs)</span></div>`;
+  row.innerHTML = `<div class="name"><a href="${d.href}">${d.name}</a><small>${d.note}</small></div><div class="bars">${bar('base', d.base, 'Haiku alone')}${bar('notes', d.notes, d.label ? 'Haiku ' + d.label : 'Haiku with forged notes')}</div>`;
+  rows.appendChild(row);
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td><a href="${d.href}">${d.name}</a></td><td>${pct(d.base)}</td><td>${pct(d.notes)}${d.label ? ' (' + d.label + ')' : ''}</td><td>${d.runs}</td>`;
+  tbl.appendChild(tr);
+}
+</script>
+</main></body></html>
