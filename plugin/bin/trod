@@ -7261,7 +7261,7 @@ import { readFileSync as readFileSync6 } from "node:fs";
 
 // packages/cli/src/forge.ts
 import { spawn as spawn2 } from "node:child_process";
-import { existsSync as existsSync5, mkdirSync as mkdirSync3, mkdtempSync, readdirSync as readdirSync3, readFileSync as readFileSync5, writeFileSync as writeFileSync3 } from "node:fs";
+import { chmodSync, existsSync as existsSync5, mkdirSync as mkdirSync3, mkdtempSync, readdirSync as readdirSync3, readFileSync as readFileSync5, writeFileSync as writeFileSync3 } from "node:fs";
 import { tmpdir } from "node:os";
 import path6 from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15917,6 +15917,29 @@ Future sessions start fresh, with no memory of this one. They will see the tools
 7. Back every checkable claim with an entry in .trod/notes.checks.json: a JSON array of {"claim": "<a few words>", "tool": "<one of your tools>", "input": {...}, "expect": {"contains": "..."} or {"matches": "<regex>"}}. The checks are re-run later to detect when the environment changes and a note goes stale; claims whose check fails are reported.
 
 Do not write answer files. When finished, reply with a short list of the tools and DONE.`;
+var PRACTICE_PROMPT = (hasReset) => `## Practice
+
+You can practise on the environment itself. \`trod-try\` runs the practice check: it exits 0 when the current attempt succeeded, and its output says why when it did not.${hasReset ? " `trod-reset` starts a fresh attempt (a new instance of the same kind of task)." : ""} Make real attempts until they succeed reliably (at least 3 in a row where you can), and learn from every failure: what ends an attempt, what success needs that nobody says, which actions are reliable, which are traps. Then write into .trod/notes.md the rules you saw hold, each with the action to take, plus a short recipe that worked, with <placeholders> for what differs between attempts. Run checks only through \`trod-try\`: notes from a forge that never passed it are not linked.`;
+function writePracticeBins(binDir, logFile, practice) {
+  mkdirSync3(binDir, { recursive: true });
+  const bin = (cmd, kind) => `#!/usr/bin/env node
+const { spawnSync } = require('node:child_process');
+const { appendFileSync } = require('node:fs');
+const r = spawnSync('sh', ['-c', ${JSON.stringify(cmd)}, 'sh', ...process.argv.slice(2)], { stdio: 'inherit' });
+const code = r.status === null ? 1 : r.status;
+appendFileSync(${JSON.stringify(logFile)}, JSON.stringify({ kind: ${JSON.stringify(kind)}, exit: code, at: new Date().toISOString() }) + '\\n');
+process.exit(code);
+`;
+  for (const [name, cmd, kind] of [["trod-try", practice.check, "try"], ["trod-reset", practice.reset, "reset"]]) {
+    if (!cmd) continue;
+    writeFileSync3(path6.join(binDir, name), bin(cmd, kind));
+    chmodSync(path6.join(binDir, name), 493);
+  }
+}
+function readPractice(logFile) {
+  const tries = existsSync5(logFile) ? readFileSync5(logFile, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)).filter((e) => e.kind === "try") : [];
+  return { attempts: tries.length, passed: tries.filter((e) => e.exit === 0).length };
+}
 function defaultServerPath() {
   return path6.resolve(path6.dirname(fileURLToPath(import.meta.url)), "..", "server", "trod-server.mjs");
 }
@@ -15924,15 +15947,20 @@ async function forge(opts) {
   const out = opts.out ?? (() => {
   });
   const paths = trodPaths(opts.projectDir);
-  const env = { ...opts.env ?? process.env, TROD_ALLOW_EXEC: "1", TROD_PROJECT_DIR: opts.projectDir };
   const scratch = mkdtempSync(path6.join(tmpdir(), "trod-forge-"));
+  const baseEnv = opts.env ?? process.env;
+  const practiceLog = path6.join(scratch, "practice.jsonl");
+  if (opts.practice) writePracticeBins(path6.join(scratch, "bin"), practiceLog, opts.practice);
+  const env = { ...baseEnv, TROD_ALLOW_EXEC: "1", TROD_PROJECT_DIR: opts.projectDir, ...opts.practice ? { PATH: `${path6.join(scratch, "bin")}${path6.delimiter}${baseEnv.PATH ?? ""}` } : {} };
   const mcpConfig = path6.join(scratch, "mcp.json");
   writeFileSync3(mcpConfig, JSON.stringify({ mcpServers: { trod: { command: process.execPath, args: [opts.server ?? defaultServerPath()] } } }));
   const prompt = `${FORGE_PROMPT}
 
 ## The environment
 
-${opts.brief}`;
+${opts.brief}${opts.practice ? `
+
+${PRACTICE_PROMPT(!!opts.practice.reset)}` : ""}`;
   const args = [
     "-p",
     prompt,
@@ -15953,7 +15981,7 @@ ${opts.brief}`;
   mkdirSync3(path6.dirname(streamFile), { recursive: true });
   out(`forging tools in ${opts.projectDir}${opts.model ? ` with ${opts.model}` : ""} \u2026`);
   const exitCode = await new Promise((resolve) => {
-    const child = spawn2("claude", args, { cwd: opts.projectDir, env, stdio: ["ignore", "pipe", "inherit"] });
+    const child = spawn2(opts.claudeBin ?? baseEnv.TROD_CLAUDE_BIN ?? "claude", args, { cwd: opts.projectDir, env, stdio: ["ignore", "pipe", "inherit"] });
     let buf = "";
     child.stdout.on("data", (c) => buf += c.toString("utf8"));
     const timer = setTimeout(() => child.kill("SIGKILL"), opts.timeoutMs ?? 30 * 6e4);
@@ -15963,6 +15991,8 @@ ${opts.brief}`;
       resolve(code);
     });
   });
+  const practice = opts.practice ? readPractice(practiceLog) : void 0;
+  if (practice) out(`  practice: ${practice.passed}/${practice.attempts} attempt(s) passed`);
   const result = readFileSync5(streamFile, "utf8").split("\n").filter((l) => l.includes('"type":"result"')).map((l) => JSON.parse(l)).at(-1);
   const promoted = [];
   const rejected = [];
@@ -15987,6 +16017,7 @@ ${opts.brief}`;
     out(`  notes: ${notes.chars} chars${notes.tooLong ? ` (over ${NOTES_MAX_CHARS}: trim them, they are in every session's context)` : ""}, ${passed}/${notes.checks.length} check(s) passed`);
     for (const c of notes.checks.filter((c2) => !c2.ok)) out(`    failed check "${c.claim}" (${c.tool}): ${c.error}`);
     for (const e of notes.errors) out(`    ${e}`);
+    if (practice && practice.passed === 0) notes.errors.push("the forge never passed the practice check (trod-try), so nothing in these notes was seen to work");
     const failed = notes.checks.some((c) => !c.ok) || notes.errors.length > 0;
     if (failed && notes.linked) out(`  WARNING: CLAUDE.md already imports .trod/notes.md (${NOTES_IMPORT}), so sessions still load these unverified notes: fix the failing claims or remove the import`);
     else if (failed) out("  notes NOT linked into CLAUDE.md: fix or remove the failing claims and their checks, then run `trod notes --link`");
@@ -15995,7 +16026,7 @@ ${opts.brief}`;
       if (notesLinkedNow) out(`  linked .trod/notes.md into CLAUDE.md (${NOTES_IMPORT})${notes.checks.length ? "" : " (no checks: nothing in them is verified)"}`);
     }
   }
-  return { exitCode, promoted, rejected, unverified, notes: notes.exists ? { ...notes, linked: notes.linked || notesLinkedNow } : void 0, costUsd: result?.total_cost_usd, turns: result?.num_turns, usage: result?.usage };
+  return { exitCode, promoted, rejected, unverified, notes: notes.exists ? { ...notes, linked: notes.linked || notesLinkedNow } : void 0, costUsd: result?.total_cost_usd, turns: result?.num_turns, usage: result?.usage, practice };
 }
 
 // packages/cli/src/cli.ts
@@ -16012,9 +16043,12 @@ Usage:
   trod verify [--json]     Re-run every library tool's examples and every note check against the current
                            environment; exit 1 if any tool or note is stale (run it in CI or on a schedule)
   trod notes [--link]      Show .trod/notes.md's status and run its checks; --link adds @.trod/notes.md to CLAUDE.md
-  trod forge --brief <text|@file> [--model <id>] [--no-link]
+  trod forge --brief <text|@file> [--model <id>] [--no-link] [--practice <cmd> [--reset <cmd>]]
                            Run a dedicated tool-building session (headless Claude Code), promote every tool whose
-                           examples pass to .trod/library, check the notes it wrote and link them into CLAUDE.md
+                           examples pass to .trod/library, check the notes it wrote and link them into CLAUDE.md.
+                           --practice: a shell command whose exit code 0 means the current attempt succeeded (e.g.
+                           a test suite, a grader); the forge practises against it before writing notes, and its
+                           notes are linked only if it passed at least once. --reset starts a fresh attempt.
 
 Options:
   --dir <path>             Project directory (default: TROD_PROJECT_DIR, CLAUDE_PROJECT_DIR or cwd)
@@ -16035,7 +16069,9 @@ async function main(argv, out = console.log) {
       budget: { type: "string" },
       stream: { type: "string" },
       link: { type: "boolean", default: false },
-      "no-link": { type: "boolean", default: false }
+      "no-link": { type: "boolean", default: false },
+      practice: { type: "string" },
+      reset: { type: "string" }
     }
   });
   const [command, ...rest] = positionals;
@@ -16088,11 +16124,16 @@ async function main(argv, out = console.log) {
         return 1;
       }
       const brief = values.brief.startsWith("@") ? readFileSync6(values.brief.slice(1), "utf8") : values.brief;
-      const res = await forge({ projectDir: paths.projectDir, brief, model: values.model, server: values.server, maxBudgetUsd: values.budget, streamFile: values.stream, out, linkNotes: !values["no-link"] });
+      if (values.reset && !values.practice) {
+        out("trod forge: --reset needs --practice");
+        return 1;
+      }
+      const practice = values.practice ? { check: values.practice, reset: values.reset } : void 0;
+      const res = await forge({ projectDir: paths.projectDir, brief, model: values.model, server: values.server, maxBudgetUsd: values.budget, streamFile: values.stream, out, linkNotes: !values["no-link"], practice });
       out(`forge: ${res.promoted.length} tool(s) promoted${res.unverified.length ? ` (${res.unverified.length} without examples)` : ""}, ${res.rejected.length} rejected${res.costUsd !== void 0 ? `, $${res.costUsd.toFixed(3)}, ${res.turns} turns` : ""}`);
       if (values.json) out(JSON.stringify(res, null, 2));
       const notesFailed = !!res.notes && (res.notes.checks.some((c) => !c.ok) || res.notes.errors.length > 0);
-      return res.promoted.length && !notesFailed ? 0 : 1;
+      return (res.promoted.length || res.notes) && !notesFailed && res.exitCode === 0 ? 0 : 1;
     }
     case "verify": {
       const report = [];
