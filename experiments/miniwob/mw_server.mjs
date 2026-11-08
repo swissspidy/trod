@@ -102,9 +102,14 @@ async function observe() {
 
 const el = (id) => page.locator(`[data-mw="${String(id).replace(/[^0-9]/g, '')}"]`).first();
 
+const ID_ACTIONS = new Set(['click', 'dblclick', 'hover', 'type', 'select', 'scroll']);
+
 async function act(line) {
   const [cmd, ...rest] = line.trim().split(/\s+/);
   const arg = line.trim().slice(cmd.length).trim();
+  for (const id of ID_ACTIONS.has(cmd) ? [rest[0]] : cmd === 'drag' ? rest.slice(0, 2) : []) {
+    if (!/^\d+$/.test(id ?? '') || !(await el(id).count())) throw new Error(`no element [${id}] in the observation; use the number in brackets at the start of a line`);
+  }
   switch (cmd) {
     case 'observe':
       return observe();
