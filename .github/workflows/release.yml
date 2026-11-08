@@ -26,6 +26,8 @@ jobs:
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
+          # A release must not restore a cache that another workflow could have written.
+          package-manager-cache: false
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
