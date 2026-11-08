@@ -5,7 +5,7 @@ writes a tool definition with its normal Write tool. trod picks it up, validates
 `notifications/tools/list_changed`, so the agent can call the new tool in the same session.
 
 It is an experiment: do agents that build their own tools mid-task get cheaper or faster than plain Bash?
-See [`experiments/`](experiments/) and the results in [`results/`](results/README.md). **Findings so far** ([round 1](results/README.md), [rounds 2 and 3](results-2/README.md), [round 4](results-4/README.md),
+See [`experiments/`](experiments/), the results in [`results/`](results/README.md), and [distribution](docs/distribution.md). **Findings so far** ([round 1](results/README.md), [rounds 2 and 3](results-2/README.md), [round 4](results-4/README.md),
 [round 5](results-5/README.md), [site](https://swissspidy.github.io/trod/)):
 - **Mid-task tools:** building tools *mid-task* does not beat writing a script.
 - **Unfamiliar environments:** a library **forged once** by a strong model pays off where an environment holds
