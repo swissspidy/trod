@@ -139,11 +139,11 @@ p code,li code,td code{font-size:.92em;background:var(--surface-2);padding:1px 5
 
 <h2 id="install">Install</h2>
 <p>Set up a repository for every Claude Code session in it, whether local, cloud or started from the Claude mobile app, then learn from the sessions you already had, or forge against something new:</p>
-<pre><code>npx trod init --allow-exec          # .mcp.json, settings, skill; commit them
+<pre><code>npx trod init                       # .mcp.json, settings, skill; commit them
 npx trod learn                      # notes from your past sessions
 npx trod forge --brief @env.md --practice 'npm test'
 npx trod verify                     # in CI</code></pre>
-<p style="margin-top:12px">As a Claude Code plugin: <code>claude plugin marketplace add swissspidy/trod</code>, then <code>claude plugin install trod@trod</code>. Other MCP clients run <code>npx -y trod mcp</code>. Tool code runs outside Claude Code's permission prompts, so execution stays off unless <code>TROD_ALLOW_EXEC=1</code> is set; that is meant for ephemeral containers. See the <a href="https://github.com/swissspidy/trod/blob/main/docs/reference.md">reference</a> for every install route.</p>
+<p style="margin-top:12px">As a Claude Code plugin: <code>claude plugin marketplace add swissspidy/trod</code>, then <code>claude plugin install trod@trod</code>. Other MCP clients run <code>npx -y trod mcp</code>. Tool code runs outside Claude Code's permission prompts, so execution stays off in later sessions unless <code>TROD_ALLOW_EXEC=1</code> is set (<code>npx trod init --allow-exec</code>); that is meant for ephemeral containers. See the <a href="https://github.com/swissspidy/trod/blob/main/docs/reference.md">reference</a> for every install route.</p>
 
 <p class="meta">MIT licensed · <a href="https://github.com/swissspidy/trod">github.com/swissspidy/trod</a> · <a href="experiments.html">all experiments</a></p>
 
