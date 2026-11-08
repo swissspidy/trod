@@ -46,11 +46,26 @@ describe('trod init', () => {
     const dir = repo();
     init({ projectDir: dir, packageRoot: PLUGIN });
     init({ projectDir: dir, packageRoot: PLUGIN, vendor: true });
-    expect(json(path.join(dir, '.mcp.json')).mcpServers.trod).toEqual({ command: 'node', args: ['.trod/bin/trod-server.mjs'] });
-    expect(existsSync(path.join(dir, '.trod', 'bin', 'trod-server.mjs'))).toBe(true);
+    expect(json(path.join(dir, '.mcp.json')).mcpServers.trod).toEqual({ command: 'node', args: ['.trod/pkg/server/trod-server.mjs'] });
+    for (const f of ['server/trod-server.mjs', 'bin/trod', 'package.json']) expect(existsSync(path.join(dir, '.trod', 'pkg', f))).toBe(true);
     const post = json(path.join(dir, '.claude', 'settings.json')).hooks.PostToolUse;
     expect(post).toHaveLength(1);
-    expect(post[0].hooks[0].command).toContain('.trod/bin/trod');
+    expect(post[0].hooks[0].command).toContain('.trod/pkg/bin/trod');
+  });
+
+  it('keeps other hooks that share a group with the trod hook, and rejects a non-object .mcp.json', () => {
+    const dir = repo();
+    init({ projectDir: dir, packageRoot: PLUGIN });
+    const file = path.join(dir, '.claude', 'settings.json');
+    const settings = json(file);
+    settings.hooks.PostToolUse[0].hooks.push({ type: 'command', command: 'npx prettier --write' });
+    writeFileSync(file, JSON.stringify(settings));
+    init({ projectDir: dir, packageRoot: PLUGIN });
+    const commands = json(file).hooks.PostToolUse.flatMap((g: { hooks: { command: string }[] }) => g.hooks.map((h) => h.command));
+    expect(commands.filter((c: string) => c.includes('trod'))).toHaveLength(1);
+    expect(commands).toContain('npx prettier --write');
+    writeFileSync(path.join(dir, '.mcp.json'), '[]');
+    expect(() => init({ projectDir: dir, packageRoot: PLUGIN })).toThrow(/JSON object/);
   });
 });
 

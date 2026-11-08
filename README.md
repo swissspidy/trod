@@ -72,7 +72,7 @@ git add .mcp.json .claude .gitignore && git commit -m "Add trod"
 Cloud sessions do not install plugins declared in project settings, but they start project MCP servers from a
 committed `.mcp.json` (see [docs/spike.md](docs/spike.md)); `trod init` writes one that runs `npx -y trod@<version> mcp`
 and approves it with `"enableAllProjectMcpServers": true`. `--vendor` copies the bundled server (one file, no
-dependencies) into `.trod/bin/` instead, so nothing is fetched at session start.
+dependencies) into `.trod/pkg/` instead, so nothing is fetched at session start.
 
 **Every cloud session in an environment, without touching any repository** (tested): in the cloud environment's
 settings, add this setup script and the variable `TROD_ALLOW_EXEC=1` (the network must reach github.com):

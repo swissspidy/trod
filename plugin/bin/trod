@@ -15922,6 +15922,7 @@ var PRACTICE_PROMPT = (hasReset) => `## Practice
 You can practise on the environment itself. \`trod-try\` runs the practice check: it exits 0 when the current attempt succeeded, and its output says why when it did not.${hasReset ? " `trod-reset` starts a fresh attempt (a new instance of the same kind of task)." : ""} Make real attempts until they succeed reliably (at least 3 in a row where you can), and learn from every failure: what ends an attempt, what success needs that nobody says, which actions are reliable, which are traps. Then write into .trod/notes.md the rules you saw hold, each with the action to take, plus a short recipe that worked, with <placeholders> for what differs between attempts. Run checks only through \`trod-try\`: notes from a forge that never passed it are not linked.`;
 function writePracticeBins(binDir, logFile, practice) {
   mkdirSync3(binDir, { recursive: true });
+  writeFileSync3(path6.join(binDir, "package.json"), '{"type":"commonjs"}\n');
   const bin = (cmd, kind) => `#!/usr/bin/env node
 const { spawnSync } = require('node:child_process');
 const { appendFileSync } = require('node:fs');
@@ -16046,7 +16047,9 @@ function packageVersion(root) {
 function readJson(file) {
   if (!existsSync6(file)) return {};
   const raw = readFileSync6(file, "utf8").trim();
-  return raw ? JSON.parse(raw) : {};
+  const value = raw ? JSON.parse(raw) : {};
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${file} must contain a JSON object`);
+  return value;
 }
 function writeIfChanged(file, content, res, projectDir) {
   const rel = path7.relative(projectDir, file);
@@ -16068,8 +16071,9 @@ function init(opts) {
   let hookCommand;
   if (opts.vendor) {
     for (const [from, to] of [
-      ["server/trod-server.mjs", ".trod/bin/trod-server.mjs"],
-      ["bin/trod", ".trod/bin/trod"]
+      ["server/trod-server.mjs", ".trod/pkg/server/trod-server.mjs"],
+      ["bin/trod", ".trod/pkg/bin/trod"],
+      ["package.json", ".trod/pkg/package.json"]
     ]) {
       const src = path7.join(root, from);
       if (!existsSync6(src)) throw new Error(`trod init --vendor: ${src} not found`);
@@ -16079,9 +16083,9 @@ function init(opts) {
       copyFileSync(src, dest);
       (before?.equals(readFileSync6(dest)) ? res.unchanged : res.written).push(to);
     }
-    server = { command: "node", args: [".trod/bin/trod-server.mjs"] };
-    hookCommand = 'node "$CLAUDE_PROJECT_DIR/.trod/bin/trod" hook';
-    res.notes.push("Vendored the server and CLI into .trod/bin/: commit them, and re-run `trod init --vendor` to update.");
+    server = { command: "node", args: [".trod/pkg/server/trod-server.mjs"] };
+    hookCommand = 'node "$CLAUDE_PROJECT_DIR/.trod/pkg/bin/trod" hook';
+    res.notes.push("Vendored the server and CLI into .trod/pkg/: commit them, and re-run `trod init --vendor` to update.");
   } else {
     server = { command: "npx", args: ["-y", spec, "mcp"] };
     hookCommand = `npx -y ${spec} hook`;
@@ -16096,7 +16100,8 @@ function init(opts) {
   const settings = readJson(settingsFile);
   settings.enableAllProjectMcpServers = true;
   const hooks = settings.hooks ?? {};
-  const post = (hooks.PostToolUse ?? []).filter((g) => !g.hooks.some((h) => /\btrod\b.*\bhook$/.test(h.command)));
+  const isTrodHook = (h) => /\btrod\b.*\bhook$/.test(h.command);
+  const post = (hooks.PostToolUse ?? []).map((g) => ({ ...g, hooks: g.hooks.filter((h) => !isTrodHook(h)) })).filter((g) => g.hooks.length > 0);
   post.push({ matcher: "Write|Edit|MultiEdit", hooks: [{ type: "command", command: hookCommand, timeout: 60 }] });
   hooks.PostToolUse = post;
   settings.hooks = hooks;
@@ -16126,7 +16131,7 @@ Usage:
   trod init [--vendor] [--allow-exec]
                            Set this repository up for trod in every Claude Code session, local or cloud (also
                            sessions started from the mobile app): writes .mcp.json, .claude/settings.json and the
-                           skill. --vendor copies the server into .trod/bin instead of running it through npx;
+                           skill. --vendor copies the server into .trod/pkg instead of running it through npx;
                            --allow-exec lets tools run (TROD_ALLOW_EXEC=1; meant for ephemeral cloud containers)
   trod mcp                 Start the trod MCP server on stdio (for any MCP client)
   trod promote <name>      Move .trod/tools/<name> to .trod/library/<name> (commit the library)
@@ -16247,7 +16252,8 @@ async function main(argv, out = console.log) {
       out(`forge: ${res.promoted.length} tool(s) promoted${res.unverified.length ? ` (${res.unverified.length} without examples)` : ""}, ${res.rejected.length} rejected${res.costUsd !== void 0 ? `, $${res.costUsd.toFixed(3)}, ${res.turns} turns` : ""}`);
       if (values.json) out(JSON.stringify(res, null, 2));
       const notesFailed = !!res.notes && (res.notes.checks.some((c) => !c.ok) || res.notes.errors.length > 0);
-      return (res.promoted.length || res.notes) && !notesFailed && res.exitCode === 0 ? 0 : 1;
+      const notesVerified = !!res.notes && !notesFailed && (res.notes.checks.length > 0 || (res.practice?.passed ?? 0) > 0);
+      return (res.promoted.length || notesVerified) && !notesFailed && res.exitCode === 0 ? 0 : 1;
     }
     case "verify": {
       const report = [];

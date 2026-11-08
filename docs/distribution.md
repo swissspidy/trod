@@ -9,7 +9,7 @@ How trod reaches users, what is ready, and what needs the repository owner.
 | Claude Code plugin (local) | `claude plugin marketplace add swissspidy/trod`, `claude plugin install trod@trod` | works |
 | Cloud environment (every session, any repo) | setup script with the two commands above, plus `TROD_ALLOW_EXEC=1` | works (tested in a fresh cloud session) |
 | Per repository (local, cloud, mobile app) | `npx trod init --allow-exec`, commit the files | ready; needs the npm release |
-| Per repository, no network at start | `npx trod init --vendor --allow-exec` (server copied into `.trod/bin/`) | ready; needs the npm release |
+| Per repository, no network at start | `npx trod init --vendor --allow-exec` (server and CLI copied into `.trod/pkg/`) | ready; needs the npm release |
 | Any MCP client (Antigravity, Cursor, VS Code, ...) | `npx -y trod mcp`, `TROD_ALLOW_EXEC=1` | ready; needs the npm release; untested in those clients |
 | MCP Registry | listed as `io.github.swissspidy/trod` (`plugin/server.json`) | published by the Release workflow |
 

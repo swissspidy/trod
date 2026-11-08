@@ -12,7 +12,7 @@ Usage:
   trod init [--vendor] [--allow-exec]
                            Set this repository up for trod in every Claude Code session, local or cloud (also
                            sessions started from the mobile app): writes .mcp.json, .claude/settings.json and the
-                           skill. --vendor copies the server into .trod/bin instead of running it through npx;
+                           skill. --vendor copies the server into .trod/pkg instead of running it through npx;
                            --allow-exec lets tools run (TROD_ALLOW_EXEC=1; meant for ephemeral cloud containers)
   trod mcp                 Start the trod MCP server on stdio (for any MCP client)
   trod promote <name>      Move .trod/tools/<name> to .trod/library/<name> (commit the library)
@@ -136,8 +136,10 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       if (values.json) out(JSON.stringify(res, null, 2));
       // Notes whose checks fail are not verified: report the forge as failed so scripts do not take them as good.
       const notesFailed = !!res.notes && (res.notes.checks.some((c) => !c.ok) || res.notes.errors.length > 0);
-      // A forge succeeds when it produced something verified: promoted tools, or notes whose checks (and practice) pass.
-      return (res.promoted.length || res.notes) && !notesFailed && res.exitCode === 0 ? 0 : 1;
+      // A forge succeeds when it produced something verified: promoted tools, or notes backed by passing checks or by a
+      // passed practice attempt. Notes that nothing verified do not count.
+      const notesVerified = !!res.notes && !notesFailed && (res.notes.checks.length > 0 || (res.practice?.passed ?? 0) > 0);
+      return (res.promoted.length || notesVerified) && !notesFailed && res.exitCode === 0 ? 0 : 1;
     }
     case 'verify': {
       // Library tools are trusted from promotion and not re-checked at startup (ADR 0003), so environments that drift

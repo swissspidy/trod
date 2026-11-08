@@ -78,6 +78,8 @@ export interface ForgeResult {
 /** Writes trod-try (and trod-reset) into binDir: each runs its command and logs the outcome to logFile. */
 function writePracticeBins(binDir: string, logFile: string, practice: PracticeOptions): void {
   mkdirSync(binDir, { recursive: true });
+  // The wrappers use require(): keep them CommonJS even if TMPDIR lies inside a "type": "module" package.
+  writeFileSync(path.join(binDir, 'package.json'), '{"type":"commonjs"}\n');
   const bin = (cmd: string, kind: string) => `#!/usr/bin/env node
 const { spawnSync } = require('node:child_process');
 const { appendFileSync } = require('node:fs');

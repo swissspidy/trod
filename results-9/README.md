@@ -36,7 +36,8 @@ episodes and is told whether each one succeeded.
 | **Haiku + forged notes** | **135/150 (90.0%)** | **135/150 (90.0%)** | **0.86** | **91k** | **4.7** | **0.0025** |
 | Sonnet, no notes | 101/150 (67.3%) | 96/150 (64.0%) | 0.42 | 69k | 4.5 | 0.0271 |
 
-- **Against Haiku without notes:** paired by run, **37 fixed and 4 broken** (exact McNemar p = 1 × 10⁻⁷). By full
+- **Against Haiku without notes:** paired by run, **37 fixed and 4 broken** (exact McNemar p = 1 × 10⁻⁷; runs of a
+  task type share notes, so see the per-type test in round 9b too). By full
   credit: 42 fixed, 4 broken (p = 5 × 10⁻⁹). Tokens fall 33% and turns 31%.
 - **Against Sonnet without notes:** Haiku with notes fixes 39 runs and breaks 5 (p = 1.4 × 10⁻⁷), at 9% of Sonnet's
   cost per run. Without notes, Haiku and Sonnet solve about the same share.
@@ -62,12 +63,18 @@ them: hot-cold and hover-shape never solved a practice episode, so they got none
 - **Against Haiku without notes:** 36 fixed, 6 broken (exact McNemar p = 3 × 10⁻⁶).
 - **Against Opus's notes:** 4 fixed, 7 broken (p = 0.55): no significant difference in solved runs. By full credit
   Opus's notes are ahead (135 vs 124), and they save more tokens (91k vs 119k per run).
+- **Per task type** (runs of one type share one set of notes, so they are not independent): Haiku's own notes
+  improve 14 of the 30 types and worsen 3 (sign test p = 0.013); Opus's improve 16 and worsen 1 (p = 0.0003).
+- **What Haiku's notes get wrong:** some keep practice-only steps (`mw reset`, `mw reward`) in their recipes, which
+  test sessions do not have, and stock-market's recipe ignores that the price can move between observing and
+  clicking. Test sessions coped; the notes are published as they were tested.
 - So the gain does not depend on a stronger teacher: the model that will use the notes can write them, from
   practice alone, for under three cents per task type.
 
 ## The whole suite
 
-The other 91 task types (Haiku was 4/4 on dev seeds) ran on test seeds 0–1 without notes: **178/182 (97.8%)**. With
+The other 91 task types (Haiku was 4/4 on dev seeds) ran on test seeds 0–1 without notes: **178/182 (97.8%)**
+(`runs-other-types.jsonl`). With
 every task type weighted equally, Haiku solves about **90%** of MiniWoB++ without notes, and about **96%** with
 practice notes for the 30 hard types (Opus's notes; 95% with its own).
 
@@ -97,4 +104,4 @@ a success signal, and still gained 22 points; with Haiku as its own teacher, 20 
 from practice runs, they let Haiku beat Sonnet while costing less per run than Haiku alone.
 
 Files: `summary.json`, `runs.jsonl` (one line per graded run), `by-task.json`, `forge.json` and `forge-haiku.json`
-(per-task forge cost, turns and practice outcomes), `forged-notes/` (Opus), `self-forged-notes/` (Haiku). Code: `experiments/miniwob/`.
+(per-task forge cost, turns and practice outcomes; `forge-haiku.json` also lists every attempt, $0.79 in total), `forged-notes/` (Opus), `self-forged-notes/` (Haiku). Code: `experiments/miniwob/`.

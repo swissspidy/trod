@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
  *
  * Writes (merging with what is there): .mcp.json (the trod server), .claude/settings.json (approve project MCP
  * servers, the validation hook) and .claude/skills/trod/SKILL.md (the skill). With --vendor, the bundled server and
- * CLI are copied into .trod/bin/ so nothing is fetched at session start; otherwise they run through npx.
+ * CLI are copied into .trod/pkg/ so nothing is fetched at session start; otherwise they run through npx.
  */
 export interface InitOptions {
   projectDir: string;
@@ -43,7 +43,9 @@ export function packageVersion(root: string): string | undefined {
 function readJson(file: string): Record<string, unknown> {
   if (!existsSync(file)) return {};
   const raw = readFileSync(file, 'utf8').trim();
-  return raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+  const value: unknown = raw ? JSON.parse(raw) : {};
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${file} must contain a JSON object`);
+  return value as Record<string, unknown>;
 }
 
 function writeIfChanged(file: string, content: string, res: InitResult, projectDir: string): void {
@@ -68,9 +70,11 @@ export function init(opts: InitOptions): InitResult {
   let server: { command: string; args: string[] };
   let hookCommand: string;
   if (opts.vendor) {
+    // Keep the package layout (bin/, server/, package.json), so the vendored CLI finds its server and version.
     for (const [from, to] of [
-      ['server/trod-server.mjs', '.trod/bin/trod-server.mjs'],
-      ['bin/trod', '.trod/bin/trod'],
+      ['server/trod-server.mjs', '.trod/pkg/server/trod-server.mjs'],
+      ['bin/trod', '.trod/pkg/bin/trod'],
+      ['package.json', '.trod/pkg/package.json'],
     ] as const) {
       const src = path.join(root, from);
       if (!existsSync(src)) throw new Error(`trod init --vendor: ${src} not found`);
@@ -80,9 +84,9 @@ export function init(opts: InitOptions): InitResult {
       copyFileSync(src, dest);
       (before?.equals(readFileSync(dest)) ? res.unchanged : res.written).push(to);
     }
-    server = { command: 'node', args: ['.trod/bin/trod-server.mjs'] };
-    hookCommand = 'node "$CLAUDE_PROJECT_DIR/.trod/bin/trod" hook';
-    res.notes.push('Vendored the server and CLI into .trod/bin/: commit them, and re-run `trod init --vendor` to update.');
+    server = { command: 'node', args: ['.trod/pkg/server/trod-server.mjs'] };
+    hookCommand = 'node "$CLAUDE_PROJECT_DIR/.trod/pkg/bin/trod" hook';
+    res.notes.push('Vendored the server and CLI into .trod/pkg/: commit them, and re-run `trod init --vendor` to update.');
   } else {
     server = { command: 'npx', args: ['-y', spec, 'mcp'] };
     hookCommand = `npx -y ${spec} hook`;
@@ -102,7 +106,9 @@ export function init(opts: InitOptions): InitResult {
   settings.enableAllProjectMcpServers = true;
   type HookGroup = { matcher?: string; hooks: { type: string; command: string; timeout?: number }[] };
   const hooks = (settings.hooks ?? {}) as Record<string, HookGroup[]>;
-  const post = (hooks.PostToolUse ?? []).filter((g) => !g.hooks.some((h) => /\btrod\b.*\bhook$/.test(h.command)));
+  // Drop only earlier trod hooks (keeping any other hooks in their groups), then add the current one.
+  const isTrodHook = (h: { command: string }) => /\btrod\b.*\bhook$/.test(h.command);
+  const post = (hooks.PostToolUse ?? []).map((g) => ({ ...g, hooks: g.hooks.filter((h) => !isTrodHook(h)) })).filter((g) => g.hooks.length > 0);
   post.push({ matcher: 'Write|Edit|MultiEdit', hooks: [{ type: 'command', command: hookCommand, timeout: 60 }] });
   hooks.PostToolUse = post;
   settings.hooks = hooks;
