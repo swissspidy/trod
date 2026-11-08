@@ -21,6 +21,8 @@ knows, and tasks where each one needs a fact no earlier task taught.
 
 ## Quick start
 
+Write `env.md`: a few lines on the API, tooling or workflow the forge should study. Then:
+
 ```sh
 npx trod init --allow-exec        # set this repo up for every Claude Code session: local, cloud, mobile app
 npx trod forge --brief @env.md --practice 'npm test'   # use your project's own success check

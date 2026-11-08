@@ -51,7 +51,8 @@ git add .mcp.json .claude .gitignore && git commit -m "Add trod"
 Cloud sessions do not install plugins declared in project settings, but they start project MCP servers from a
 committed `.mcp.json` (see [docs/spike.md](spike.md)); `trod init` writes one that runs `npx -y trod@<version> mcp`
 and sets `"enableAllProjectMcpServers": true`, which approves every server in the project's `.mcp.json`, not only
-trod's (cloud sessions cannot answer the approval prompt). `--vendor` copies the bundled server (one file, no
+trod's (cloud sessions cannot answer the approval prompt). On your own machine, Claude Code ignores approvals committed
+to the project until you trust the folder ([workspace trust](https://code.claude.com/docs/en/mcp#project-server-approvals-and-workspace-trust)). `--vendor` copies the bundled server (one file, no
 dependencies) into `.trod/pkg/` instead, so nothing is fetched at session start. Stage it with the other files
 (`git add .trod/pkg`, or `git add -f .trod/pkg` if your `.gitignore` ignores `bin/`).
 
