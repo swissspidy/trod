@@ -73,7 +73,7 @@ Tool code runs outside Claude Code's permission prompts, so execution is off unl
 
 - [Reference](docs/reference.md): tool format, every install route (plugin, `trod init`, cloud environments, other
   MCP clients), CLI, configuration, releasing.
-- [Experiments](experiments/) and results: [round 1](results/README.md) … [round 9](results-9/README.md);
+- [Experiments](experiments/) and results: [round 1](results/README.md) … [round 10](results-10/README.md);
   decisions in [docs/adr](docs/adr/); [distribution](docs/distribution.md); [changelog](CHANGELOG.md).
 
 ```sh
