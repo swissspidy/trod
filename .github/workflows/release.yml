@@ -1,0 +1,87 @@
+name: Release
+
+# Publishes the trod package (plugin/: the bundled server, CLI, skill and hook) to npm when a v* tag is pushed.
+# Needs the NPM_TOKEN secret (an npm granular access token with publish rights and 2FA bypass). Provenance links the package to this workflow.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          # A release must not restore a cache that another workflow could have written.
+          package-manager-cache: false
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm build
+      - name: Bundles are up to date
+        run: |
+          if ! git diff --exit-code -- plugin/; then
+            echo "::error::plugin/ bundles are stale. Run pnpm build and commit them."
+            exit 1
+          fi
+      - run: pnpm test
+      - name: Tag matches the package version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="$(node -p "require('./plugin/package.json').version")"
+          if [ "v$version" != "$TAG" ]; then
+            echo "::error::tag $TAG does not match plugin/package.json version $version"
+            exit 1
+          fi
+      - name: Publish
+        working-directory: plugin
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # A rerun (e.g. after a failed registry step) skips a version npm already has.
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if npm view "trod@$version" version >/dev/null 2>&1; then
+            echo "trod@$version is already on npm; skipping publish"
+          else
+            npm publish --provenance --access public
+          fi
+      # The MCP Registry (registry.modelcontextprotocol.io) lists the npm package; it checks mcpName in package.json.
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - name: Download and verify mcp-publisher
+        env:
+          MCP_PUBLISHER_VERSION: v1.8.1
+        run: |
+          set -euo pipefail
+          archive="mcp-publisher_linux_amd64.tar.gz"
+          base_url="https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}"
+          curl --fail --location --silent --show-error --output "$archive" "$base_url/$archive"
+          curl --fail --location --silent --show-error --output "$archive.sigstore.json" "$base_url/$archive.sigstore.json"
+          cosign verify-blob \
+            --bundle "$archive.sigstore.json" \
+            --certificate-identity "https://github.com/modelcontextprotocol/registry/.github/workflows/release.yml@refs/tags/${MCP_PUBLISHER_VERSION}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            "$archive"
+          tar xzf "$archive" mcp-publisher
+          rm -f "$archive" "$archive.sigstore.json"
+      - name: Publish to the MCP Registry
+        working-directory: plugin
+        run: |
+          ../mcp-publisher login github-oidc
+          ../mcp-publisher publish

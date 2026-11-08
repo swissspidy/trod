@@ -1,0 +1,31 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.swissspidy/trod",
+  "title": "trod",
+  "description": "Self-morphing tools: the agent writes a file and it becomes a live MCP tool mid-session.",
+  "repository": { "url": "https://github.com/swissspidy/trod", "source": "github", "subfolder": "plugin" },
+  "websiteUrl": "https://swissspidy.github.io/trod/",
+  "version": "0.5.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "trod",
+      "version": "0.5.0",
+      "transport": { "type": "stdio" },
+      "packageArguments": [{ "type": "positional", "value": "mcp" }],
+      "environmentVariables": [
+        {
+          "name": "TROD_ALLOW_EXEC",
+          "description": "Set to 1 to let tools run. Tool code runs outside the client's permission prompts: meant for ephemeral containers.",
+          "isRequired": false
+        },
+        {
+          "name": "TROD_PROJECT_DIR",
+          "description": "Project directory whose .trod/ holds the tools (default: CLAUDE_PROJECT_DIR or the working directory).",
+          "isRequired": false
+        }
+      ]
+    }
+  ]
+}

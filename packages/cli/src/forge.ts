@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,6 +25,21 @@ Future sessions start fresh, with no memory of this one. They will see the tools
 
 Do not write answer files. When finished, reply with a short list of the tools and DONE.`;
 
+/**
+ * Practice (round 9): when the environment can say whether an attempt succeeded, the forge practises before it
+ * writes notes. Notes learned from real successes and failures beat notes inferred from reading.
+ */
+export const PRACTICE_PROMPT = (hasReset: boolean) => `## Practice
+
+You can practise on the environment itself. \`trod-try\` runs the practice check: it exits 0 when the current attempt succeeded, and its output says why when it did not.${hasReset ? ' `trod-reset` starts a fresh attempt (a new instance of the same kind of task).' : ''} Make real attempts until they succeed reliably (at least 3 in a row where you can), and learn from every failure: what ends an attempt, what success needs that nobody says, which actions are reliable, which are traps. Then write into .trod/notes.md the rules you saw hold, each with the action to take, plus a short recipe that worked, with <placeholders> for what differs between attempts. Run checks only through \`trod-try\`: notes from a forge that never passed it are not linked.`;
+
+export interface PracticeOptions {
+  /** Shell command that checks the current attempt: exit code 0 means it succeeded. */
+  check: string;
+  /** Shell command that starts a fresh attempt (optional). */
+  reset?: string;
+}
+
 export interface ForgeOptions {
   projectDir: string;
   brief: string;
@@ -39,6 +54,10 @@ export interface ForgeOptions {
   out?: (s: string) => void;
   /** Add the `@.trod/notes.md` import to CLAUDE.md when the forge wrote notes (default true). */
   linkNotes?: boolean;
+  /** Let the forge practise against a success check before writing notes. */
+  practice?: PracticeOptions;
+  /** The Claude Code executable (default: TROD_CLAUDE_BIN or `claude`). */
+  claudeBin?: string;
 }
 
 export interface ForgeResult {
@@ -52,6 +71,43 @@ export interface ForgeResult {
   costUsd?: number;
   turns?: number;
   usage?: Record<string, number>;
+  /** Practice attempts the forge checked with trod-try, and how many passed. */
+  practice?: { attempts: number; passed: number; corrupt: number };
+}
+
+/** Writes trod-try (and trod-reset) into binDir: each runs its command and logs the outcome to logFile. */
+function writePracticeBins(binDir: string, logFile: string, practice: PracticeOptions): void {
+  mkdirSync(binDir, { recursive: true });
+  // The wrappers use require(): keep them CommonJS even if TMPDIR lies inside a "type": "module" package.
+  writeFileSync(path.join(binDir, 'package.json'), '{"type":"commonjs"}\n');
+  const bin = (cmd: string, kind: string) => `#!/usr/bin/env node
+const { spawnSync } = require('node:child_process');
+const { appendFileSync } = require('node:fs');
+const r = spawnSync('sh', ['-c', ${JSON.stringify(cmd)}, 'sh', ...process.argv.slice(2)], { stdio: 'inherit' });
+const code = r.status === null ? 1 : r.status;
+appendFileSync(${JSON.stringify(logFile)}, JSON.stringify({ kind: ${JSON.stringify(kind)}, exit: code, at: new Date().toISOString() }) + '\\n');
+process.exit(code);
+`;
+  for (const [name, cmd, kind] of [['trod-try', practice.check, 'try'], ['trod-reset', practice.reset, 'reset']] as const) {
+    if (!cmd) continue;
+    writeFileSync(path.join(binDir, name), bin(cmd, kind));
+    chmodSync(path.join(binDir, name), 0o755);
+  }
+}
+
+function readPractice(logFile: string): { attempts: number; passed: number; corrupt: number } {
+  const lines = existsSync(logFile) ? readFileSync(logFile, 'utf8').split('\n').filter(Boolean) : [];
+  const entries: { kind?: string; exit?: number }[] = [];
+  let corrupt = 0;
+  for (const l of lines) {
+    try {
+      entries.push(JSON.parse(l));
+    } catch {
+      corrupt++; // a torn write: skip it rather than abort the forge (it can only lower the pass count)
+    }
+  }
+  const tries = entries.filter((e) => e.kind === 'try');
+  return { attempts: tries.length, passed: tries.filter((e) => e.exit === 0).length, corrupt };
 }
 
 export function defaultServerPath(): string {
@@ -62,11 +118,14 @@ export function defaultServerPath(): string {
 export async function forge(opts: ForgeOptions): Promise<ForgeResult> {
   const out = opts.out ?? (() => {});
   const paths = trodPaths(opts.projectDir);
-  const env = { ...(opts.env ?? process.env), TROD_ALLOW_EXEC: '1', TROD_PROJECT_DIR: opts.projectDir };
   const scratch = mkdtempSync(path.join(tmpdir(), 'trod-forge-'));
+  const baseEnv = opts.env ?? process.env;
+  const practiceLog = path.join(scratch, 'practice.jsonl');
+  if (opts.practice) writePracticeBins(path.join(scratch, 'bin'), practiceLog, opts.practice);
+  const env = { ...baseEnv, TROD_ALLOW_EXEC: '1', TROD_PROJECT_DIR: opts.projectDir, ...(opts.practice ? { PATH: `${path.join(scratch, 'bin')}${path.delimiter}${baseEnv.PATH ?? ''}` } : {}) };
   const mcpConfig = path.join(scratch, 'mcp.json');
   writeFileSync(mcpConfig, JSON.stringify({ mcpServers: { trod: { command: process.execPath, args: [opts.server ?? defaultServerPath()] } } }));
-  const prompt = `${FORGE_PROMPT}\n\n## The environment\n\n${opts.brief}`;
+  const prompt = `${FORGE_PROMPT}\n\n## The environment\n\n${opts.brief}${opts.practice ? `\n\n${PRACTICE_PROMPT(!!opts.practice.reset)}` : ''}`;
   const args = [
     '-p', prompt,
     '--output-format', 'stream-json', '--verbose',
@@ -80,7 +139,7 @@ export async function forge(opts: ForgeOptions): Promise<ForgeResult> {
   mkdirSync(path.dirname(streamFile), { recursive: true });
   out(`forging tools in ${opts.projectDir}${opts.model ? ` with ${opts.model}` : ''} …`);
   const exitCode = await new Promise<number | null>((resolve) => {
-    const child = spawn('claude', args, { cwd: opts.projectDir, env, stdio: ['ignore', 'pipe', 'inherit'] });
+    const child = spawn(opts.claudeBin ?? baseEnv.TROD_CLAUDE_BIN ?? 'claude', args, { cwd: opts.projectDir, env, stdio: ['ignore', 'pipe', 'inherit'] });
     let buf = '';
     child.stdout.on('data', (c: Buffer) => (buf += c.toString('utf8')));
     const timer = setTimeout(() => child.kill('SIGKILL'), opts.timeoutMs ?? 30 * 60_000);
@@ -90,6 +149,8 @@ export async function forge(opts: ForgeOptions): Promise<ForgeResult> {
       resolve(code);
     });
   });
+  const practice = opts.practice ? readPractice(practiceLog) : undefined;
+  if (practice) out(`  practice: ${practice.passed}/${practice.attempts} attempt(s) passed${practice.corrupt ? ` (${practice.corrupt} unreadable log line(s) skipped)` : ''}`);
   const result = readFileSync(streamFile, 'utf8')
     .split('\n')
     .filter((l) => l.includes('"type":"result"'))
@@ -120,6 +181,8 @@ export async function forge(opts: ForgeOptions): Promise<ForgeResult> {
     out(`  notes: ${notes.chars} chars${notes.tooLong ? ` (over ${NOTES_MAX_CHARS}: trim them, they are in every session's context)` : ''}, ${passed}/${notes.checks.length} check(s) passed`);
     for (const c of notes.checks.filter((c) => !c.ok)) out(`    failed check "${c.claim}" (${c.tool}): ${c.error}`);
     for (const e of notes.errors) out(`    ${e}`);
+    // Practice notes count as verified only if the forge passed the practice check at least once.
+    if (practice && practice.passed === 0) notes.errors.push('the forge never passed the practice check (trod-try), so nothing in these notes was seen to work');
     const failed = notes.checks.some((c) => !c.ok) || notes.errors.length > 0;
     if (failed && notes.linked) out(`  WARNING: CLAUDE.md already imports .trod/notes.md (${NOTES_IMPORT}), so sessions still load these unverified notes: fix the failing claims or remove the import`);
     else if (failed) out('  notes NOT linked into CLAUDE.md: fix or remove the failing claims and their checks, then run `trod notes --link`');
@@ -128,5 +191,5 @@ export async function forge(opts: ForgeOptions): Promise<ForgeResult> {
       if (notesLinkedNow) out(`  linked .trod/notes.md into CLAUDE.md (${NOTES_IMPORT})${notes.checks.length ? '' : ' (no checks: nothing in them is verified)'}`);
     }
   }
-  return { exitCode, promoted, rejected, unverified, notes: notes.exists ? { ...notes, linked: notes.linked || notesLinkedNow } : undefined, costUsd: result?.total_cost_usd, turns: result?.num_turns, usage: result?.usage };
+  return { exitCode, promoted, rejected, unverified, notes: notes.exists ? { ...notes, linked: notes.linked || notesLinkedNow } : undefined, costUsd: result?.total_cost_usd, turns: result?.num_turns, usage: result?.usage, practice };
 }

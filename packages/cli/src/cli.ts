@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
-import { forge } from './forge.ts';
+import { defaultServerPath, forge } from './forge.ts';
+import { defaultPackageRoot, init, packageVersion } from './init.ts';
+import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { computeStats, formatStats, linkNotes, listToolEntries, loadToolEntry, NOTES_IMPORT, NOTES_MAX_CHARS, promoteTool, readLogs, resolveProjectDir, runToolExamples, trodPaths, verifyNotes, type NotesReport } from '@trod/server';
@@ -7,6 +9,12 @@ import { computeStats, formatStats, linkNotes, listToolEntries, loadToolEntry, N
 const USAGE = `trod: self-morphing tools for Claude Code
 
 Usage:
+  trod init [--vendor] [--allow-exec]
+                           Set this repository up for trod in every Claude Code session, local or cloud (also
+                           sessions started from the mobile app): writes .mcp.json, .claude/settings.json and the
+                           skill. --vendor copies the server into .trod/pkg instead of running it through npx;
+                           --allow-exec lets tools run (TROD_ALLOW_EXEC=1; meant for ephemeral cloud containers)
+  trod mcp                 Start the trod MCP server on stdio (for any MCP client)
   trod promote <name>      Move .trod/tools/<name> to .trod/library/<name> (commit the library)
   trod stats [--json]      Summarize tool usage across .trod/logs/*.jsonl
   trod check               Validate every tool folder (static checks, no execution)
@@ -15,9 +23,12 @@ Usage:
   trod verify [--json]     Re-run every library tool's examples and every note check against the current
                            environment; exit 1 if any tool or note is stale (run it in CI or on a schedule)
   trod notes [--link]      Show .trod/notes.md's status and run its checks; --link adds @.trod/notes.md to CLAUDE.md
-  trod forge --brief <text|@file> [--model <id>] [--no-link]
+  trod forge --brief <text|@file> [--model <id>] [--no-link] [--practice <cmd> [--reset <cmd>]]
                            Run a dedicated tool-building session (headless Claude Code), promote every tool whose
-                           examples pass to .trod/library, check the notes it wrote and link them into CLAUDE.md
+                           examples pass to .trod/library, check the notes it wrote and link them into CLAUDE.md.
+                           --practice: a shell command whose exit code 0 means the current attempt succeeded (e.g.
+                           a test suite, a grader); the forge practises against it before writing notes, and its
+                           notes are linked only if it passed at least once. --reset starts a fresh attempt.
 
 Options:
   --dir <path>             Project directory (default: TROD_PROJECT_DIR, CLAUDE_PROJECT_DIR or cwd)
@@ -40,9 +51,18 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       stream: { type: 'string' },
       link: { type: 'boolean', default: false },
       'no-link': { type: 'boolean', default: false },
+      practice: { type: 'string' },
+      reset: { type: 'string' },
+      vendor: { type: 'boolean', default: false },
+      'allow-exec': { type: 'boolean', default: false },
+      version: { type: 'boolean', short: 'v', default: false },
     },
   });
   const [command, ...rest] = positionals;
+  if (values.version) {
+    out(packageVersion(defaultPackageRoot()) ?? 'dev');
+    return 0;
+  }
   if (values.help || !command) {
     out(USAGE);
     return command || values.help ? 0 : 1;
@@ -58,6 +78,19 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
   const paths = trodPaths(values.dir ? path.resolve(values.dir) : resolveProjectDir());
 
   switch (command) {
+    case 'mcp': {
+      // The server runs in this process until its client disconnects (it exits on stdin close or a signal).
+      await import(pathToFileURL(values.server ?? defaultServerPath()).href);
+      return new Promise<number>(() => {});
+    }
+    case 'init': {
+      const res = init({ projectDir: paths.projectDir, vendor: values.vendor, allowExec: values['allow-exec'] });
+      for (const f of res.written) out(`wrote     ${f}`);
+      for (const f of res.unchanged) out(`unchanged ${f}`);
+      for (const n of res.notes) out(n);
+      out('Commit these files. Local sessions and cloud sessions (also from the mobile app) start trod from .mcp.json.');
+      return 0;
+    }
     case 'promote': {
       const name = rest[0];
       if (!name) {
@@ -93,12 +126,20 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
         return 1;
       }
       const brief = values.brief.startsWith('@') ? readFileSync(values.brief.slice(1), 'utf8') : values.brief;
-      const res = await forge({ projectDir: paths.projectDir, brief, model: values.model, server: values.server, maxBudgetUsd: values.budget, streamFile: values.stream, out, linkNotes: !values['no-link'] });
+      if (values.reset && !values.practice) {
+        out('trod forge: --reset needs --practice');
+        return 1;
+      }
+      const practice = values.practice ? { check: values.practice, reset: values.reset } : undefined;
+      const res = await forge({ projectDir: paths.projectDir, brief, model: values.model, server: values.server, maxBudgetUsd: values.budget, streamFile: values.stream, out, linkNotes: !values['no-link'], practice });
       out(`forge: ${res.promoted.length} tool(s) promoted${res.unverified.length ? ` (${res.unverified.length} without examples)` : ''}, ${res.rejected.length} rejected${res.costUsd !== undefined ? `, $${res.costUsd.toFixed(3)}, ${res.turns} turns` : ''}`);
       if (values.json) out(JSON.stringify(res, null, 2));
       // Notes whose checks fail are not verified: report the forge as failed so scripts do not take them as good.
       const notesFailed = !!res.notes && (res.notes.checks.some((c) => !c.ok) || res.notes.errors.length > 0);
-      return res.promoted.length && !notesFailed ? 0 : 1;
+      // A forge succeeds when it produced something verified: promoted tools, or notes backed by passing checks or by a
+      // passed practice attempt. Notes that nothing verified do not count.
+      const notesVerified = !!res.notes && !notesFailed && (res.notes.checks.length > 0 || (res.practice?.passed ?? 0) > 0);
+      return (res.promoted.length || notesVerified) && !notesFailed && res.exitCode === 0 ? 0 : 1;
     }
     case 'verify': {
       // Library tools are trusted from promotion and not re-checked at startup (ADR 0003), so environments that drift

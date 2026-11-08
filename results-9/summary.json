@@ -37,5 +37,18 @@
     "meanTokens": 69225,
     "meanCostUsd": 0.0271,
     "meanTurns": 4.5
+  },
+  {
+    "condition": "selfnotes",
+    "label": "Haiku + notes Haiku forged itself",
+    "runs": 150,
+    "solved": 132,
+    "solvedRate": 0.88,
+    "fullCredit": 124,
+    "fullCreditRate": 0.827,
+    "meanReward": 0.795,
+    "meanTokens": 119493,
+    "meanCostUsd": 0.00312,
+    "meanTurns": 6.2
   }
 ]
