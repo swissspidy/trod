@@ -7,6 +7,7 @@
  * agent never sees the reward; the runner reads the raw reward (−1..1, task solved when > 0) with a token.
  *
  * Splits by seed: test = seeds 0..MW_PER_TASK−1, dev = seeds 500+, train = seeds 1000+ (forges use train only).
+ * MW_SEED_OFFSET=<n> shifts the seeds within a split (e.g. dev seeds 504+ for a second round of sessions).
  * MW_TASKS=<a,b,...> restricts the task types (default: all, minus real-time tasks and -nodelay duplicates).
  * MW_NOTES=<dir> copies <dir>/<task>.md into the work dir as CLAUDE.md (notes forged from train seeds: forge-notes.ts).
  * MW_WIKI=<dir> and MW_NOTES_ALL=<file> (build-wiki.ts) give all task types' notes without routing: a wiki index, or one file.
@@ -37,7 +38,7 @@ export function taskTypes(): string[] {
 }
 
 export function mwSample(split: keyof typeof SEEDS, perTask: number): { task: string; seed: number }[] {
-  return taskTypes().flatMap((task) => Array.from({ length: perTask }, (_, i) => ({ task, seed: SEEDS[split] + i })));
+  return taskTypes().flatMap((task) => Array.from({ length: perTask }, (_, i) => ({ task, seed: SEEDS[split] + Number(process.env.MW_SEED_OFFSET ?? 0) + i })));
 }
 
 function freePort(): Promise<number> {
