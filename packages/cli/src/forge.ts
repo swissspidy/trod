@@ -58,6 +58,8 @@ export interface ForgeOptions {
   practice?: PracticeOptions;
   /** The Claude Code executable (default: TROD_CLAUDE_BIN or `claude`). */
   claudeBin?: string;
+  /** Replaces FORGE_PROMPT (trod learn uses LEARN_PROMPT). */
+  prompt?: string;
 }
 
 export interface ForgeResult {
@@ -125,7 +127,7 @@ export async function forge(opts: ForgeOptions): Promise<ForgeResult> {
   const env = { ...baseEnv, TROD_ALLOW_EXEC: '1', TROD_PROJECT_DIR: opts.projectDir, ...(opts.practice ? { PATH: `${path.join(scratch, 'bin')}${path.delimiter}${baseEnv.PATH ?? ''}` } : {}) };
   const mcpConfig = path.join(scratch, 'mcp.json');
   writeFileSync(mcpConfig, JSON.stringify({ mcpServers: { trod: { command: process.execPath, args: [opts.server ?? defaultServerPath()] } } }));
-  const prompt = `${FORGE_PROMPT}\n\n## The environment\n\n${opts.brief}${opts.practice ? `\n\n${PRACTICE_PROMPT(!!opts.practice.reset)}` : ''}`;
+  const prompt = `${opts.prompt ?? FORGE_PROMPT}\n\n## The environment\n\n${opts.brief}${opts.practice ? `\n\n${PRACTICE_PROMPT(!!opts.practice.reset)}` : ''}`;
   const args = [
     '-p', prompt,
     '--output-format', 'stream-json', '--verbose',
@@ -186,6 +188,7 @@ export async function forge(opts: ForgeOptions): Promise<ForgeResult> {
     const failed = notes.checks.some((c) => !c.ok) || notes.errors.length > 0;
     if (failed && notes.linked) out(`  WARNING: CLAUDE.md already imports .trod/notes.md (${NOTES_IMPORT}), so sessions still load these unverified notes: fix the failing claims or remove the import`);
     else if (failed) out('  notes NOT linked into CLAUDE.md: fix or remove the failing claims and their checks, then run `trod notes --link`');
+    else if (exitCode !== 0) out(`  notes NOT linked into CLAUDE.md: the session did not finish cleanly (${exitCode === null ? 'killed, e.g. by --timeout' : `exit code ${exitCode}`}), so they may be incomplete; review them, then run \`trod notes --link\``);
     else if (opts.linkNotes !== false) {
       notesLinkedNow = linkNotes(paths);
       if (notesLinkedNow) out(`  linked .trod/notes.md into CLAUDE.md (${NOTES_IMPORT})${notes.checks.length ? '' : ' (no checks: nothing in them is verified)'}`);

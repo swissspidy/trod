@@ -99,6 +99,20 @@ which is meant for ephemeral cloud containers. See [ADR 0001](adr/0001-tool-exec
   test. The forge calls it as `trod-try` (and `--reset` as `trod-reset`), learns from what passes and fails, and
   writes rules plus a recipe that worked. Its notes are linked only if it passed the check at least once
   ([round 9](../results-9/README.md): practice notes took Haiku from 68% to 90% on MiniWoB++'s hardest task types).
+- `trod learn [--from <dir|file>]... [--outcomes <file>] [--limit <n>]` learns from sessions that **already
+  happened**. Claude Code keeps a transcript of every session in `~/.claude/projects/<project>/`; trod learn
+  condenses the most recent ones (200 by default, `--limit` changes it) (task, tool calls, errors, final message), skips trod's own forge
+  sessions, and runs a forge session that compares failed sessions with passed ones and writes rules into
+  `.trod/notes.md`. When there are many kinds of task, it keeps general rules plus an index there and puts each
+  kind's rules into `.trod/wiki/<kind>.md`, which sessions read on demand ([round 10](../results-10/README.md):
+  Haiku picks the right page itself). `--outcomes` is a JSON object mapping session ids to `true`/`false` (from
+  CI, a grader, or your own judgment); without it the learner judges each session from its errors, retries and
+  your corrections. No brief and no practice environment are needed; `--brief` and `--practice` still work.
+  Like the forge, the learner is a Claude Code session that may run commands to confirm a lesson against the
+  project ([round 11](../results-11/README.md) found it starting the project's own test server); run it where that
+  is fine. It sees the transcripts on the machine where it runs: on your own machine that is every session you had
+  in this project; a cloud container only holds its own session's transcripts, so point `--from` at transcripts you
+  collected (for example from CI runs of `claude -p`).
 - `trod verify` re-runs every library tool's examples and every note check: run it in CI to catch a drifted
   environment. `trod notes` shows the notes' status.
 - `trod stats` summarizes `.trod/logs/*.jsonl`: tools created, called, reused, errors.

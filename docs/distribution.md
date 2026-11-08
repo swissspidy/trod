@@ -24,16 +24,17 @@ How trod reaches users, what is ready, and what needs the repository owner.
 
 ## Why it is worth distributing
 
-The evidence across nine rounds (see the README) supports one product claim and rules out another:
+The evidence across eleven rounds (see the README) supports one product claim and rules out another:
 
 - **Supported:** knowledge forged once and reused pays off where an environment holds knowledge a model cannot
   guess and that recurs across tasks. Forged notes took Haiku from 52% to 89% (ScienceWorld) and from 68% to 90%
   (MiniWoB++), past Sonnet at a tenth of its cost; practising against a success signal, Haiku forged useful notes for
   itself for under three cents per task type (the experiment harness behind those numbers is what `trod forge
-  --practice` now offers).
+  --practice` now offers). Without any setup, `trod learn` distilled notes from 120 ordinary past sessions that
+  took Haiku to 81–83%, and to 88% after one more round of sessions (round 11).
 - **Ruled out:** building tools mid-task is not cheaper than writing a script, and forging changes nothing where
   the model already knows the domain (SWE-bench on Django) or where every task needs its own fact (BIRD).
 
-So the pitch is `trod forge` (tools and verified notes, optionally learned by practice) for internal APIs, quirky
-tooling and repeated workflows, with `trod verify` in CI to catch drift; the live tool server is the delivery
+So the pitch is `trod learn` for projects that already use Claude Code and `trod forge` (tools and verified notes,
+optionally learned by practice) for internal APIs, quirky tooling and repeated workflows, with `trod verify` in CI to catch drift; the live tool server is the delivery
 mechanism, not the headline.
