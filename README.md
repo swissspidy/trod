@@ -24,9 +24,12 @@ knows, and tasks where each one needs a fact no earlier task taught.
 Already using Claude Code in this repo? Learn from the sessions you have had, with no setup:
 
 ```sh
-npx trod init --allow-exec        # set this repo up for every Claude Code session: local, cloud, mobile app
+npx trod init                     # set this repo up for every Claude Code session: local, cloud, mobile app
 npx trod learn                    # distil notes from Claude Code's transcripts of this project's sessions
 ```
+
+(`learn` and `forge` let their own session run tools. For later sessions to run forged tools too, opt in with
+`npx trod init --allow-exec`, meant for ephemeral cloud containers; see the note below.)
 
 `trod learn` compares sessions that failed with ones that worked and writes rules (plus a page per kind of task when
 there are many). On MiniWoB++ it took Haiku from 68% to 81–83% from 120 old sessions, and to 88% after one more
