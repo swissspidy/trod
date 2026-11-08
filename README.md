@@ -29,8 +29,9 @@ npx trod forge --brief @env.md --practice 'npm test'   # use your project's own 
 npx trod verify                   # in CI: re-check every tool and note against the environment
 ```
 
-Commit what the forge wrote (`.trod/library`, `.trod/notes.md`, `.trod/notes.checks.json`, the `CLAUDE.md` import)
-so every later session, cloud ones included, loads it.
+Commit and push what `init` and the forge wrote (`.mcp.json`, `.claude/`, `.gitignore`, `.trod/library`,
+`.trod/notes.md`, `.trod/notes.checks.json`, the `CLAUDE.md` import) so every later session, cloud ones included,
+loads it.
 
 Or install the Claude Code plugin: `claude plugin marketplace add swissspidy/trod`, then
 `claude plugin install trod@trod`. Other MCP clients run `npx -y trod mcp`.
