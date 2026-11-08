@@ -44,3 +44,12 @@ them as free text.
 - Evidence since: on ScienceWorld (round 8) forged notes took Haiku from 52% to 89% solved. On AppWorld through
   `trod forge` (round 6c), the first forged notes missed domain rules because they described the tools instead, so
   the forge prompt now keeps notes to environment knowledge. Tools on top of good notes added nothing there.
+
+## Addendum: practice (round 9)
+
+Notes checked by tool examples verify facts, not procedures. Round 9 (MiniWoB++) showed a second source of verified
+notes: practice against a success signal. `trod forge --practice '<check>'` exposes the check to the forge session as
+`trod-try`, logs every attempt outside the session, and adds a notes error when no attempt passed, so the notes are
+not linked. The check is a plain shell command (exit code 0 = success), which covers test suites, graders and smoke
+tests without trod knowing the environment. The forge can still write a wrong rule after a pass; the gate only
+guarantees that something in the notes was seen to work, which is why the notes stay short and rule-shaped.

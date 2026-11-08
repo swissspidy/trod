@@ -15,9 +15,12 @@ Usage:
   trod verify [--json]     Re-run every library tool's examples and every note check against the current
                            environment; exit 1 if any tool or note is stale (run it in CI or on a schedule)
   trod notes [--link]      Show .trod/notes.md's status and run its checks; --link adds @.trod/notes.md to CLAUDE.md
-  trod forge --brief <text|@file> [--model <id>] [--no-link]
+  trod forge --brief <text|@file> [--model <id>] [--no-link] [--practice <cmd> [--reset <cmd>]]
                            Run a dedicated tool-building session (headless Claude Code), promote every tool whose
-                           examples pass to .trod/library, check the notes it wrote and link them into CLAUDE.md
+                           examples pass to .trod/library, check the notes it wrote and link them into CLAUDE.md.
+                           --practice: a shell command whose exit code 0 means the current attempt succeeded (e.g.
+                           a test suite, a grader); the forge practises against it before writing notes, and its
+                           notes are linked only if it passed at least once. --reset starts a fresh attempt.
 
 Options:
   --dir <path>             Project directory (default: TROD_PROJECT_DIR, CLAUDE_PROJECT_DIR or cwd)
@@ -40,6 +43,8 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       stream: { type: 'string' },
       link: { type: 'boolean', default: false },
       'no-link': { type: 'boolean', default: false },
+      practice: { type: 'string' },
+      reset: { type: 'string' },
     },
   });
   const [command, ...rest] = positionals;
@@ -93,12 +98,18 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
         return 1;
       }
       const brief = values.brief.startsWith('@') ? readFileSync(values.brief.slice(1), 'utf8') : values.brief;
-      const res = await forge({ projectDir: paths.projectDir, brief, model: values.model, server: values.server, maxBudgetUsd: values.budget, streamFile: values.stream, out, linkNotes: !values['no-link'] });
+      if (values.reset && !values.practice) {
+        out('trod forge: --reset needs --practice');
+        return 1;
+      }
+      const practice = values.practice ? { check: values.practice, reset: values.reset } : undefined;
+      const res = await forge({ projectDir: paths.projectDir, brief, model: values.model, server: values.server, maxBudgetUsd: values.budget, streamFile: values.stream, out, linkNotes: !values['no-link'], practice });
       out(`forge: ${res.promoted.length} tool(s) promoted${res.unverified.length ? ` (${res.unverified.length} without examples)` : ''}, ${res.rejected.length} rejected${res.costUsd !== undefined ? `, $${res.costUsd.toFixed(3)}, ${res.turns} turns` : ''}`);
       if (values.json) out(JSON.stringify(res, null, 2));
       // Notes whose checks fail are not verified: report the forge as failed so scripts do not take them as good.
       const notesFailed = !!res.notes && (res.notes.checks.some((c) => !c.ok) || res.notes.errors.length > 0);
-      return res.promoted.length && !notesFailed ? 0 : 1;
+      // A forge succeeds when it produced something verified: promoted tools, or notes whose checks (and practice) pass.
+      return (res.promoted.length || res.notes) && !notesFailed && res.exitCode === 0 ? 0 : 1;
     }
     case 'verify': {
       // Library tools are trusted from promotion and not re-checked at startup (ADR 0003), so environments that drift

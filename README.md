@@ -89,6 +89,11 @@ which is meant for ephemeral cloud containers. See [ADR 0001](docs/adr/0001-tool
   Code) against an environment and promotes every tool whose examples pass: build the library once with a strong
   model, use it in every later session. The forge also writes `.trod/notes.md` (conventions a newcomer gets wrong)
   with checks in `.trod/notes.checks.json`, and links the notes into `CLAUDE.md` (`@.trod/notes.md`).
+- `trod forge --brief @env.md --practice '<check>' [--reset '<cmd>']` lets the forge **practise** first. The check
+  is any shell command whose exit code 0 means the current attempt succeeded: a test suite, a grader, a smoke
+  test. The forge calls it as `trod-try` (and `--reset` as `trod-reset`), learns from what passes and fails, and
+  writes rules plus a recipe that worked. Its notes are linked only if it passed the check at least once
+  ([round 9](results-9/README.md): practice notes took Haiku from 68% to 90% on MiniWoB++'s hardest task types).
 - `trod verify` re-runs every library tool's examples and every note check: run it in CI to catch a drifted
   environment. `trod notes` shows the notes' status.
 - `trod stats` summarizes `.trod/logs/*.jsonl`: tools created, called, reused, errors.
