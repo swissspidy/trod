@@ -7257,7 +7257,7 @@ var require_dist = __commonJS({
 });
 
 // packages/cli/src/cli.ts
-import { mkdtempSync as mkdtempSync2, readFileSync as readFileSync8, statSync as statSync2 } from "node:fs";
+import { existsSync as existsSync8, mkdtempSync as mkdtempSync2, readdirSync as readdirSync5, readFileSync as readFileSync8 } from "node:fs";
 
 // packages/cli/src/forge.ts
 import { spawn as spawn2 } from "node:child_process";
@@ -16032,6 +16032,7 @@ ${PRACTICE_PROMPT(!!opts.practice.reset)}` : ""}`;
     const failed = notes.checks.some((c) => !c.ok) || notes.errors.length > 0;
     if (failed && notes.linked) out(`  WARNING: CLAUDE.md already imports .trod/notes.md (${NOTES_IMPORT}), so sessions still load these unverified notes: fix the failing claims or remove the import`);
     else if (failed) out("  notes NOT linked into CLAUDE.md: fix or remove the failing claims and their checks, then run `trod notes --link`");
+    else if (exitCode !== 0) out(`  notes NOT linked into CLAUDE.md: the session did not finish cleanly (${exitCode === null ? "killed, e.g. by --timeout" : `exit code ${exitCode}`}), so they may be incomplete; review them, then run \`trod notes --link\``);
     else if (opts.linkNotes !== false) {
       notesLinkedNow = linkNotes(paths);
       if (notesLinkedNow) out(`  linked .trod/notes.md into CLAUDE.md (${NOTES_IMPORT})${notes.checks.length ? "" : " (no checks: nothing in them is verified)"}`);
@@ -16041,22 +16042,28 @@ ${PRACTICE_PROMPT(!!opts.practice.reset)}` : ""}`;
 }
 
 // packages/cli/src/learn.ts
-import { existsSync as existsSync6, mkdirSync as mkdirSync4, readdirSync as readdirSync4, readFileSync as readFileSync6, statSync, writeFileSync as writeFileSync4 } from "node:fs";
+import { existsSync as existsSync6, mkdirSync as mkdirSync4, readdirSync as readdirSync4, readFileSync as readFileSync6, realpathSync, statSync, writeFileSync as writeFileSync4 } from "node:fs";
 import { homedir } from "node:os";
 import path7 from "node:path";
-function transcriptDir(projectDir, home = process.env.CLAUDE_CONFIG_DIR ? path7.dirname(process.env.CLAUDE_CONFIG_DIR) : homedir()) {
-  return path7.join(home, ".claude", "projects", path7.resolve(projectDir).replace(/[^a-zA-Z0-9]/g, "-"));
+function transcriptDir(projectDir, configDir = process.env.CLAUDE_CONFIG_DIR || path7.join(homedir(), ".claude")) {
+  return path7.join(configDir, "projects", path7.resolve(projectDir).replace(/[^a-zA-Z0-9]/g, "-"));
 }
 function findTranscripts(sources) {
-  const found = [];
+  const found = /* @__PURE__ */ new Map();
+  const seenDirs = /* @__PURE__ */ new Set();
   const walk = (p) => {
     if (!existsSync6(p)) return;
-    if (statSync(p).isDirectory()) for (const e of readdirSync4(p).sort()) walk(path7.join(p, e));
-    else if (p.endsWith(".jsonl")) found.push(p);
+    const real = realpathSync(p);
+    if (statSync(real).isDirectory()) {
+      if (seenDirs.has(real)) return;
+      seenDirs.add(real);
+      for (const e of readdirSync4(real).sort()) walk(path7.join(p, e));
+    } else if (p.endsWith(".jsonl") && !found.has(real)) found.set(real, p);
   };
   for (const s of sources) walk(s);
-  return found;
+  return [...found.keys()].sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs).map((r) => found.get(r));
 }
+var WRAPPER = /^<(command-[a-z]+|local-command-[a-z]+|system-reminder|bash-(input|stdout|stderr)|task-notification|user-memory-input)>/;
 var clip = (s, n) => s.length > n ? `${s.slice(0, n)} \u2026[${s.length - n} more chars]` : s;
 function textOf(content) {
   if (typeof content === "string") return content;
@@ -16082,17 +16089,17 @@ function digestTranscript(file, opts = {}) {
     if (e.isSidechain || e.isMeta) continue;
     const msg = e.message;
     if (e.type === "user" && msg) {
-      if (typeof msg.content === "string" || Array.isArray(msg.content) && msg.content.some((c) => c?.type === "text")) {
-        const t = textOf(msg.content).trim();
-        if (!t || t.startsWith("<")) continue;
-        if (!task) task = t;
-        else steps.push(`USER: ${clip(t, 600)}`);
-        continue;
-      }
-      for (const c of msg.content ?? []) {
-        if (c?.type !== "tool_result") continue;
-        if (c.is_error) errors++;
-        steps.push(`${c.is_error ? "ERROR" : "RESULT"}: ${clip(textOf(c.content).trim(), 700)}`);
+      const blocks = typeof msg.content === "string" ? [{ type: "text", text: msg.content }] : msg.content ?? [];
+      for (const c of blocks) {
+        if (c?.type === "tool_result") {
+          if (c.is_error) errors++;
+          steps.push(`${c.is_error ? "ERROR" : "RESULT"}: ${clip(textOf(c.content).trim(), 700)}`);
+        } else if (c?.type === "text") {
+          const t = (c.text ?? "").trim();
+          if (!t || WRAPPER.test(t)) continue;
+          if (!task) task = t;
+          else steps.push(`USER: ${clip(t, 600)}`);
+        }
       }
     } else if (e.type === "assistant" && msg && Array.isArray(msg.content)) {
       for (const c of msg.content) {
@@ -16122,17 +16129,19 @@ ${clip(task, 1500)}
 ## Steps (${toolCalls} tool calls, ${errors} errors)
 
 `;
-  let body = steps.map((s, i) => `${i + 1}. ${s}`).join("\n");
-  const budget = Math.max(1e3, maxChars - head.length);
-  if (body.length > budget) body = `${body.slice(0, Math.floor(budget * 0.6))}
-\u2026[middle of the session omitted]\u2026
-${body.slice(-Math.floor(budget * 0.4))}`;
-  return { id, file, task, outcome, toolCalls, errors, text: `${head}${body}
-${final && !body.includes(clip(final, 500)) ? `
+  const finalPart = (shown) => final && !shown.includes(clip(final, 500)) ? `
 ## Final message
 
 ${clip(final, 800)}
-` : ""}` };
+` : "";
+  let body = steps.map((s, i) => `${i + 1}. ${s}`).join("\n");
+  const OMITTED = "\n\u2026[middle of the session omitted]\u2026\n";
+  if (head.length + body.length + 1 + finalPart(body).length > maxChars) {
+    const budget = Math.max(500, maxChars - head.length - 1 - finalPart("").length - OMITTED.length);
+    body = `${body.slice(0, Math.floor(budget * 0.6))}${OMITTED}${body.slice(-Math.floor(budget * 0.4))}`;
+  }
+  return { id, file, task, outcome, toolCalls, errors, text: `${head}${body}
+${finalPart(body)}` };
 }
 function readOutcomes(file) {
   const raw = JSON.parse(readFileSync6(file, "utf8"));
@@ -16347,8 +16356,8 @@ async function main(argv, out = console.log) {
     out(`trod ${command}: ${values.link ? "--link only applies to trod notes" : "--no-link only applies to trod forge and trod learn"}`);
     return 1;
   }
-  if (values.timeout !== void 0 && !(Number(values.timeout) > 0)) {
-    out("trod: --timeout must be a positive number of minutes");
+  if (values.timeout !== void 0 && !(Number(values.timeout) > 0 && Number(values.timeout) * 6e4 <= 2147483647)) {
+    out("trod: --timeout must be a positive number of minutes (at most 35791)");
     return 1;
   }
   const paths = trodPaths(values.dir ? path9.resolve(values.dir) : resolveProjectDir());
@@ -16416,28 +16425,34 @@ async function main(argv, out = console.log) {
       }
       const sources = values.from?.length ? values.from.map((f) => path9.resolve(f)) : [transcriptDir(paths.projectDir)];
       const outcomes = values.outcomes ? readOutcomes(values.outcomes) : void 0;
-      const digests = [];
-      for (const file of findTranscripts(sources)) {
-        const d = digestTranscript(file, { outcome: outcomes?.get(path9.basename(file, ".jsonl")) });
-        if (d && !/^You are (a toolsmith|distilling experience)/.test(d.task)) digests.push(d);
-      }
       const limit = values.limit ? Number(values.limit) : 200;
       if (!Number.isInteger(limit) || limit < 1) {
         out("trod learn: --limit must be a positive integer");
         return 1;
       }
-      digests.sort((a, b) => statSync2(b.file).mtimeMs - statSync2(a.file).mtimeMs);
-      const picked = digests.slice(0, limit);
+      const files = findTranscripts(sources);
+      const picked = [];
+      for (const file of files) {
+        if (picked.length >= limit) break;
+        const d = digestTranscript(file, { outcome: outcomes?.get(path9.basename(file, ".jsonl")) });
+        if (d && !/^You are (a toolsmith|distilling experience)/.test(d.task)) picked.push(d);
+      }
       if (!picked.length) {
         out(`trod learn: no session transcripts found in ${sources.join(", ")} (pass --from <dir|file>)`);
         return 1;
       }
       const dir = mkdtempSync2(path9.join(tmpdir2(), "trod-learn-"));
       const counts = writeDigests(path9.join(dir, "sessions"), picked);
-      out(`learning from ${picked.length} session(s) (${counts.pass} passed, ${counts.fail} failed, ${counts.unknown} unknown)${digests.length > picked.length ? `, the ${limit} most recent of ${digests.length}` : ""}`);
+      out(`learning from ${picked.length} session(s) (${counts.pass} passed, ${counts.fail} failed, ${counts.unknown} unknown)${files.length > picked.length && picked.length === limit ? `, the ${limit} most recent` : ""}`);
       const brief = values.brief ? values.brief.startsWith("@") ? readFileSync8(values.brief.slice(1), "utf8") : values.brief : "No brief: learn from the sessions and the project's files.";
       const practice = values.practice ? { check: values.practice, reset: values.reset } : void 0;
+      const before = snapshot(paths.projectDir);
       const res = await forge({ projectDir: paths.projectDir, brief, model: values.model, server: values.server, maxBudgetUsd: values.budget, timeoutMs: values.timeout ? Number(values.timeout) * 6e4 : void 0, streamFile: values.stream, out, linkNotes: !values["no-link"], practice, prompt: LEARN_PROMPT(path9.join(dir, "sessions"), counts) });
+      if (!res.promoted.length && snapshot(paths.projectDir) === before) {
+        out("learn: the learner changed nothing in .trod/notes.md or .trod/wiki/");
+        forgeExit("learn", res, values.json, out);
+        return 1;
+      }
       return forgeExit("learn", res, values.json, out);
     }
     case "verify": {
@@ -16488,6 +16503,13 @@ async function main(argv, out = console.log) {
 ${USAGE}`);
       return 1;
   }
+}
+function snapshot(projectDir) {
+  const read = (f) => existsSync8(f) ? readFileSync8(f, "utf8") : "";
+  const wiki = path9.join(projectDir, ".trod", "wiki");
+  const pages = existsSync8(wiki) ? readdirSync5(wiki).sort().map((f) => `${f}
+${read(path9.join(wiki, f))}`) : [];
+  return [read(path9.join(projectDir, ".trod", "notes.md")), ...pages].join("\n\0");
 }
 function forgeExit(command, res, json, out) {
   out(`${command}: ${res.promoted.length} tool(s) promoted${res.unverified.length ? ` (${res.unverified.length} without examples)` : ""}, ${res.rejected.length} rejected${res.notes ? `, notes ${res.notes.linked ? "linked" : "not linked"}` : ", no notes"}${res.costUsd !== void 0 ? `, $${res.costUsd.toFixed(3)}, ${res.turns} turns` : ""}`);

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 
@@ -24,22 +24,33 @@ export interface SessionDigest {
   text: string;
 }
 
-/** Where Claude Code keeps the transcripts of sessions started in projectDir. */
-export function transcriptDir(projectDir: string, home = process.env.CLAUDE_CONFIG_DIR ? path.dirname(process.env.CLAUDE_CONFIG_DIR) : homedir()): string {
-  return path.join(home, '.claude', 'projects', path.resolve(projectDir).replace(/[^a-zA-Z0-9]/g, '-'));
+/** Where Claude Code keeps the transcripts of sessions started in projectDir (<config dir>/projects/<project>). */
+export function transcriptDir(projectDir: string, configDir = process.env.CLAUDE_CONFIG_DIR || path.join(homedir(), '.claude')): string {
+  return path.join(configDir, 'projects', path.resolve(projectDir).replace(/[^a-zA-Z0-9]/g, '-'));
 }
 
-/** Every .jsonl file under the given files and directories (directories are searched recursively). */
+/**
+ * Every .jsonl file under the given files and directories (directories are searched recursively), each once, newest
+ * first. Directories reached twice (overlapping sources, symlink cycles) are walked once.
+ */
 export function findTranscripts(sources: string[]): string[] {
-  const found: string[] = [];
+  const found = new Map<string, string>(); // real path -> path as found
+  const seenDirs = new Set<string>();
   const walk = (p: string) => {
     if (!existsSync(p)) return;
-    if (statSync(p).isDirectory()) for (const e of readdirSync(p).sort()) walk(path.join(p, e));
-    else if (p.endsWith('.jsonl')) found.push(p);
+    const real = realpathSync(p);
+    if (statSync(real).isDirectory()) {
+      if (seenDirs.has(real)) return;
+      seenDirs.add(real);
+      for (const e of readdirSync(real).sort()) walk(path.join(p, e));
+    } else if (p.endsWith('.jsonl') && !found.has(real)) found.set(real, p);
   };
   for (const s of sources) walk(s);
-  return found;
+  return [...found.keys()].sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs).map((r) => found.get(r)!);
 }
+
+/** Text that Claude Code wraps around slash commands, shell escapes and reminders, not typed by the user. */
+const WRAPPER = /^<(command-[a-z]+|local-command-[a-z]+|system-reminder|bash-(input|stdout|stderr)|task-notification|user-memory-input)>/;
 
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)} …[${s.length - n} more chars]` : s);
 
@@ -73,17 +84,18 @@ export function digestTranscript(file: string, opts: { outcome?: Outcome; task?:
     if (e.isSidechain || e.isMeta) continue;
     const msg = e.message as { role?: string; content?: unknown } | undefined;
     if (e.type === 'user' && msg) {
-      if (typeof msg.content === 'string' || (Array.isArray(msg.content) && msg.content.some((c) => c?.type === 'text'))) {
-        const t = textOf(msg.content).trim();
-        if (!t || t.startsWith('<')) continue; // command wrappers, reminders
-        if (!task) task = t;
-        else steps.push(`USER: ${clip(t, 600)}`);
-        continue;
-      }
-      for (const c of (msg.content as { type?: string; content?: unknown; is_error?: boolean }[]) ?? []) {
-        if (c?.type !== 'tool_result') continue;
-        if (c.is_error) errors++;
-        steps.push(`${c.is_error ? 'ERROR' : 'RESULT'}: ${clip(textOf(c.content).trim(), 700)}`);
+      // A user message holds typed text, tool results, or both.
+      const blocks = typeof msg.content === 'string' ? [{ type: 'text', text: msg.content }] : ((msg.content as { type?: string; text?: string; content?: unknown; is_error?: boolean }[]) ?? []);
+      for (const c of blocks) {
+        if (c?.type === 'tool_result') {
+          if (c.is_error) errors++;
+          steps.push(`${c.is_error ? 'ERROR' : 'RESULT'}: ${clip(textOf(c.content).trim(), 700)}`);
+        } else if (c?.type === 'text') {
+          const t = (c.text ?? '').trim();
+          if (!t || WRAPPER.test(t)) continue;
+          if (!task) task = t;
+          else steps.push(`USER: ${clip(t, 600)}`);
+        }
       }
     } else if (e.type === 'assistant' && msg && Array.isArray(msg.content)) {
       for (const c of msg.content as { type?: string; text?: string; name?: string; input?: unknown }[]) {
@@ -105,11 +117,16 @@ export function digestTranscript(file: string, opts: { outcome?: Outcome; task?:
   const id = path.basename(file, '.jsonl');
   const outcome = opts.outcome ?? 'unknown';
   const head = `# Session ${id}: ${outcome.toUpperCase()}\n\n## Task\n\n${clip(task, 1500)}\n\n## Steps (${toolCalls} tool calls, ${errors} errors)\n\n`;
+  const finalPart = (shown: string) => (final && !shown.includes(clip(final, 500)) ? `\n## Final message\n\n${clip(final, 800)}\n` : '');
   // Keep the start and the end of long sessions: how they began and how they ended matter most.
   let body = steps.map((s, i) => `${i + 1}. ${s}`).join('\n');
-  const budget = Math.max(1000, maxChars - head.length);
-  if (body.length > budget) body = `${body.slice(0, Math.floor(budget * 0.6))}\n…[middle of the session omitted]…\n${body.slice(-Math.floor(budget * 0.4))}`;
-  return { id, file, task, outcome, toolCalls, errors, text: `${head}${body}\n${final && !body.includes(clip(final, 500)) ? `\n## Final message\n\n${clip(final, 800)}\n` : ''}` };
+  const OMITTED = '\n…[middle of the session omitted]…\n';
+  if (head.length + body.length + 1 + finalPart(body).length > maxChars) {
+    // Reserve room for the final message (it may no longer appear in the shortened body) and the marker.
+    const budget = Math.max(500, maxChars - head.length - 1 - finalPart('').length - OMITTED.length);
+    body = `${body.slice(0, Math.floor(budget * 0.6))}${OMITTED}${body.slice(-Math.floor(budget * 0.4))}`;
+  }
+  return { id, file, task, outcome, toolCalls, errors, text: `${head}${body}\n${finalPart(body)}` };
 }
 
 /** Reads an outcomes file: {"<session id or file name>": true | false | "pass" | "fail" | <score 0..1>}. */

@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync } from 'node:fs';
 import { defaultServerPath, forge, type ForgeResult } from './forge.ts';
 import { digestTranscript, findTranscripts, LEARN_PROMPT, readOutcomes, transcriptDir, writeDigests, type SessionDigest } from './learn.ts';
 import { tmpdir } from 'node:os';
@@ -88,8 +88,9 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
     out(`trod ${command}: ${values.link ? '--link only applies to trod notes' : '--no-link only applies to trod forge and trod learn'}`);
     return 1;
   }
-  if (values.timeout !== undefined && !(Number(values.timeout) > 0)) {
-    out('trod: --timeout must be a positive number of minutes');
+  // setTimeout fires at once for delays above 2^31-1 ms (about 24.8 days).
+  if (values.timeout !== undefined && !(Number(values.timeout) > 0 && Number(values.timeout) * 60_000 <= 2_147_483_647)) {
+    out('trod: --timeout must be a positive number of minutes (at most 35791)');
     return 1;
   }
   const paths = trodPaths(values.dir ? path.resolve(values.dir) : resolveProjectDir());
@@ -158,30 +159,36 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       }
       const sources = values.from?.length ? values.from.map((f) => path.resolve(f)) : [transcriptDir(paths.projectDir)];
       const outcomes = values.outcomes ? readOutcomes(values.outcomes) : undefined;
-      const digests: SessionDigest[] = [];
-      for (const file of findTranscripts(sources)) {
-        const d = digestTranscript(file, { outcome: outcomes?.get(path.basename(file, '.jsonl')) });
-        // Skip empty transcripts and trod's own forge and learn sessions.
-        if (d && !/^You are (a toolsmith|distilling experience)/.test(d.task)) digests.push(d);
-      }
       const limit = values.limit ? Number(values.limit) : 200;
       if (!Number.isInteger(limit) || limit < 1) {
         out('trod learn: --limit must be a positive integer');
         return 1;
       }
-      // Most recent sessions first when there are more than the limit.
-      digests.sort((a, b) => statSync(b.file).mtimeMs - statSync(a.file).mtimeMs);
-      const picked = digests.slice(0, limit);
+      // Newest first; digest only until the limit is reached, skipping empty transcripts and trod's own sessions.
+      const files = findTranscripts(sources);
+      const picked: SessionDigest[] = [];
+      for (const file of files) {
+        if (picked.length >= limit) break;
+        const d = digestTranscript(file, { outcome: outcomes?.get(path.basename(file, '.jsonl')) });
+        if (d && !/^You are (a toolsmith|distilling experience)/.test(d.task)) picked.push(d);
+      }
       if (!picked.length) {
         out(`trod learn: no session transcripts found in ${sources.join(', ')} (pass --from <dir|file>)`);
         return 1;
       }
       const dir = mkdtempSync(path.join(tmpdir(), 'trod-learn-'));
       const counts = writeDigests(path.join(dir, 'sessions'), picked);
-      out(`learning from ${picked.length} session(s) (${counts.pass} passed, ${counts.fail} failed, ${counts.unknown} unknown)${digests.length > picked.length ? `, the ${limit} most recent of ${digests.length}` : ''}`);
+      out(`learning from ${picked.length} session(s) (${counts.pass} passed, ${counts.fail} failed, ${counts.unknown} unknown)${files.length > picked.length && picked.length === limit ? `, the ${limit} most recent` : ''}`);
       const brief = values.brief ? (values.brief.startsWith('@') ? readFileSync(values.brief.slice(1), 'utf8') : values.brief) : "No brief: learn from the sessions and the project's files.";
       const practice = values.practice ? { check: values.practice, reset: values.reset } : undefined;
+      const before = snapshot(paths.projectDir);
       const res = await forge({ projectDir: paths.projectDir, brief, model: values.model, server: values.server, maxBudgetUsd: values.budget, timeoutMs: values.timeout ? Number(values.timeout) * 60_000 : undefined, streamFile: values.stream, out, linkNotes: !values['no-link'], practice, prompt: LEARN_PROMPT(path.join(dir, 'sessions'), counts) });
+      // Notes that were there before do not count as this run's result.
+      if (!res.promoted.length && snapshot(paths.projectDir) === before) {
+        out('learn: the learner changed nothing in .trod/notes.md or .trod/wiki/');
+        forgeExit('learn', res, values.json, out);
+        return 1;
+      }
       return forgeExit('learn', res, values.json, out);
     }
     case 'verify': {
@@ -233,6 +240,14 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       out(`trod: unknown command "${command}"\n\n${USAGE}`);
       return 1;
   }
+}
+
+/** The notes and wiki pages as one string, to tell whether a run changed them. */
+function snapshot(projectDir: string): string {
+  const read = (f: string) => (existsSync(f) ? readFileSync(f, 'utf8') : '');
+  const wiki = path.join(projectDir, '.trod', 'wiki');
+  const pages = existsSync(wiki) ? readdirSync(wiki).sort().map((f) => `${f}\n${read(path.join(wiki, f))}`) : [];
+  return [read(path.join(projectDir, '.trod', 'notes.md')), ...pages].join('\n\0');
 }
 
 /**

@@ -38,7 +38,11 @@ export function taskTypes(): string[] {
 }
 
 export function mwSample(split: keyof typeof SEEDS, perTask: number): { task: string; seed: number }[] {
-  return taskTypes().flatMap((task) => Array.from({ length: perTask }, (_, i) => ({ task, seed: SEEDS[split] + Number(process.env.MW_SEED_OFFSET ?? 0) + i })));
+  // MW_SEED_OFFSET shifts the seeds within the split; every seed must stay inside it (test < dev < train).
+  const offset = Number(process.env.MW_SEED_OFFSET ?? 0);
+  const next = { test: SEEDS.dev, dev: SEEDS.train, train: Infinity }[split];
+  if (!Number.isInteger(offset) || offset < 0 || SEEDS[split] + offset + perTask > next) throw new Error(`MW_SEED_OFFSET=${process.env.MW_SEED_OFFSET} with ${perTask} per task leaves the ${split} seeds`);
+  return taskTypes().flatMap((task) => Array.from({ length: perTask }, (_, i) => ({ task, seed: SEEDS[split] + offset + i })));
 }
 
 function freePort(): Promise<number> {
@@ -151,6 +155,7 @@ export function miniwobTasks(sample: { task: string; seed: number }[]): Task[] {
         if (process.env.MW_LEARNED) {
           cpSync(path.join(process.env.MW_LEARNED, '.trod', 'notes.md'), path.join(work, 'CLAUDE.md'));
           const wiki = path.join(process.env.MW_LEARNED, '.trod', 'wiki');
+          rmSync(path.join(work, '.trod', 'wiki'), { recursive: true, force: true });
           if (existsSync(wiki)) cpSync(wiki, path.join(work, '.trod', 'wiki'), { recursive: true });
         }
         return { task, seed };

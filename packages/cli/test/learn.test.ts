@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -50,6 +50,31 @@ describe('digestTranscript', () => {
     expect(d.text).toContain('middle of the session omitted');
   });
 
+  it('keeps tool results that share a message with text, and tasks written as XML, but drops command wrappers', () => {
+    const file = path.join(tmp(), 'mixed.jsonl');
+    const lines = [
+      { type: 'user', message: { content: '<command-name>/clear</command-name>' } },
+      { type: 'user', message: { content: '<task>Rename the module</task>' } },
+      { type: 'user', message: { content: [{ type: 'tool_result', is_error: true, content: 'boom' }, { type: 'text', text: 'try again' }] } },
+    ];
+    writeFileSync(file, lines.map((l) => JSON.stringify(l)).join('\n'));
+    const d = digestTranscript(file)!;
+    expect(d.task).toBe('<task>Rename the module</task>');
+    expect(d.errors).toBe(1);
+    expect(d.text).toContain('ERROR: boom');
+    expect(d.text).toContain('USER: try again');
+    expect(d.text).not.toContain('/clear');
+  });
+
+  it('keeps the final message within the size budget', () => {
+    const file = path.join(tmp(), 'final.jsonl');
+    const steps = Array.from({ length: 200 }, (_, i) => JSON.stringify({ type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Bash', input: { command: `step ${i} ${'x'.repeat(80)}` } }] } }));
+    writeFileSync(file, [JSON.stringify({ type: 'user', message: { content: 'task' } }), ...steps, JSON.stringify({ type: 'result', result: 'F'.repeat(2000) })].join('\n'));
+    const d = digestTranscript(file, { maxChars: 4000 })!;
+    expect(d.text.length).toBeLessThanOrEqual(4000);
+    expect(d.text).toContain('## Final message');
+  });
+
   it('returns undefined for a transcript with no conversation', () => {
     const file = path.join(tmp(), 'empty.jsonl');
     writeFileSync(file, '{"type":"queue-operation"}\n');
@@ -76,12 +101,22 @@ describe('outcomes, digests and transcript locations', () => {
   });
 
   it("finds Claude Code's transcripts for a project", () => {
-    expect(transcriptDir('/home/u/my.repo', '/home/u')).toBe('/home/u/.claude/projects/-home-u-my-repo');
+    expect(transcriptDir('/home/u/my.repo', '/home/u/.claude')).toBe('/home/u/.claude/projects/-home-u-my-repo');
+    expect(transcriptDir('/r', '/etc/claude-config')).toBe('/etc/claude-config/projects/-r');
     const dir = tmp();
     mkdirSync(path.join(dir, 'a', 'b'), { recursive: true });
     writeFileSync(path.join(dir, 'a', 'b', 's.jsonl'), '');
     writeFileSync(path.join(dir, 'a', 'notes.md'), '');
     expect(findTranscripts([dir, path.join(dir, 'missing')])).toEqual([path.join(dir, 'a', 'b', 's.jsonl')]);
+  });
+
+  it('lists each transcript once, newest first, even through overlapping sources and symlink cycles', () => {
+    const dir = tmp();
+    writeFileSync(path.join(dir, 'old.jsonl'), '');
+    writeFileSync(path.join(dir, 'new.jsonl'), '');
+    utimesSync(path.join(dir, 'old.jsonl'), new Date(1000), new Date(1000));
+    symlinkSync('.', path.join(dir, 'loop'), 'dir');
+    expect(findTranscripts([dir, path.join(dir, 'new.jsonl')])).toEqual([path.join(dir, 'new.jsonl'), path.join(dir, 'old.jsonl')]);
   });
 
   it('tells the learner where the sessions are and to compare failures with successes', () => {
@@ -128,6 +163,41 @@ describe('trod learn', () => {
     expect(readFileSync(path.join(project, 'CLAUDE.md'), 'utf8')).toContain('@.trod/notes.md');
   });
 
+  it('fails when the learner changes nothing, even if notes already exist', async () => {
+    const dir = tmp();
+    const sessions = path.join(dir, 'sessions');
+    mkdirSync(sessions);
+    transcript(sessions, 's', 'Task: x');
+    const project = path.join(dir, 'project');
+    mkdirSync(path.join(project, '.trod'), { recursive: true });
+    writeFileSync(path.join(project, '.trod', 'notes.md'), '# Notes\n- old rule\n');
+    const fake = path.join(dir, 'fake-claude');
+    writeFileSync(fake, `#!/bin/sh\necho '{"type":"result","subtype":"success","num_turns":1}'\n`);
+    chmodSync(fake, 0o755);
+    process.env.TROD_CLAUDE_BIN = fake;
+    const lines: string[] = [];
+    expect(await main(['learn', '--dir', project, '--from', sessions], (s) => lines.push(s))).toBe(1);
+    expect(lines.join('\n')).toContain('changed nothing');
+  });
+
+  it('does not link notes from a learner that was stopped by --timeout', async () => {
+    const dir = tmp();
+    const sessions = path.join(dir, 'sessions');
+    mkdirSync(sessions);
+    transcript(sessions, 's', 'Task: x');
+    const project = path.join(dir, 'project');
+    mkdirSync(project);
+    const fake = path.join(dir, 'fake-claude');
+    writeFileSync(fake, `#!/bin/sh\nmkdir -p .trod && printf '# Notes\\n- half a rule\\n' > .trod/notes.md\nexec sleep 30\n`);
+    chmodSync(fake, 0o755);
+    process.env.TROD_CLAUDE_BIN = fake;
+    const lines: string[] = [];
+    // 0.01 minutes = 600 ms.
+    expect(await main(['learn', '--dir', project, '--from', sessions, '--timeout', '0.01'], (s) => lines.push(s))).toBe(1);
+    expect(lines.join('\n')).toContain('did not finish cleanly');
+    expect(existsSync(path.join(project, 'CLAUDE.md'))).toBe(false);
+  }, 15_000);
+
   it('fails clearly when there is nothing to learn from', async () => {
     const lines: string[] = [];
     const empty = tmp();
@@ -150,5 +220,8 @@ describe('--timeout', () => {
     const lines: string[] = [];
     expect(await main(['learn', '--timeout', 'soon'], (s) => lines.push(s))).toBe(1);
     expect(lines.join('\n')).toContain('--timeout must be a positive number');
+    lines.length = 0;
+    expect(await main(['forge', '--brief', 'x', '--timeout', 'Infinity'], (s) => lines.push(s))).toBe(1);
+    expect(lines.join('\n')).toContain('at most 35791');
   });
 });

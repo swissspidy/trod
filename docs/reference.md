@@ -101,7 +101,7 @@ which is meant for ephemeral cloud containers. See [ADR 0001](adr/0001-tool-exec
   ([round 9](../results-9/README.md): practice notes took Haiku from 68% to 90% on MiniWoB++'s hardest task types).
 - `trod learn [--from <dir|file>]... [--outcomes <file>] [--limit <n>]` learns from sessions that **already
   happened**. Claude Code keeps a transcript of every session in `~/.claude/projects/<project>/`; trod learn
-  condenses up to the 200 most recent ones (task, tool calls, errors, final message), skips trod's own forge
+  condenses the most recent ones (200 by default, `--limit` changes it) (task, tool calls, errors, final message), skips trod's own forge
   sessions, and runs a forge session that compares failed sessions with passed ones and writes rules into
   `.trod/notes.md`. When there are many kinds of task, it keeps general rules plus an index there and puts each
   kind's rules into `.trod/wiki/<kind>.md`, which sessions read on demand ([round 10](../results-10/README.md):

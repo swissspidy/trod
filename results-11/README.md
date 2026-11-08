@@ -11,7 +11,7 @@ sessions: Claude Code keeps a transcript of each one in `~/.claude/projects/`. T
   that picked the test set in round 9: 58 passed, 62 failed. They are ordinary Claude Code transcripts from the
   isolated home of each run.
 - **Learner.** `trod learn --from <transcripts> [--outcomes <file>]`: trod condenses each transcript (task, tool
-  calls, errors, final message; at most 8 KB), writes an index, and runs a forge session with the learn prompt:
+  calls, errors, final message; about 8,000 characters at most), writes an index, and runs a forge session with the learn prompt:
   group the sessions by kind of task, compare failed sessions with passed ones, keep lessons that hold across
   sessions, write rules with the action to take, and split into `.trod/wiki/<kind>.md` pages when one file is not
   enough. The brief only said that each session operates one web page through `mw` and that no live page exists.
@@ -76,6 +76,10 @@ Where a success check exists, `--practice` still adds what transcripts cannot sh
   same reason (and they ran on new seeds).
 - **MiniWoB is templated.** Each kind of task recurs with new values, which suits learning from transcripts. In a
   project whose tasks rarely repeat, fewer lessons will transfer.
+- **The learned notes are published as tested, flaws included.** Like any rules inferred from transcripts, some are
+  wrong or incomplete: the stock-market recipe observes the price and then clicks Buy, but the price can move in
+  between (one Bash call does not make it atomic), and coordinate recipes for canvas tasks such as right-angle rest
+  on a few sessions. The test results above measure the notes as they are.
 - One run per seed and arm, as in rounds 9 and 10.
 
 Files: `summary.json`, `runs.jsonl` (one line per run, including the 120 round 2 sessions), `learned/` (each
