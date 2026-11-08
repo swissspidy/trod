@@ -1,0 +1,54 @@
+name: Release
+
+# Publishes the trod package (plugin/: the bundled server, CLI, skill and hook) to npm when a v* tag is pushed.
+# Needs the NPM_TOKEN repository secret (an npm automation token). Provenance links the package to this workflow.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm build
+      - name: Bundles are up to date
+        run: |
+          if ! git diff --exit-code -- plugin/; then
+            echo "::error::plugin/ bundles are stale. Run pnpm build and commit them."
+            exit 1
+          fi
+      - run: pnpm test
+      - name: Tag matches the package version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="$(node -p "require('./plugin/package.json').version")"
+          if [ "v$version" != "$TAG" ]; then
+            echo "::error::tag $TAG does not match plugin/package.json version $version"
+            exit 1
+          fi
+      - name: Publish
+        working-directory: plugin
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance --access public

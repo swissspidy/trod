@@ -60,22 +60,31 @@ promotion, usage in earlier sessions), so a fresh session can rely on them from 
 
 ## Install
 
-**Local (plugin):**
+**Any repository, for every session in it** (local, [cloud](https://code.claude.com/docs/en/claude-code-on-the-web)
+and sessions started from the Claude mobile app):
+
+```sh
+npx trod init --allow-exec     # writes .mcp.json, .claude/settings.json, the skill and .gitignore entries
+git add .mcp.json .claude .gitignore && git commit -m "Add trod"
+```
+
+Cloud sessions do not install plugins declared in project settings, but they start project MCP servers from a
+committed `.mcp.json` (see [docs/spike.md](docs/spike.md)); `trod init` writes one that runs `npx -y trod@<version> mcp`
+and approves it with `"enableAllProjectMcpServers": true`. `--vendor` copies the bundled server (one file, no
+dependencies) into `.trod/bin/` instead, so nothing is fetched at session start.
+
+**Local plugin** (Claude Code on your machine):
 
 ```sh
 claude plugin marketplace add swissspidy/trod
 claude plugin install trod@trod
 ```
 
-**Cloud sessions:** plugins declared in project settings are not installed there (see
-[docs/spike.md](docs/spike.md)). Commit a root `.mcp.json` that runs the bundled server, as this repository
-does:
-
-```json
-{ "mcpServers": { "trod": { "command": "node", "args": ["plugin/server/trod-server.mjs"] } } }
-```
-
-and approve it in `.claude/settings.json` with `"enableAllProjectMcpServers": true`.
+**Other MCP clients** (Antigravity, Cursor, VS Code, ...): run `npx -y trod mcp` as a stdio server, with
+`TROD_ALLOW_EXEC=1` in its environment and the project directory as its working directory (or `TROD_PROJECT_DIR`).
+Tools written mid-session appear through `notifications/tools/list_changed`; clients that ignore it can still call
+every tool through `trod_run` and `trod_eval`. The skill and the validation hook are Claude Code features; elsewhere,
+put the skill's text (`plugin/skills/trod/SKILL.md`) into the client's rules file.
 
 **Execution is off by default.** Tool code runs in a subprocess of the server, outside Claude Code's
 permission prompts and Bash sandbox. trod only runs tools when `TROD_ALLOW_EXEC=1` is set in its environment,
@@ -99,7 +108,7 @@ which is meant for ephemeral cloud containers. See [ADR 0001](docs/adr/0001-tool
 - `trod stats` summarizes `.trod/logs/*.jsonl`: tools created, called, reused, errors.
 - `trod check` validates every tool folder without running anything.
 
-The CLI is bundled at `plugin/bin/trod` (`node plugin/bin/trod stats`).
+The CLI is `npx trod <command>`, or bundled at `plugin/bin/trod` in this repository (`node plugin/bin/trod stats`).
 
 ## Configuration
 
@@ -121,3 +130,8 @@ pnpm build      # bundles plugin/server/trod-server.mjs and plugin/bin/trod (com
 
 pnpm monorepo: `packages/server` (MCP server, registry, executor, logs), `packages/cli`, `plugin/` (the
 Claude Code plugin), `experiments/` (tasks, runner, report). MIT licensed.
+
+**Releasing.** `plugin/` is also the npm package `trod` (bundled server and CLI, the skill and the hook; no
+dependencies). Bump the version in `plugin/package.json` and `plugin/.claude-plugin/plugin.json` (a test keeps them
+equal), merge, then push a `v<version>` tag: the Release workflow checks, tests and publishes with provenance. It
+needs an `NPM_TOKEN` secret in a GitHub environment named `npm`.

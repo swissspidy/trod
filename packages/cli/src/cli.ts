@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
-import { forge } from './forge.ts';
+import { defaultServerPath, forge } from './forge.ts';
+import { defaultPackageRoot, init, packageVersion } from './init.ts';
+import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { computeStats, formatStats, linkNotes, listToolEntries, loadToolEntry, NOTES_IMPORT, NOTES_MAX_CHARS, promoteTool, readLogs, resolveProjectDir, runToolExamples, trodPaths, verifyNotes, type NotesReport } from '@trod/server';
@@ -7,6 +9,12 @@ import { computeStats, formatStats, linkNotes, listToolEntries, loadToolEntry, N
 const USAGE = `trod: self-morphing tools for Claude Code
 
 Usage:
+  trod init [--vendor] [--allow-exec]
+                           Set this repository up for trod in every Claude Code session, local or cloud (also
+                           sessions started from the mobile app): writes .mcp.json, .claude/settings.json and the
+                           skill. --vendor copies the server into .trod/bin instead of running it through npx;
+                           --allow-exec lets tools run (TROD_ALLOW_EXEC=1; meant for ephemeral cloud containers)
+  trod mcp                 Start the trod MCP server on stdio (for any MCP client)
   trod promote <name>      Move .trod/tools/<name> to .trod/library/<name> (commit the library)
   trod stats [--json]      Summarize tool usage across .trod/logs/*.jsonl
   trod check               Validate every tool folder (static checks, no execution)
@@ -45,9 +53,16 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       'no-link': { type: 'boolean', default: false },
       practice: { type: 'string' },
       reset: { type: 'string' },
+      vendor: { type: 'boolean', default: false },
+      'allow-exec': { type: 'boolean', default: false },
+      version: { type: 'boolean', short: 'v', default: false },
     },
   });
   const [command, ...rest] = positionals;
+  if (values.version) {
+    out(packageVersion(defaultPackageRoot()) ?? 'dev');
+    return 0;
+  }
   if (values.help || !command) {
     out(USAGE);
     return command || values.help ? 0 : 1;
@@ -63,6 +78,19 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
   const paths = trodPaths(values.dir ? path.resolve(values.dir) : resolveProjectDir());
 
   switch (command) {
+    case 'mcp': {
+      // The server runs in this process until its client disconnects (it exits on stdin close or a signal).
+      await import(pathToFileURL(values.server ?? defaultServerPath()).href);
+      return new Promise<number>(() => {});
+    }
+    case 'init': {
+      const res = init({ projectDir: paths.projectDir, vendor: values.vendor, allowExec: values['allow-exec'] });
+      for (const f of res.written) out(`wrote     ${f}`);
+      for (const f of res.unchanged) out(`unchanged ${f}`);
+      for (const n of res.notes) out(n);
+      out('Commit these files. Local sessions and cloud sessions (also from the mobile app) start trod from .mcp.json.');
+      return 0;
+    }
     case 'promote': {
       const name = rest[0];
       if (!name) {
