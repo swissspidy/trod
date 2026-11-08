@@ -3,7 +3,9 @@
 **Update (round 6b):** the same conventions the experience forge learned, put in an always-loaded `CLAUDE.md`
 instead of tool descriptions, raise Haiku from 87.5% to **95.0%** task goal completion (105 → 114 of 120 paired test
 runs; 11 fixed, 2 broken, exact McNemar p = 0.022). Adding the tool library on top does not help (110/120). See
-[Round 6b](#round-6b-the-conventions-as-always-loaded-notes) below.
+[Round 6b](#round-6b-the-conventions-as-always-loaded-notes) below. **Round 6d:** notes written by `trod forge` itself
+reached 104–108/120, so the 6b result depends on a few rules one forge happened to find
+([round 6d](#round-6d-can-trod-forge-write-the-round-6b-notes-itself)).
 
 [AppWorld](https://appworld.dev) (ACL 2024) is a simulated world of nine apps (Amazon, Gmail, Spotify, Venmo,
 Splitwise, SimpleNote, Todoist, phone, file system) with 457 APIs. Tasks are everyday chores ("approve all Venmo
@@ -105,6 +107,41 @@ The forged notes and tools did not reproduce round 6b. Two causes, from the fail
   6c, against 114 without one. That is not significant on its own (p = 0.29 here), but it is consistent.
 
 So on AppWorld the knowledge is the asset, and its content matters more than its packaging.
+
+## Round 6d: can `trod forge` write the round 6b notes itself?
+
+Round 6c's forge spent its notes on its own tools. Two more forges with the same experience digest (Opus 5.5, about
+$3 each) and an improved notes prompt, each scored with and without its tools. All checks passed in both forges
+(v6: 18/18), and both linked their notes. Haiku 5.5, the same 120 test tasks, one seed, no infra failures:
+
+| condition | TGC | vs baseline (fixed/broken) | vs round 6b notes (fixed/broken, p) |
+|---|---|---|---|
+| baseline | 105/120 (87.5%) | | |
+| round 6b notes | **114/120 (95.0%)** | 11/2 | |
+| v5 notes ("environment, not tools") | 104/120 (86.7%) | 6/7 | 2/12, p = 0.013 |
+| v5 tools + notes | 106/120 (88.3%) | 7/6 | 2/10, p = 0.039 |
+| v6 notes ("rules; every trap with its action") | 108/120 (90.0%) | 9/6 | 2/8, p = 0.11 |
+| v6 tools + notes | 107/120 (89.2%) | 7/5 | 3/10, p = 0.09 |
+
+The notes are in [`forged-notes/`](forged-notes/), per-task results in [`round-6d.json`](round-6d.json).
+
+- **Facts are not rules.** v5's notes ([v5.md](forged-notes/v5.md)) were accurate API facts and scored like no notes.
+  One true line, "place_order buys EVERYTHING in the cart (may already hold items)", gave no action. Haiku improvised
+  one, moving cart items to the wishlist. That was an unrequested change, and 4 tasks the baseline passed failed on
+  it. A warning without the right action can do harm, so trod's forge prompt now asks for rules ("X means Y; do Z")
+  and an action for every trap it names. v6 ([v6.md](forged-notes/v6.md)) follows that and is the best forged
+  result, but it is still 2–3 tasks above baseline and not significant.
+- **The gap to round 6b is a few specific rules.** One scenario explains most of it: "approve all Venmo payment
+  requests from my roommates from this calendar month". Every forged variant failed all 3 of its tasks. Round 6b's
+  notes passed all 3 with one rule: pass `payment_card_id` when the Venmo balance is too low. That rule came from the
+  v2 forge exploring the live environment; the train digest never mentions it. So whether a forge finds the rules
+  that matter varies from forge to forge. Notes that scored 114/120 and notes that scored 104/120 came from the
+  same procedure.
+
+So `trod forge` can write useful, verified notes: the checks held in every forge. But on AppWorld it does not
+reliably write the notes that matter. What helped was knowledge one forge happened to find. To make that reliable,
+notes would have to accumulate across forges and be scored against graded runs, not only checked against the
+environment.
 
 ## Reproduce
 
