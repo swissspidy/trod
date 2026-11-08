@@ -23,9 +23,12 @@ knows, and tasks where each one needs a fact no earlier task taught.
 
 ```sh
 npx trod init --allow-exec        # set this repo up for every Claude Code session: local, cloud, mobile app
-npx trod forge --brief @env.md --practice 'npm test'   # forge tools + notes, practising against a check
+npx trod forge --brief @env.md --practice 'npm test'   # use your project's own success check
 npx trod verify                   # in CI: re-check every tool and note against the environment
 ```
+
+Commit what the forge wrote (`.trod/library`, `.trod/notes.md`, `.trod/notes.checks.json`, the `CLAUDE.md` import)
+so every later session, cloud ones included, loads it.
 
 Or install the Claude Code plugin: `claude plugin marketplace add swissspidy/trod`, then
 `claude plugin install trod@trod`. Other MCP clients run `npx -y trod mcp`.
@@ -46,7 +49,8 @@ Tool code runs outside Claude Code's permission prompts, so execution is off unl
 ## Compared with
 
 - **`CLAUDE.md`, auto memory, Cline's Memory Bank:** notes you or the agent write as you go. trod writes them in a
-  dedicated session, from probing or practice, and keeps only what is checked.
+  dedicated session, from probing or practice, and does not link notes whose checks fail (or, with `--practice`,
+  notes from a forge that never passed your check).
 - **Agent Skills (`SKILL.md`):** packaged know-how that someone authors. trod produces the know-how; a forged
   library and notes work alongside skills.
 - **Memory layers (Letta, MCP memory servers):** retrieve what happened before. trod distils rules and tools that

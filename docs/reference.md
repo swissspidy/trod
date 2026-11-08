@@ -26,7 +26,8 @@ export default async ({ path, column }, ctx) => { /* … */ return total; };
 
 On every change trod checks the definition, the schema, name collisions and the syntax, then runs the
 `examples` as a smoke test. Invalid tools are not registered. A PostToolUse hook reports the result in the
-Write's own result. Two permanent tools never change, so the prompt cache stays valid:
+Write's own result. Three permanent tools never change, so they stay in the cached prefix (a client that sends newly
+registered tools with the next request still changes its tool list; see ADR 0002):
 
 - `trod_run {tool, input}` calls any trod tool right away, with nothing to load
   ([ADR 0002](adr/0002-tool-loading-and-the-prompt-cache.md)).
@@ -49,9 +50,10 @@ git add .mcp.json .claude .gitignore && git commit -m "Add trod"
 
 Cloud sessions do not install plugins declared in project settings, but they start project MCP servers from a
 committed `.mcp.json` (see [docs/spike.md](spike.md)); `trod init` writes one that runs `npx -y trod@<version> mcp`
-and approves it with `"enableAllProjectMcpServers": true`. `--vendor` copies the bundled server (one file, no
-dependencies) into `.trod/pkg/` instead, so nothing is fetched at session start (if your `.gitignore` ignores `bin/`, stage it
-with `git add -f .trod/pkg`).
+and sets `"enableAllProjectMcpServers": true`, which approves every server in the project's `.mcp.json`, not only
+trod's (cloud sessions cannot answer the approval prompt). `--vendor` copies the bundled server (one file, no
+dependencies) into `.trod/pkg/` instead, so nothing is fetched at session start. Stage it with the other files
+(`git add .trod/pkg`, or `git add -f .trod/pkg` if your `.gitignore` ignores `bin/`).
 
 **Every cloud session in an environment, without touching any repository** (tested): in the cloud environment's
 settings, add this setup script and the variable `TROD_ALLOW_EXEC=1` (the network must reach github.com):
@@ -61,7 +63,9 @@ claude plugin marketplace add swissspidy/trod || true
 claude plugin install trod@trod || true
 ```
 
-Each new session in that environment, whichever repository it opens (or none), then has the trod tools, the skill and
+The `|| true` keeps sessions starting when GitHub is unreachable or the marketplace is already added; if a session
+lacks the trod tools, check `claude plugin list` in it. Each new session in that environment, whichever repository it
+opens (or none), then has the trod tools, the skill and
 the hook as a plugin.
 
 **Local plugin** (Claude Code on your machine):

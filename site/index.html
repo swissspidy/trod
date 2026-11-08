@@ -36,15 +36,16 @@ p{color:var(--text-2);max-width:68ch;margin:0 0 12px}
 .row .name{font-size:14px;color:var(--text);line-height:1.3}
 .row .name small{display:block;color:var(--muted);font-size:12px}
 .bars{display:grid;gap:2px}
-.bar{position:relative;height:16px;display:flex;align-items:center;outline:none}
+.bar{position:relative;height:16px;margin-right:48px;outline:none}
 .bar .fill{height:100%;border-radius:0 4px 4px 0;min-width:2px}
+.bar .val{position:absolute;top:0;line-height:16px}
 .bar .val{font-size:12px;color:var(--text-2);margin-left:6px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .bar.notes .fill{background:var(--series-1)}
 .bar.base .fill{background:var(--series-2)}
 .bar .tip{position:absolute;left:0;bottom:calc(100% + 6px);background:var(--text);color:var(--surface);font-size:12px;padding:5px 8px;border-radius:6px;width:max-content;max-width:min(300px,calc(100vw - 64px));opacity:0;visibility:hidden;pointer-events:none;transition:opacity .12s;z-index:2}
 .bar:hover .tip,.bar:focus .tip{opacity:1;visibility:visible}
 .axis{display:grid;grid-template-columns:minmax(120px,210px) 1fr;gap:14px;font-size:11px;color:var(--muted)}
-.axis div:last-child{display:flex;justify-content:space-between;border-top:1px solid var(--line);padding-top:3px}
+.axis div:last-child{display:flex;justify-content:space-between;border-top:1px solid var(--line);padding-top:3px;margin-right:48px}
 details{margin:10px 0 0;font-size:14px;color:var(--text-2)}
 summary{cursor:pointer}
 /* cards and tables */
@@ -89,8 +90,8 @@ p code,li code,td code{font-size:.92em;background:var(--surface-2);padding:1px 5
 
 <h2>Where it shines</h2>
 <p>Forged knowledge pays in proportion to how much of tomorrow's work today's lessons cover. Across nine rounds of paired experiments, each with fresh test cases the forge never saw:</p>
-<div class="chart" role="figure" aria-label="Share of tasks Haiku solved alone and with forged notes, per benchmark">
-  <div class="legend"><span><i class="sw" style="background:var(--series-2)"></i>Haiku alone</span><span><i class="sw" style="background:var(--series-1)"></i>Haiku with forged notes</span></div>
+<div class="chart" role="figure" aria-label="Share of tasks Haiku solved alone and with forged notes (a forged tool library for SWE-bench), per benchmark">
+  <div class="legend"><span><i class="sw" style="background:var(--series-2)"></i>Haiku alone</span><span><i class="sw" style="background:var(--series-1)"></i>Haiku with forged notes (SWE-bench: forged tool library)</span></div>
   <div id="rows"></div>
   <div class="axis"><div></div><div><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div></div>
   <details><summary>Table view and sources</summary>
@@ -120,7 +121,7 @@ p code,li code,td code{font-size:.92em;background:var(--surface-2);padding:1px 5
 <p style="margin-top:14px">Underneath sits a live MCP tool server. The agent can write <code>.trod/tools/&lt;name&gt;.mjs</code> mid-session, and trod validates it, runs its examples and registers it without a restart.</p>
 
 <h2>Compared with</h2>
-<p>Learning from experience is not a new idea. What trod adds is a forge you can run, a gate that keeps only checked knowledge, and published measurements of when it helps.</p>
+<p>Learning from experience is not a new idea. What trod adds is a forge you can run, gates that hold back notes whose checks fail or that never passed your success check, and published measurements of when it helps.</p>
 <div class="scroll"><table>
   <tr><th></th><th>Who writes the knowledge</th><th>Verified?</th><th>Learns by practice?</th><th>Measured gains</th></tr>
   <tr class="us"><td>trod</td><td class="y">A dedicated forge session (any model)</td><td class="y">Tool examples, note checks, <code>trod verify</code></td><td class="y">Yes, against your success check</td><td class="y">9 paired rounds, positive and negative</td></tr>
@@ -150,7 +151,7 @@ const data = [
   { name: 'ScienceWorld', note: '30 science task types', base: 52.2, notes: 88.9, runs: 180, href: 'round-8/' },
   { name: 'AppWorld', note: 'everyday app chores', base: 87.5, notes: 95.0, runs: 120, href: 'round-6/' },
   { name: 'BIRD text-to-SQL', note: 'each question needs its own fact', base: 61.2, notes: 62.7, runs: 330, href: 'round-7/' },
-  { name: 'SWE-bench Verified', note: 'Django, the model knows it', base: 79.6, notes: 79.1, runs: 201, href: 'round-5/', label: 'with forged tool library' },
+  { name: 'SWE-bench Verified', note: 'Django, the model knows it; bar: tool library', base: 79.6, notes: 79.1, runs: 201, href: 'round-5/', label: 'with forged tool library' },
 ];
 const rows = document.getElementById('rows');
 const tbl = document.getElementById('tbl');
@@ -158,7 +159,7 @@ const pct = (v) => `${v.toFixed(v % 1 ? 1 : 0)}%`;
 for (const d of data) {
   const row = document.createElement('div');
   row.className = 'row';
-  const bar = (cls, v, who) => `<div class="bar ${cls}" tabindex="0" aria-label="${d.name}, ${who}: ${pct(v)}"><div class="fill" style="width:${v}%"></div><span class="val">${pct(v)}</span><span class="tip">${d.name} · ${who}: ${pct(v)} solved (${d.runs} runs)</span></div>`;
+  const bar = (cls, v, who) => `<div class="bar ${cls}" tabindex="0" aria-label="${d.name}, ${who}: ${pct(v)}"><div class="fill" style="width:${v}%"></div><span class="val" style="left:calc(${v}% + 6px)">${pct(v)}</span><span class="tip">${d.name} · ${who}: ${pct(v)} solved (${d.runs} runs)</span></div>`;
   row.innerHTML = `<div class="name"><a href="${d.href}">${d.name}</a><small>${d.note}</small></div><div class="bars">${bar('base', d.base, 'Haiku alone')}${bar('notes', d.notes, d.label ? 'Haiku ' + d.label : 'Haiku with forged notes')}</div>`;
   rows.appendChild(row);
   const tr = document.createElement('tr');
