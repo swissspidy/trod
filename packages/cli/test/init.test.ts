@@ -56,6 +56,10 @@ describe('trod init', () => {
 
 describe('package', () => {
   it('keeps the npm and plugin versions in step', () => {
-    expect(packageVersion(PLUGIN)).toBe(json(path.join(PLUGIN, '.claude-plugin', 'plugin.json')).version);
+    const version = packageVersion(PLUGIN);
+    expect(version).toBe(json(path.join(PLUGIN, '.claude-plugin', 'plugin.json')).version);
+    const server = json(path.join(PLUGIN, 'server.json'));
+    expect([server.version, server.packages[0].version]).toEqual([version, version]);
+    expect(server.name).toBe(json(path.join(PLUGIN, 'package.json')).mcpName);
   });
 });

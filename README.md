@@ -73,6 +73,17 @@ committed `.mcp.json` (see [docs/spike.md](docs/spike.md)); `trod init` writes o
 and approves it with `"enableAllProjectMcpServers": true`. `--vendor` copies the bundled server (one file, no
 dependencies) into `.trod/bin/` instead, so nothing is fetched at session start.
 
+**Every cloud session in an environment, without touching any repository** (tested): in the cloud environment's
+settings, add this setup script and the variable `TROD_ALLOW_EXEC=1` (the network must reach github.com):
+
+```sh
+claude plugin marketplace add swissspidy/trod || true
+claude plugin install trod@trod || true
+```
+
+Each new session in that environment, whichever repository it opens (or none), then has the trod tools, the skill and
+the hook as a plugin.
+
 **Local plugin** (Claude Code on your machine):
 
 ```sh
@@ -132,6 +143,7 @@ pnpm monorepo: `packages/server` (MCP server, registry, executor, logs), `packag
 Claude Code plugin), `experiments/` (tasks, runner, report). MIT licensed.
 
 **Releasing.** `plugin/` is also the npm package `trod` (bundled server and CLI, the skill and the hook; no
-dependencies). Bump the version in `plugin/package.json` and `plugin/.claude-plugin/plugin.json` (a test keeps them
-equal), merge, then push a `v<version>` tag: the Release workflow checks, tests and publishes with provenance. It
-needs an `NPM_TOKEN` secret in a GitHub environment named `npm`.
+dependencies). Bump the version in `plugin/package.json`, `plugin/.claude-plugin/plugin.json` and `plugin/server.json` (a test
+keeps them equal), merge, then push a `v<version>` tag: the Release workflow checks, tests, publishes to npm with
+provenance and lists the server in the [MCP Registry](https://registry.modelcontextprotocol.io) as
+`io.github.swissspidy/trod`. It needs an `NPM_TOKEN` secret in a GitHub environment named `npm`.

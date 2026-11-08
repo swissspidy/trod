@@ -2,14 +2,38 @@
   "name": "trod",
   "version": "0.5.0",
   "description": "Self-morphing tools for Claude Code: an MCP server that turns files into live tools mid-session, plus forged tool libraries and verified notes.",
+  "mcpName": "io.github.swissspidy/trod",
   "type": "module",
   "license": "MIT",
   "author": "Pascal Birchler",
   "homepage": "https://swissspidy.github.io/trod/",
-  "repository": { "type": "git", "url": "git+https://github.com/swissspidy/trod.git", "directory": "plugin" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/swissspidy/trod.git",
+    "directory": "plugin"
+  },
   "bugs": "https://github.com/swissspidy/trod/issues",
-  "keywords": ["mcp", "model-context-protocol", "claude-code", "claude", "ai-agents", "tools"],
-  "engines": { "node": ">=22" },
-  "bin": { "trod": "bin/trod" },
-  "files": ["bin/", "server/", "skills/", "hooks/", ".claude-plugin/", "README.md"]
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude-code",
+    "claude",
+    "ai-agents",
+    "tools"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "trod": "bin/trod"
+  },
+  "files": [
+    "bin/",
+    "server/",
+    "skills/",
+    "hooks/",
+    ".claude-plugin/",
+    "README.md",
+    "server.json"
+  ]
 }
