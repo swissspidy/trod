@@ -9,6 +9,7 @@
  * Splits by seed: test = seeds 0..MW_PER_TASK−1, dev = seeds 500+, train = seeds 1000+ (forges use train only).
  * MW_TASKS=<a,b,...> restricts the task types (default: all, minus real-time tasks and -nodelay duplicates).
  * MW_NOTES=<dir> copies <dir>/<task>.md into the work dir as CLAUDE.md (notes forged from train seeds: forge-notes.ts).
+ * MW_WIKI=<dir> and MW_NOTES_ALL=<file> (build-wiki.ts) give all task types' notes without routing: a wiki index, or one file.
  * MW_HOME (default /opt/miniwob) holds html/ (the package's html directory).
  */
 import { spawn } from 'node:child_process';
@@ -137,6 +138,13 @@ export function miniwobTasks(sample: { task: string; seed: number }[]): Task[] {
         const notes = process.env.MW_NOTES ? path.join(process.env.MW_NOTES, `${task}.md`) : '';
         rmSync(path.join(work, 'CLAUDE.md'), { force: true });
         if (notes && existsSync(notes)) cpSync(notes, path.join(work, 'CLAUDE.md'), { dereference: true });
+        // MW_WIKI=<dir> (build-wiki.ts): the index as CLAUDE.md, every page under .trod/wiki/; the agent routes itself.
+        if (process.env.MW_WIKI) {
+          cpSync(path.join(process.env.MW_WIKI, 'index.md'), path.join(work, 'CLAUDE.md'));
+          cpSync(path.join(process.env.MW_WIKI, 'pages'), path.join(work, '.trod', 'wiki'), { recursive: true });
+        }
+        // MW_NOTES_ALL=<file>: every task type's notes in one always-loaded CLAUDE.md.
+        if (process.env.MW_NOTES_ALL) cpSync(process.env.MW_NOTES_ALL, path.join(work, 'CLAUDE.md'));
         return { task, seed };
       },
       serve: async ({ work }: TaskContext, forForge?: boolean) => {
