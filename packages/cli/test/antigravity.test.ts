@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { linkNotes, trodPaths } from '@trod/server';
+import { linkAntigravityNotes, linkNotes, trodPaths } from '@trod/server';
 import { describe, expect, it } from 'vitest';
 import { init, packageVersion } from '../src/init.ts';
 
@@ -40,24 +40,41 @@ describe('trod init --antigravity', () => {
     expect(rule).toContain('@[trod notes](../../.trod/notes.md)');
   });
 
+  it('keeps variables the user added and reports an existing rule as unchanged', () => {
+    const dir = repo();
+    mkdirSync(path.join(dir, '.agents'));
+    mkdirSync(path.join(dir, '.trod'));
+    writeFileSync(path.join(dir, '.trod', 'notes.md'), '# Notes\n');
+    writeFileSync(path.join(dir, '.agents', 'mcp_config.json'), JSON.stringify({ mcpServers: { trod: { command: 'npx', env: { TROD_PROJECT_DIR: '/work/app' } } } }));
+    init({ projectDir: dir, packageRoot: PLUGIN, antigravity: true, allowExec: true });
+    expect(json(path.join(dir, '.agents', 'mcp_config.json')).mcpServers.trod.env).toEqual({ TROD_PROJECT_DIR: '/work/app', TROD_ALLOW_EXEC: '1' });
+    const again = init({ projectDir: dir, packageRoot: PLUGIN, antigravity: true, allowExec: true });
+    expect(again.written).toEqual([]);
+    expect(again.unchanged).toContain(path.join('.agents', 'rules', 'trod-notes.md'));
+  });
+
   it('rejects --vendor', () => {
     expect(() => init({ projectDir: repo(), packageRoot: PLUGIN, antigravity: true, vendor: true })).toThrow(/--vendor is not supported/);
   });
 });
 
 describe('notes in Antigravity projects', () => {
-  it('adds the rule next to the CLAUDE.md import when the project has .agents/', () => {
+  it('writes the rule once in projects with .agents/, and skips projects without', () => {
     const dir = repo();
+    expect(linkAntigravityNotes(trodPaths(dir))).toBe('skipped');
+    expect(existsSync(path.join(dir, '.agents'))).toBe(false);
     mkdirSync(path.join(dir, '.agents'));
-    expect(linkNotes(trodPaths(dir))).toBe(true);
-    expect(readFileSync(path.join(dir, 'CLAUDE.md'), 'utf8')).toContain('@.trod/notes.md');
-    expect(existsSync(path.join(dir, '.agents', 'rules', 'trod-notes.md'))).toBe(true);
+    expect(linkAntigravityNotes(trodPaths(dir))).toBe('written');
+    expect(linkAntigravityNotes(trodPaths(dir))).toBe('exists');
   });
 
-  it('adds no rule to projects without .agents/', () => {
+  it('reports a rule it cannot write instead of throwing, and CLAUDE.md is still linked', () => {
     const dir = repo();
-    linkNotes(trodPaths(dir));
-    expect(existsSync(path.join(dir, '.agents'))).toBe(false);
+    mkdirSync(path.join(dir, '.agents'));
+    writeFileSync(path.join(dir, '.agents', 'rules'), 'a file where the folder should be');
+    const res = linkAntigravityNotes(trodPaths(dir));
+    expect(typeof res === 'object' && res.error).toMatch(/could not write/);
+    expect(linkNotes(trodPaths(dir))).toBe(true);
   });
 });
 
@@ -73,9 +90,11 @@ describe('the Antigravity plugin at the repository root', () => {
     expect(manifest.version).toBe(packageVersion(PLUGIN));
   });
 
-  it('runs the bundled server from the plugin root', () => {
+  it('runs the bundled server from the plugin root, with execution off', () => {
     const server = json(path.join(ROOT, 'mcp_config.json')).mcpServers.server;
     expect(server.args[0]).toBe('${PLUGIN_ROOT}/plugin/server/trod-server.mjs');
+    // Installed for every workspace: with execution on, opening an untrusted repository would import its tools.
+    expect(server.env?.TROD_ALLOW_EXEC).toBeUndefined();
     expect(existsSync(path.join(ROOT, 'plugin', 'server', 'trod-server.mjs'))).toBe(true);
   });
 

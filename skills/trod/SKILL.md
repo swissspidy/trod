@@ -90,7 +90,7 @@ say so instead of silently working around it.
 
 - Tool code runs outside the terminal sandbox, in a subprocess with a timeout. Antigravity asks before each MCP
   tool call unless you allowed it. Keep tools inside the project directory and the hosts the task needs.
-- Execution only works when the server has `TROD_ALLOW_EXEC=1`. If trod says execution is disabled, use the
-  terminal instead.
+- Execution only works when the server has `TROD_ALLOW_EXEC=1`, which the user turns on per repository or machine.
+  If trod says execution is disabled, use the terminal instead; do not change the setting yourself.
 - If `trod_status` reports the home directory as the project, Antigravity did not tell trod which workspace you
   are in: ask the user to set `TROD_PROJECT_DIR` for the trod server.

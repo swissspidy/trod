@@ -277,17 +277,51 @@ describe('MCP roots', () => {
     expect(await trod.adoptClientRoots()).toBeUndefined();
   });
 
-  it('creates nothing in the home directory while it waits for a workspace', async () => {
+  it('creates nothing in the home directory while it waits for a workspace, not even logs', async () => {
     const home = mkdtempSync(path.join(tmpdir(), 'trod-home-'));
-    const saved = process.env.HOME;
+    const saved = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE };
     process.env.HOME = home;
+    process.env.USERPROFILE = home; // os.homedir() on Windows
     try {
-      const trod = new TrodServer({ paths: trodPaths(home), env: { PATH: process.env.PATH }, pollMs: 0 });
+      const trod = new TrodServer({ paths: trodPaths(home), env: { TROD_ALLOW_EXEC: '1', PATH: process.env.PATH }, pollMs: 0 });
       servers.push(trod);
       await trod.start();
       expect(existsSync(path.join(home, '.trod'))).toBe(false);
+      await trod.callTool('trod_eval', { code: 'return 1;' });
+      expect(existsSync(path.join(home, '.trod'))).toBe(false);
     } finally {
-      process.env.HOME = saved;
+      for (const [k, v] of Object.entries(saved)) {
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      }
     }
+  });
+
+  it('skips roots this platform cannot open and fails clearly when none is usable', async () => {
+    const workspace = tempProject();
+    const trod = new TrodServer({ paths: tempProject(), env: { PATH: process.env.PATH }, pollMs: 0 });
+    servers.push(trod);
+    await trod.start();
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    await trod.server.connect(a);
+    let roots = [{ uri: 'file://otherhost/share/project' }, { uri: pathToFileURL(workspace.projectDir).href }];
+    const client = new Client({ name: 'roots-client', version: '0' }, { capabilities: { roots: {} } });
+    client.setRequestHandler(ListRootsRequestSchema, async () => ({ roots }));
+    await client.connect(b);
+    expect(await trod.adoptClientRoots()).toBe(workspace.projectDir);
+    roots = [{ uri: 'file://otherhost/share/project' }];
+    await expect(trod.adoptClientRoots()).rejects.toThrow(/no usable file:\/\/ root/);
+    roots = []; // no folder open: nothing to do, and no error
+    expect(await trod.adoptClientRoots()).toBeUndefined();
+  });
+
+  it('runs relocations one after another', async () => {
+    const [one, two] = [tempProject(), tempProject()];
+    const trod = new TrodServer({ paths: tempProject(), env: { PATH: process.env.PATH }, pollMs: 50 });
+    servers.push(trod);
+    await trod.start();
+    const results = await Promise.all([trod.relocate(one.projectDir), trod.relocate(two.projectDir)]);
+    expect(results).toEqual([true, true]);
+    expect(trod.paths.projectDir).toBe(two.projectDir);
   });
 });

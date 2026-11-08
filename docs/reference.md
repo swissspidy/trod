@@ -94,8 +94,16 @@ when neither `TROD_PROJECT_DIR` nor `CLAUDE_PROJECT_DIR` is set, the server asks
 MCP roots and moves to the first one; until then it creates nothing in the home directory, and `trod_status` names
 the directory it uses. If Antigravity does not answer with a root, set `TROD_PROJECT_DIR` for the server. Notes reach
 Antigravity through `.agents/rules/trod-notes.md`, an always-on rule that inlines `.trod/notes.md`; `trod init
---antigravity`, `trod forge` and `trod learn` write it in projects with an `.agents/` folder. The plugin turns
-execution on: Antigravity asks before each MCP tool call unless you allowed it. Antigravity's PostToolUse hooks
+--antigravity`, `trod forge`, `trod learn` and `trod notes --link` write it in projects with an `.agents/` folder (in
+a workspace that only uses the plugin, run `npx trod init --antigravity` or create `.agents/` first; for notes that
+already exist, then run `trod notes --link`).
+
+Execution stays off in the plugin: it is installed for every workspace, and with execution on the server imports a
+workspace's tool files (and runs their examples) as soon as it starts, before Antigravity could ask about any tool
+call, so opening an untrusted repository would run its code. Turn it on where you trust the code: per repository with
+`npx trod init --antigravity --allow-exec` (committed in `.agents/mcp_config.json`; teammates who open the repository
+run its tools), or for your machine by setting `TROD_ALLOW_EXEC=1` in the environment Antigravity starts from. Once
+on, Antigravity still asks before each MCP tool call unless you allowed it. Antigravity's PostToolUse hooks
 cannot send messages to the agent, so instead of the validation hook the skill tells the agent to check
 `trod_status` after writing a tool. `trod forge` and `trod learn` run Claude Code sessions, so they need the
 `claude` CLI; `trod learn` reads Claude Code's transcripts, not Antigravity's. Verified here with an MCP client that

@@ -103,22 +103,24 @@ Verified notes about this project's environment, kept by trod (\`trod forge\`, \
 
 /**
  * For projects set up for Antigravity (an .agents/ folder, e.g. from `trod init --antigravity`): writes the rule that
- * loads .trod/notes.md into every Antigravity conversation. Returns true when it wrote the rule.
+ * loads .trod/notes.md into every Antigravity conversation. 'skipped' when the project has no .agents/ folder.
+ * File system errors come back as { error } instead of being thrown, so they never block the CLAUDE.md import.
  */
-export function linkAntigravityNotes(paths: TrodPaths): boolean {
+export function linkAntigravityNotes(paths: TrodPaths): 'written' | 'exists' | 'skipped' | { error: string } {
   const rule = path.join(paths.projectDir, ANTIGRAVITY_NOTES_RULE);
-  if (!existsSync(path.join(paths.projectDir, '.agents')) || existsSync(rule)) return false;
-  mkdirSync(path.dirname(rule), { recursive: true });
-  writeFileSync(rule, ANTIGRAVITY_RULE_TEXT);
-  return true;
+  if (!existsSync(path.join(paths.projectDir, '.agents'))) return 'skipped';
+  if (existsSync(rule)) return 'exists';
+  try {
+    mkdirSync(path.dirname(rule), { recursive: true });
+    writeFileSync(rule, ANTIGRAVITY_RULE_TEXT);
+    return 'written';
+  } catch (err) {
+    return { error: `could not write ${ANTIGRAVITY_NOTES_RULE}: ${(err as Error).message}` };
+  }
 }
 
-/**
- * Adds the `@.trod/notes.md` import to CLAUDE.md (creating it if needed), and the Antigravity rule when the project
- * has an .agents/ folder. Returns false if CLAUDE.md already imported the notes.
- */
+/** Adds the `@.trod/notes.md` import to CLAUDE.md (creating it if needed). Returns false if it was already there. */
 export function linkNotes(paths: TrodPaths): boolean {
-  linkAntigravityNotes(paths);
   if (notesLinked(paths)) return false;
   const { claudeMd } = notesPaths(paths);
   const block = `\n## Project notes (trod)\n\nVerified notes about this project's environment, kept by trod (\`trod forge\`, \`trod verify\`):\n\n${NOTES_IMPORT}\n`;

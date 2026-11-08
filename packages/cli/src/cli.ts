@@ -6,7 +6,7 @@ import { defaultPackageRoot, init, packageVersion } from './init.ts';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
-import { computeStats, formatStats, linkNotes, listToolEntries, loadToolEntry, NOTES_IMPORT, NOTES_MAX_CHARS, promoteTool, readLogs, resolveProjectDir, runToolExamples, trodPaths, verifyNotes, type NotesReport } from '@trod/server';
+import { ANTIGRAVITY_NOTES_RULE, linkAntigravityNotes, computeStats, formatStats, linkNotes, listToolEntries, loadToolEntry, NOTES_IMPORT, NOTES_MAX_CHARS, promoteTool, readLogs, resolveProjectDir, runToolExamples, trodPaths, verifyNotes, type NotesReport } from '@trod/server';
 
 const USAGE = `trod: self-morphing tools for Claude Code
 
@@ -230,9 +230,14 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
         // Only verified notes are linked: check first.
         if (!notes.exists) out('trod notes --link: no .trod/notes.md to link');
         else if (failed) out('trod notes --link: not linked, some checks fail (fix or remove those claims and their checks first)');
-        else if (linkNotes(paths)) {
-          out(`linked .trod/notes.md into CLAUDE.md (${NOTES_IMPORT})`);
-          notes = { ...notes, linked: true };
+        else {
+          if (linkNotes(paths)) {
+            out(`linked .trod/notes.md into CLAUDE.md (${NOTES_IMPORT})`);
+            notes = { ...notes, linked: true };
+          }
+          const rule = linkAntigravityNotes(paths);
+          if (rule === 'written') out(`linked .trod/notes.md into Antigravity (${ANTIGRAVITY_NOTES_RULE})`);
+          else if (typeof rule === 'object') out(rule.error);
         }
       }
       if (values.json) out(JSON.stringify(notes, null, 2));

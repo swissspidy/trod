@@ -15865,13 +15865,17 @@ Verified notes about this project's environment, kept by trod (\`trod forge\`, \
 `;
 function linkAntigravityNotes(paths) {
   const rule = path5.join(paths.projectDir, ANTIGRAVITY_NOTES_RULE);
-  if (!existsSync4(path5.join(paths.projectDir, ".agents")) || existsSync4(rule)) return false;
-  mkdirSync3(path5.dirname(rule), { recursive: true });
-  writeFileSync2(rule, ANTIGRAVITY_RULE_TEXT);
-  return true;
+  if (!existsSync4(path5.join(paths.projectDir, ".agents"))) return "skipped";
+  if (existsSync4(rule)) return "exists";
+  try {
+    mkdirSync3(path5.dirname(rule), { recursive: true });
+    writeFileSync2(rule, ANTIGRAVITY_RULE_TEXT);
+    return "written";
+  } catch (err) {
+    return { error: `could not write ${ANTIGRAVITY_NOTES_RULE}: ${err.message}` };
+  }
 }
 function linkNotes(paths) {
-  linkAntigravityNotes(paths);
   if (notesLinked(paths)) return false;
   const { claudeMd } = notesPaths(paths);
   const block = `
@@ -16055,6 +16059,9 @@ ${PRACTICE_PROMPT(!!opts.practice.reset)}` : ""}`;
     else if (opts.linkNotes !== false) {
       notesLinkedNow = linkNotes(paths);
       if (notesLinkedNow) out(`  linked .trod/notes.md into CLAUDE.md (${NOTES_IMPORT})${notes.checks.length ? "" : " (no checks: nothing in them is verified)"}`);
+      const rule = linkAntigravityNotes(paths);
+      if (rule === "written") out(`  linked .trod/notes.md into Antigravity (${ANTIGRAVITY_NOTES_RULE})`);
+      else if (typeof rule === "object") out(`  ${rule.error}`);
     }
   }
   return { exitCode, promoted, rejected, unverified, notes: notes.exists ? { ...notes, linked: notes.linked || notesLinkedNow } : void 0, costUsd: result?.total_cost_usd, turns: result?.num_turns, usage: result?.usage, practice };
@@ -16292,13 +16299,20 @@ function initAntigravity(opts, root, spec, res) {
   const mcpFile = path8.join(dir, ".agents", "mcp_config.json");
   const mcp = readJson(mcpFile);
   const servers = mcp.mcpServers ?? {};
-  servers.trod = { command: "npx", args: ["-y", spec, "mcp"], ...opts.allowExec ? { env: { TROD_ALLOW_EXEC: "1" } } : {} };
+  const previous = servers.trod ?? {};
+  const env = { ...previous.env, ...opts.allowExec ? { TROD_ALLOW_EXEC: "1" } : {} };
+  servers.trod = { command: "npx", args: ["-y", spec, "mcp"], ...Object.keys(env).length ? { env } : {} };
   mcp.mcpServers = servers;
   writeIfChanged(mcpFile, JSON.stringify(mcp, null, 2) + "\n", res, dir);
   const skill = path8.join(root, "antigravity", "skills", "trod", "SKILL.md");
   if (existsSync7(skill)) writeIfChanged(path8.join(dir, ".agents", "skills", "trod", "SKILL.md"), readFileSync7(skill, "utf8"), res, dir);
   else res.notes.push(`skill not found at ${skill}; skipped`);
-  if (existsSync7(path8.join(dir, ".trod", "notes.md")) && linkAntigravityNotes(trodPaths(dir))) res.written.push(path8.join(".agents", "rules", "trod-notes.md"));
+  if (existsSync7(path8.join(dir, ".trod", "notes.md"))) {
+    const rule = linkAntigravityNotes(trodPaths(dir));
+    if (rule === "written") res.written.push(ANTIGRAVITY_NOTES_RULE);
+    else if (rule === "exists") res.unchanged.push(ANTIGRAVITY_NOTES_RULE);
+    else if (typeof rule === "object") res.notes.push(rule.error);
+  }
   addIgnores(dir, res);
   res.notes.push("trod forge and trod learn add .agents/rules/trod-notes.md, which loads .trod/notes.md into every Antigravity conversation.");
   if (opts.allowExec) res.notes.push("TROD_ALLOW_EXEC=1 is set in .agents/mcp_config.json: tool code runs outside the terminal sandbox. Antigravity still asks before each MCP tool call unless you allow it.");
@@ -16533,9 +16547,14 @@ async function main(argv, out = console.log) {
       if (values.link) {
         if (!notes.exists) out("trod notes --link: no .trod/notes.md to link");
         else if (failed) out("trod notes --link: not linked, some checks fail (fix or remove those claims and their checks first)");
-        else if (linkNotes(paths)) {
-          out(`linked .trod/notes.md into CLAUDE.md (${NOTES_IMPORT})`);
-          notes = { ...notes, linked: true };
+        else {
+          if (linkNotes(paths)) {
+            out(`linked .trod/notes.md into CLAUDE.md (${NOTES_IMPORT})`);
+            notes = { ...notes, linked: true };
+          }
+          const rule = linkAntigravityNotes(paths);
+          if (rule === "written") out(`linked .trod/notes.md into Antigravity (${ANTIGRAVITY_NOTES_RULE})`);
+          else if (typeof rule === "object") out(rule.error);
         }
       }
       if (values.json) out(JSON.stringify(notes, null, 2));

@@ -17330,11 +17330,15 @@ import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from
 import path2 from "node:path";
 var CallLog = class {
   file;
-  constructor(logsDir, startedAt = /* @__PURE__ */ new Date()) {
+  /** False for a log that writes nothing (a server that has no workspace yet). */
+  enabled;
+  constructor(logsDir, startedAt = /* @__PURE__ */ new Date(), enabled = true) {
+    this.enabled = enabled;
     const stamp = startedAt.toISOString().replace(/[:.]/g, "-");
     this.file = path2.join(logsDir, `${stamp}-${process.pid}.jsonl`);
   }
   write(record2) {
+    if (!this.enabled) return;
     try {
       mkdirSync(path2.dirname(this.file), { recursive: true });
       appendFileSync(this.file, JSON.stringify(record2) + "\n");
@@ -17883,6 +17887,8 @@ var TrodServer = class {
   pollTimer;
   debounceTimer;
   lastFingerprint = "";
+  /** Relocations run one after another, so each one's watchers are stopped before the next starts them. */
+  relocating = Promise.resolve();
   opts;
   maxOutputChars;
   connected = false;
@@ -17894,7 +17900,7 @@ var TrodServer = class {
     this.sessionId = sessionIdFromEnv(this.env);
     this.maxOutputChars = Number(this.env.TROD_MAX_OUTPUT_CHARS) || DEFAULT_MAX_OUTPUT_CHARS;
     this.registry = new Registry({ paths: this.paths, execAllowed: this.execAllowed, sessionId: this.sessionId, env: this.env });
-    this.log = new CallLog(this.paths.logsDir);
+    this.log = new CallLog(this.paths.logsDir, /* @__PURE__ */ new Date(), !this.unplaced);
     this.server = new Server(
       { name: "trod", version: VERSION },
       {
@@ -17932,29 +17938,33 @@ var TrodServer = class {
     const change = await this.registry.reload();
     this.lastFingerprint = this.registry.fingerprint();
     this.logChange(change);
-    if (!this.unplaced) {
-      this.log.write({
-        type: "server",
-        ts: (/* @__PURE__ */ new Date()).toISOString(),
-        sessionId: this.sessionId,
-        event,
-        execAllowed: this.execAllowed,
-        version: VERSION,
-        tools: [...this.registry.active.keys()]
-      });
-    }
+    this.log.write({
+      type: "server",
+      ts: (/* @__PURE__ */ new Date()).toISOString(),
+      sessionId: this.sessionId,
+      event,
+      execAllowed: this.execAllowed,
+      version: VERSION,
+      tools: [...this.registry.active.keys()]
+    });
   }
   /**
    * Moves the server to another project directory (its own .trod/), e.g. the workspace a client reports through MCP
    * roots after the server started elsewhere. Returns false when it is already there.
    */
   async relocate(projectDir) {
+    const run = this.relocating.then(() => this.doRelocate(projectDir));
+    this.relocating = run.catch(() => {
+    });
+    return run;
+  }
+  async doRelocate(projectDir) {
     const next = path5.resolve(projectDir);
     if (next === this.paths.projectDir) return false;
     this.stopWatching();
     this.paths = trodPaths(next);
     this.registry = new Registry({ paths: this.paths, execAllowed: this.execAllowed, sessionId: this.sessionId, env: this.env });
-    this.log = new CallLog(this.paths.logsDir);
+    this.log = new CallLog(this.paths.logsDir, /* @__PURE__ */ new Date(), !this.unplaced);
     await this.load("relocate");
     this.watch();
     if (this.connected) {
@@ -17972,11 +17982,19 @@ var TrodServer = class {
   async adoptClientRoots() {
     if (!this.server.getClientCapabilities()?.roots) return void 0;
     const { roots } = await this.server.listRoots();
-    const uri = roots.map((r) => r.uri).find((u) => u.startsWith("file:"));
-    if (!uri) return void 0;
-    const dir = fileURLToPath(uri);
-    await this.relocate(dir);
-    return dir;
+    if (!roots.length) return void 0;
+    for (const { uri } of roots) {
+      if (!uri.startsWith("file:")) continue;
+      let dir;
+      try {
+        dir = fileURLToPath(uri);
+      } catch {
+        continue;
+      }
+      await this.relocate(dir);
+      return dir;
+    }
+    throw new Error(`no usable file:// root among ${roots.length} root(s) the client reported`);
   }
   stopWatching() {
     this.watcher?.close();
@@ -18035,6 +18053,7 @@ var TrodServer = class {
     }
   }
   async callTool(name, args) {
+    const log = this.log;
     if (name === STATUS_TOOL.name) return { content: [{ type: "text", text: this.status(typeof args.name === "string" ? args.name : void 0) }] };
     if (name === EVAL_TOOL.name) return this.evalCode(typeof args.code === "string" ? args.code : "");
     if (name === RUN_TOOL.name) {
@@ -18083,11 +18102,11 @@ var TrodServer = class {
       sessionId: this.sessionId,
       env: this.env
     });
-    this.record(tool, args, res.ok, res.durationMs, res.outputChars, res.truncated, res.error);
+    this.record(log, tool, args, res.ok, res.durationMs, res.outputChars, res.truncated, res.error);
     const text = res.text === "" ? res.ok ? "(empty result)" : "Error" : res.text;
     return { isError: !res.ok, content: [{ type: "text", text }] };
   }
-  record(tool, args, ok, durationMs, outputChars, truncated, error2) {
+  record(log, tool, args, ok, durationMs, outputChars, truncated, error2) {
     const name = tool.def.name;
     const u = this.usage.get(name) ?? { calls: 0, errors: 0, totalMs: 0 };
     u.calls++;
@@ -18097,7 +18116,7 @@ var TrodServer = class {
       u.lastError = error2;
     }
     this.usage.set(name, u);
-    this.log.write({
+    log.write({
       type: "call",
       ts: (/* @__PURE__ */ new Date()).toISOString(),
       sessionId: this.sessionId,
@@ -18113,6 +18132,7 @@ var TrodServer = class {
   }
   /** trod_eval: run code with every live tool exposed as a function. */
   async evalCode(code) {
+    const log = this.log;
     if (!code.trim()) return { isError: true, content: [{ type: "text", text: 'trod_eval: "code" is required.' }] };
     if (!this.execAllowed) return { isError: true, content: [{ type: "text", text: "trod: tool execution is disabled (TROD_ALLOW_EXEC is not 1)." }] };
     if (this.registry.fingerprint() !== this.lastFingerprint) await this.refresh();
@@ -18134,9 +18154,9 @@ var TrodServer = class {
     for (const c of res.calls ?? []) {
       const t = this.registry.active.get(c.tool);
       if (!t) continue;
-      this.record(t, {}, c.ok, c.ms, 0, false, c.ok ? void 0 : "failed inside trod_eval");
+      this.record(log, t, {}, c.ok, c.ms, 0, false, c.ok ? void 0 : "failed inside trod_eval");
     }
-    this.log.write({ type: "call", ts, sessionId: this.sessionId, tool: EVAL_TOOL.name, source: "session", durationMs: res.durationMs, ok: res.ok, error: res.error, inputChars: code.length, outputChars: res.outputChars, truncated: res.truncated });
+    log.write({ type: "call", ts, sessionId: this.sessionId, tool: EVAL_TOOL.name, source: "session", durationMs: res.durationMs, ok: res.ok, error: res.error, inputChars: code.length, outputChars: res.outputChars, truncated: res.truncated });
     const text = res.text === "" ? res.ok ? "(empty result)" : "Error" : res.text;
     return { isError: !res.ok, content: [{ type: "text", text }] };
   }
@@ -18196,9 +18216,14 @@ var TrodServer = class {
 var trod = new TrodServer({ paths: trodPaths(resolveProjectDir()) });
 await trod.start();
 if (!process.env.TROD_PROJECT_DIR && !process.env.CLAUDE_PROJECT_DIR) {
-  const adopt = () => void trod.adoptClientRoots().catch(() => {
-  });
-  trod.server.oninitialized = adopt;
+  const adopt = (attempt = 1) => {
+    trod.adoptClientRoots().catch((err) => {
+      process.stderr.write(`trod: could not use the client's workspace roots (attempt ${attempt}): ${err.message}
+`);
+      if (attempt < 3) setTimeout(() => adopt(attempt + 1), 1e3 * attempt).unref();
+    });
+  };
+  trod.server.oninitialized = () => adopt();
   trod.server.setNotificationHandler(RootsListChangedNotificationSchema, async () => adopt());
 }
 await trod.server.connect(new StdioServerTransport());

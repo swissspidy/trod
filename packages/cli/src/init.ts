@@ -1,7 +1,7 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { linkAntigravityNotes, trodPaths } from '@trod/server';
+import { ANTIGRAVITY_NOTES_RULE, linkAntigravityNotes, trodPaths } from '@trod/server';
 
 /**
  * `trod init`: set a repository up so that every Claude Code session in it, local or cloud (including sessions
@@ -141,13 +141,21 @@ function initAntigravity(opts: InitOptions, root: string, spec: string, res: Ini
   const mcpFile = path.join(dir, '.agents', 'mcp_config.json');
   const mcp = readJson(mcpFile);
   const servers = (mcp.mcpServers ?? {}) as Record<string, unknown>;
-  servers.trod = { command: 'npx', args: ['-y', spec, 'mcp'], ...(opts.allowExec ? { env: { TROD_ALLOW_EXEC: '1' } } : {}) };
+  // Keep variables the user added (e.g. TROD_PROJECT_DIR); --allow-exec only adds TROD_ALLOW_EXEC.
+  const previous = (servers.trod ?? {}) as { env?: Record<string, string> };
+  const env = { ...previous.env, ...(opts.allowExec ? { TROD_ALLOW_EXEC: '1' } : {}) };
+  servers.trod = { command: 'npx', args: ['-y', spec, 'mcp'], ...(Object.keys(env).length ? { env } : {}) };
   mcp.mcpServers = servers;
   writeIfChanged(mcpFile, JSON.stringify(mcp, null, 2) + '\n', res, dir);
   const skill = path.join(root, 'antigravity', 'skills', 'trod', 'SKILL.md');
   if (existsSync(skill)) writeIfChanged(path.join(dir, '.agents', 'skills', 'trod', 'SKILL.md'), readFileSync(skill, 'utf8'), res, dir);
   else res.notes.push(`skill not found at ${skill}; skipped`);
-  if (existsSync(path.join(dir, '.trod', 'notes.md')) && linkAntigravityNotes(trodPaths(dir))) res.written.push(path.join('.agents', 'rules', 'trod-notes.md'));
+  if (existsSync(path.join(dir, '.trod', 'notes.md'))) {
+    const rule = linkAntigravityNotes(trodPaths(dir));
+    if (rule === 'written') res.written.push(ANTIGRAVITY_NOTES_RULE);
+    else if (rule === 'exists') res.unchanged.push(ANTIGRAVITY_NOTES_RULE);
+    else if (typeof rule === 'object') res.notes.push(rule.error);
+  }
   addIgnores(dir, res);
   res.notes.push('trod forge and trod learn add .agents/rules/trod-notes.md, which loads .trod/notes.md into every Antigravity conversation.');
   if (opts.allowExec) res.notes.push('TROD_ALLOW_EXEC=1 is set in .agents/mcp_config.json: tool code runs outside the terminal sandbox. Antigravity still asks before each MCP tool call unless you allow it.');

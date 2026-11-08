@@ -162,6 +162,8 @@ export class TrodServer {
   private pollTimer?: NodeJS.Timeout;
   private debounceTimer?: NodeJS.Timeout;
   private lastFingerprint = '';
+  /** Relocations run one after another, so each one's watchers are stopped before the next starts them. */
+  private relocating: Promise<unknown> = Promise.resolve();
   private opts: TrodServerOptions;
   private maxOutputChars: number;
   private connected = false;
@@ -174,7 +176,7 @@ export class TrodServer {
     this.sessionId = sessionIdFromEnv(this.env);
     this.maxOutputChars = Number(this.env.TROD_MAX_OUTPUT_CHARS) || DEFAULT_MAX_OUTPUT_CHARS;
     this.registry = new Registry({ paths: this.paths, execAllowed: this.execAllowed, sessionId: this.sessionId, env: this.env });
-    this.log = new CallLog(this.paths.logsDir);
+    this.log = new CallLog(this.paths.logsDir, new Date(), !this.unplaced);
     this.server = new Server(
       { name: 'trod', version: VERSION },
       {
@@ -219,17 +221,15 @@ export class TrodServer {
     const change = await this.registry.reload();
     this.lastFingerprint = this.registry.fingerprint();
     this.logChange(change);
-    if (!this.unplaced) {
-      this.log.write({
-        type: 'server',
-        ts: new Date().toISOString(),
-        sessionId: this.sessionId,
-        event,
-        execAllowed: this.execAllowed,
-        version: VERSION,
-        tools: [...this.registry.active.keys()],
-      });
-    }
+    this.log.write({
+      type: 'server',
+      ts: new Date().toISOString(),
+      sessionId: this.sessionId,
+      event,
+      execAllowed: this.execAllowed,
+      version: VERSION,
+      tools: [...this.registry.active.keys()],
+    });
   }
 
   /**
@@ -237,12 +237,19 @@ export class TrodServer {
    * roots after the server started elsewhere. Returns false when it is already there.
    */
   async relocate(projectDir: string): Promise<boolean> {
+    const run = this.relocating.then(() => this.doRelocate(projectDir));
+    this.relocating = run.catch(() => {});
+    return run;
+  }
+
+  private async doRelocate(projectDir: string): Promise<boolean> {
     const next = path.resolve(projectDir);
     if (next === this.paths.projectDir) return false;
     this.stopWatching();
     this.paths = trodPaths(next);
     this.registry = new Registry({ paths: this.paths, execAllowed: this.execAllowed, sessionId: this.sessionId, env: this.env });
-    this.log = new CallLog(this.paths.logsDir);
+    // Calls still running keep the log of the workspace they started in (they captured it).
+    this.log = new CallLog(this.paths.logsDir, new Date(), !this.unplaced);
     await this.load('relocate');
     this.watch();
     if (this.connected) {
@@ -262,11 +269,19 @@ export class TrodServer {
   async adoptClientRoots(): Promise<string | undefined> {
     if (!this.server.getClientCapabilities()?.roots) return undefined;
     const { roots } = await this.server.listRoots();
-    const uri = roots.map((r) => r.uri).find((u) => u.startsWith('file:'));
-    if (!uri) return undefined;
-    const dir = fileURLToPath(uri);
-    await this.relocate(dir);
-    return dir;
+    if (!roots.length) return undefined; // no folder open yet; roots/list_changed will follow
+    for (const { uri } of roots) {
+      if (!uri.startsWith('file:')) continue;
+      let dir: string;
+      try {
+        dir = fileURLToPath(uri); // throws for a file URL this platform cannot open (e.g. file://otherhost/...)
+      } catch {
+        continue;
+      }
+      await this.relocate(dir);
+      return dir;
+    }
+    throw new Error(`no usable file:// root among ${roots.length} root(s) the client reported`);
   }
 
   private stopWatching(): void {
@@ -334,6 +349,7 @@ export class TrodServer {
   }
 
   async callTool(name: string, args: Record<string, unknown>): Promise<CallToolResult> {
+    const log = this.log;
     if (name === STATUS_TOOL.name) return { content: [{ type: 'text', text: this.status(typeof args.name === 'string' ? args.name : undefined) }] };
     if (name === EVAL_TOOL.name) return this.evalCode(typeof args.code === 'string' ? args.code : '');
     if (name === RUN_TOOL.name) {
@@ -388,12 +404,12 @@ export class TrodServer {
       sessionId: this.sessionId,
       env: this.env,
     });
-    this.record(tool, args, res.ok, res.durationMs, res.outputChars, res.truncated, res.error);
+    this.record(log, tool, args, res.ok, res.durationMs, res.outputChars, res.truncated, res.error);
     const text = res.text === '' ? (res.ok ? '(empty result)' : 'Error') : res.text;
     return { isError: !res.ok, content: [{ type: 'text', text }] };
   }
 
-  private record(tool: LoadedTool, args: unknown, ok: boolean, durationMs: number, outputChars: number, truncated: boolean, error?: string) {
+  private record(log: CallLog, tool: LoadedTool, args: unknown, ok: boolean, durationMs: number, outputChars: number, truncated: boolean, error?: string) {
     const name = tool.def!.name;
     const u = this.usage.get(name) ?? { calls: 0, errors: 0, totalMs: 0 };
     u.calls++;
@@ -403,7 +419,7 @@ export class TrodServer {
       u.lastError = error;
     }
     this.usage.set(name, u);
-    this.log.write({
+    log.write({
       type: 'call',
       ts: new Date().toISOString(),
       sessionId: this.sessionId,
@@ -420,6 +436,7 @@ export class TrodServer {
 
   /** trod_eval: run code with every live tool exposed as a function. */
   async evalCode(code: string): Promise<CallToolResult> {
+    const log = this.log;
     if (!code.trim()) return { isError: true, content: [{ type: 'text', text: 'trod_eval: "code" is required.' }] };
     if (!this.execAllowed) return { isError: true, content: [{ type: 'text', text: 'trod: tool execution is disabled (TROD_ALLOW_EXEC is not 1).' }] };
     if (this.registry.fingerprint() !== this.lastFingerprint) await this.refresh();
@@ -441,9 +458,9 @@ export class TrodServer {
     for (const c of res.calls ?? []) {
       const t = this.registry.active.get(c.tool);
       if (!t) continue;
-      this.record(t, {}, c.ok, c.ms, 0, false, c.ok ? undefined : 'failed inside trod_eval');
+      this.record(log, t, {}, c.ok, c.ms, 0, false, c.ok ? undefined : 'failed inside trod_eval');
     }
-    this.log.write({ type: 'call', ts, sessionId: this.sessionId, tool: EVAL_TOOL.name, source: 'session', durationMs: res.durationMs, ok: res.ok, error: res.error, inputChars: code.length, outputChars: res.outputChars, truncated: res.truncated });
+    log.write({ type: 'call', ts, sessionId: this.sessionId, tool: EVAL_TOOL.name, source: 'session', durationMs: res.durationMs, ok: res.ok, error: res.error, inputChars: code.length, outputChars: res.outputChars, truncated: res.truncated });
     const text = res.text === '' ? (res.ok ? '(empty result)' : 'Error') : res.text;
     return { isError: !res.ok, content: [{ type: 'text', text }] };
   }
