@@ -9,15 +9,15 @@ How trod reaches users, what is ready, and what needs the repository owner.
 | Claude Code plugin (local) | `claude plugin marketplace add swissspidy/trod`, `claude plugin install trod@trod` | works |
 | Cloud environment (every session, any repo) | setup script with the two commands above, plus `TROD_ALLOW_EXEC=1` as an environment variable of the cloud environment (not in the script) | works (tested in a fresh cloud session) |
 | Per repository (local, cloud, mobile app) | `npx trod init --allow-exec`, commit the files | ready; needs the npm release |
-| Per repository, no network at start | `npx trod init --vendor --allow-exec` (server and CLI copied into `.trod/pkg/`) | ready; needs the npm release |
+| Per repository, no network at start | `npx trod init --vendor --allow-exec` (server and CLI copied into `.trod/pkg/`; `git add -f .trod/pkg` if `bin/` is gitignored) | ready; needs the npm release |
 | Any MCP client (Antigravity, Cursor, VS Code, ...) | `npx -y trod mcp`, `TROD_ALLOW_EXEC=1` | ready; needs the npm release; untested in those clients |
 | MCP Registry | listed as `io.github.swissspidy/trod` (`plugin/server.json`) | published by the Release workflow |
 
 ## Owner steps for the first release
 
 1. Create an npm granular access token on the `swissspidy` account with read and write access to packages (the
-   first publish creates `trod`, so the token cannot be limited to it yet) and 2FA bypass for CI and add it as the `NPM_TOKEN` secret of a GitHub
-   environment named `npm` (Settings, Environments). The name `trod` was free on npm when this was written.
+   first publish creates `trod`, so the token cannot be limited to it yet) and 2FA bypass for CI. Add it as the
+   `NPM_TOKEN` secret of a GitHub environment named `npm` (Settings, Environments). The name `trod` was free on npm when this was written.
 2. Push the tag: `git tag v0.5.0 && git push origin v0.5.0`. The Release workflow checks, tests, publishes to npm
    with provenance and lists the server in the MCP Registry (GitHub OIDC; no extra secret).
 3. Optional: set the repository's description and topics (`mcp`, `claude-code`, `ai-agents`) so it is found.
