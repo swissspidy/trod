@@ -6,16 +6,18 @@ import { defaultPackageRoot, init, packageVersion } from './init.ts';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
-import { computeStats, formatStats, linkNotes, listToolEntries, loadToolEntry, NOTES_IMPORT, NOTES_MAX_CHARS, promoteTool, readLogs, resolveProjectDir, runToolExamples, trodPaths, verifyNotes, type NotesReport } from '@trod/server';
+import { ANTIGRAVITY_NOTES_RULE, linkAntigravityNotes, computeStats, formatStats, linkNotes, listToolEntries, loadToolEntry, NOTES_IMPORT, NOTES_MAX_CHARS, promoteTool, readLogs, resolveProjectDir, runToolExamples, trodPaths, verifyNotes, type NotesReport } from '@trod/server';
 
 const USAGE = `trod: self-morphing tools for Claude Code
 
 Usage:
-  trod init [--vendor] [--allow-exec]
+  trod init [--vendor] [--allow-exec] [--antigravity]
                            Set this repository up for trod in every Claude Code session, local or cloud (also
                            sessions started from the mobile app): writes .mcp.json, .claude/settings.json and the
                            skill. --vendor copies the server into .trod/pkg instead of running it through npx;
-                           --allow-exec lets tools run (TROD_ALLOW_EXEC=1; meant for ephemeral cloud containers)
+                           --allow-exec lets tools run (TROD_ALLOW_EXEC=1; meant for ephemeral cloud containers).
+                           --antigravity sets the repository up for Antigravity instead (.agents/mcp_config.json,
+                           the skill, and a rule that loads the notes)
   trod mcp                 Start the trod MCP server on stdio (for any MCP client)
   trod promote <name>      Move .trod/tools/<name> to .trod/library/<name> (commit the library)
   trod stats [--json]      Summarize tool usage across .trod/logs/*.jsonl
@@ -68,6 +70,7 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       timeout: { type: 'string' },
       vendor: { type: 'boolean', default: false },
       'allow-exec': { type: 'boolean', default: false },
+      antigravity: { type: 'boolean', default: false },
       version: { type: 'boolean', short: 'v', default: false },
     },
   });
@@ -102,11 +105,17 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       return new Promise<number>(() => {});
     }
     case 'init': {
-      const res = init({ projectDir: paths.projectDir, vendor: values.vendor, allowExec: values['allow-exec'] });
+      let res;
+      try {
+        res = init({ projectDir: paths.projectDir, vendor: values.vendor, allowExec: values['allow-exec'], antigravity: values.antigravity });
+      } catch (err) {
+        out((err as Error).message);
+        return 1;
+      }
       for (const f of res.written) out(`wrote     ${f}`);
       for (const f of res.unchanged) out(`unchanged ${f}`);
       for (const n of res.notes) out(n);
-      out('Commit these files. Local sessions and cloud sessions (also from the mobile app) start trod from .mcp.json.');
+      out(values.antigravity ? 'Commit these files. Antigravity starts trod from .agents/mcp_config.json in this workspace.' : 'Commit these files. Local sessions and cloud sessions (also from the mobile app) start trod from .mcp.json.');
       return 0;
     }
     case 'promote': {
@@ -221,9 +230,14 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
         // Only verified notes are linked: check first.
         if (!notes.exists) out('trod notes --link: no .trod/notes.md to link');
         else if (failed) out('trod notes --link: not linked, some checks fail (fix or remove those claims and their checks first)');
-        else if (linkNotes(paths)) {
-          out(`linked .trod/notes.md into CLAUDE.md (${NOTES_IMPORT})`);
-          notes = { ...notes, linked: true };
+        else {
+          if (linkNotes(paths)) {
+            out(`linked .trod/notes.md into CLAUDE.md (${NOTES_IMPORT})`);
+            notes = { ...notes, linked: true };
+          }
+          const rule = linkAntigravityNotes(paths);
+          if (rule === 'written') out(`linked .trod/notes.md into Antigravity (${ANTIGRAVITY_NOTES_RULE})`);
+          else if (typeof rule === 'object') out(rule.error);
         }
       }
       if (values.json) out(JSON.stringify(notes, null, 2));

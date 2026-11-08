@@ -30,7 +30,7 @@ export interface ServerRecord {
   type: 'server';
   ts: string;
   sessionId?: string;
-  event: 'start';
+  event: 'start' | 'relocate';
   execAllowed: boolean;
   version: string;
   tools: string[];
@@ -41,13 +41,17 @@ export type LogRecord = CallRecord | ToolEventRecord | ServerRecord;
 /** Appends JSONL records to one file per server process under .trod/logs/. */
 export class CallLog {
   readonly file: string;
+  /** False for a log that writes nothing (a server that has no workspace yet). */
+  readonly enabled: boolean;
 
-  constructor(logsDir: string, startedAt = new Date()) {
+  constructor(logsDir: string, startedAt = new Date(), enabled = true) {
+    this.enabled = enabled;
     const stamp = startedAt.toISOString().replace(/[:.]/g, '-');
     this.file = path.join(logsDir, `${stamp}-${process.pid}.jsonl`);
   }
 
   write(record: LogRecord): void {
+    if (!this.enabled) return;
     try {
       mkdirSync(path.dirname(this.file), { recursive: true });
       appendFileSync(this.file, JSON.stringify(record) + '\n');

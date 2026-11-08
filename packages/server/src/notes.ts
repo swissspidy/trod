@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { executeTool } from './executor.ts';
 import type { ExampleExpectation, LoadedTool, TrodPaths } from './types.ts';
@@ -86,6 +86,37 @@ export function readChecks(file: string): { checks: NoteCheck[]; errors: string[
 export function notesLinked(paths: TrodPaths): boolean {
   const { claudeMd } = notesPaths(paths);
   return existsSync(claudeMd) && readFileSync(claudeMd, 'utf8').split('\n').some((l) => l.trim() === NOTES_IMPORT);
+}
+
+/** Antigravity does not read CLAUDE.md: it loads rules from .agents/rules/, which can inline a file. */
+export const ANTIGRAVITY_NOTES_RULE = path.join('.agents', 'rules', 'trod-notes.md');
+const ANTIGRAVITY_RULE_TEXT = `---
+trigger: always_on
+---
+
+# Project notes (trod)
+
+Verified notes about this project's environment, kept by trod (\`trod forge\`, \`trod learn\`, \`trod verify\`):
+
+@[trod notes](../../.trod/notes.md)
+`;
+
+/**
+ * For projects set up for Antigravity (an .agents/ folder, e.g. from `trod init --antigravity`): writes the rule that
+ * loads .trod/notes.md into every Antigravity conversation. 'skipped' when the project has no .agents/ folder.
+ * File system errors come back as { error } instead of being thrown, so they never block the CLAUDE.md import.
+ */
+export function linkAntigravityNotes(paths: TrodPaths): 'written' | 'exists' | 'skipped' | { error: string } {
+  const rule = path.join(paths.projectDir, ANTIGRAVITY_NOTES_RULE);
+  if (!existsSync(path.join(paths.projectDir, '.agents'))) return 'skipped';
+  if (existsSync(rule)) return 'exists';
+  try {
+    mkdirSync(path.dirname(rule), { recursive: true });
+    writeFileSync(rule, ANTIGRAVITY_RULE_TEXT);
+    return 'written';
+  } catch (err) {
+    return { error: `could not write ${ANTIGRAVITY_NOTES_RULE}: ${(err as Error).message}` };
+  }
 }
 
 /** Adds the `@.trod/notes.md` import to CLAUDE.md (creating it if needed). Returns false if it was already there. */

@@ -1,5 +1,6 @@
 // Bundles the server and the CLI into single files under plugin/, with no node_modules needed at runtime:
 // a cloud container clones the repo and starts the server without installing anything (docs/spike.md).
+import { copyFileSync, mkdirSync } from 'node:fs';
 import { build } from 'esbuild';
 
 const banner = {
@@ -14,4 +15,7 @@ await build({
   outfile: 'plugin/bin/trod',
   banner: { js: '#!/usr/bin/env node\n' + banner.js },
 });
-console.log('bundled plugin/server/trod-server.mjs and plugin/bin/trod');
+// The Antigravity plugin at the repository root ships the same skill as `trod init --antigravity`.
+mkdirSync('skills/trod', { recursive: true });
+copyFileSync('plugin/antigravity/skills/trod/SKILL.md', 'skills/trod/SKILL.md');
+console.log('bundled plugin/server/trod-server.mjs and plugin/bin/trod; copied the Antigravity skill to skills/trod/');

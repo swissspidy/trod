@@ -1,6 +1,7 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ANTIGRAVITY_NOTES_RULE, linkAntigravityNotes, trodPaths } from '@trod/server';
 
 /**
  * `trod init`: set a repository up so that every Claude Code session in it, local or cloud (including sessions
@@ -19,6 +20,8 @@ export interface InitOptions {
   vendor?: boolean;
   /** Set TROD_ALLOW_EXEC=1 for the server: needed for tools to run; meant for ephemeral (cloud) containers. */
   allowExec?: boolean;
+  /** Set the repository up for Antigravity (.agents/) instead of Claude Code. */
+  antigravity?: boolean;
 }
 
 export interface InitResult {
@@ -65,6 +68,7 @@ export function init(opts: InitOptions): InitResult {
   const res: InitResult = { written: [], unchanged: [], notes: [] };
   const version = packageVersion(root);
   const spec = version ? `trod@${version}` : 'trod';
+  if (opts.antigravity) return initAntigravity(opts, root, spec, res);
 
   // How sessions start the server and the CLI.
   let server: { command: string; args: string[] };
@@ -120,14 +124,50 @@ export function init(opts: InitOptions): InitResult {
   if (existsSync(skill)) writeIfChanged(path.join(dir, '.claude', 'skills', 'trod', 'SKILL.md'), readFileSync(skill, 'utf8'), res, dir);
   else res.notes.push(`skill not found at ${skill}; skipped`);
 
-  // Session tools and logs are per session; the library and notes are committed.
+  addIgnores(dir, res);
+  if (opts.allowExec) res.notes.push('TROD_ALLOW_EXEC=1 is set in .mcp.json: tool code runs outside Claude Code\'s permission prompts. Fine for ephemeral cloud containers; think twice on your own machine.');
+  else res.notes.push('Tools are registered but not executed until TROD_ALLOW_EXEC=1 is set (re-run with --allow-exec, or set it in your cloud environment\'s variables).');
+  return res;
+}
+
+/**
+ * `trod init --antigravity`: .agents/mcp_config.json (the server, through npx), .agents/skills/trod/SKILL.md (the
+ * Antigravity variant of the skill) and, once notes exist, .agents/rules/trod-notes.md. Antigravity starts MCP servers
+ * outside the project, so the server finds the workspace through MCP roots (or TROD_PROJECT_DIR).
+ */
+function initAntigravity(opts: InitOptions, root: string, spec: string, res: InitResult): InitResult {
+  const dir = opts.projectDir;
+  if (opts.vendor) throw new Error('trod init --antigravity: --vendor is not supported (Antigravity starts MCP servers outside the project, so a path inside it cannot be resolved)');
+  const mcpFile = path.join(dir, '.agents', 'mcp_config.json');
+  const mcp = readJson(mcpFile);
+  const servers = (mcp.mcpServers ?? {}) as Record<string, unknown>;
+  // Keep variables the user added (e.g. TROD_PROJECT_DIR); --allow-exec only adds TROD_ALLOW_EXEC.
+  const previous = (servers.trod ?? {}) as { env?: Record<string, string> };
+  const env = { ...previous.env, ...(opts.allowExec ? { TROD_ALLOW_EXEC: '1' } : {}) };
+  servers.trod = { command: 'npx', args: ['-y', spec, 'mcp'], ...(Object.keys(env).length ? { env } : {}) };
+  mcp.mcpServers = servers;
+  writeIfChanged(mcpFile, JSON.stringify(mcp, null, 2) + '\n', res, dir);
+  const skill = path.join(root, 'antigravity', 'skills', 'trod', 'SKILL.md');
+  if (existsSync(skill)) writeIfChanged(path.join(dir, '.agents', 'skills', 'trod', 'SKILL.md'), readFileSync(skill, 'utf8'), res, dir);
+  else res.notes.push(`skill not found at ${skill}; skipped`);
+  if (existsSync(path.join(dir, '.trod', 'notes.md'))) {
+    const rule = linkAntigravityNotes(trodPaths(dir));
+    if (rule === 'written') res.written.push(ANTIGRAVITY_NOTES_RULE);
+    else if (rule === 'exists') res.unchanged.push(ANTIGRAVITY_NOTES_RULE);
+    else if (typeof rule === 'object') res.notes.push(rule.error);
+  }
+  addIgnores(dir, res);
+  res.notes.push('trod forge and trod learn add .agents/rules/trod-notes.md, which loads .trod/notes.md into every Antigravity conversation.');
+  if (opts.allowExec) res.notes.push('TROD_ALLOW_EXEC=1 is set in .agents/mcp_config.json: tool code runs outside the terminal sandbox. Antigravity still asks before each MCP tool call unless you allow it.');
+  else res.notes.push('Tools are registered but not executed until TROD_ALLOW_EXEC=1 is set (re-run with --allow-exec).');
+  return res;
+}
+
+/** Session tools and logs are per session; the library and notes are committed. */
+function addIgnores(dir: string, res: InitResult): void {
   const ignoreFile = path.join(dir, '.gitignore');
   const ignore = existsSync(ignoreFile) ? readFileSync(ignoreFile, 'utf8') : '';
   const missing = ['.trod/tools/', '.trod/logs/'].filter((l) => !ignore.split(/\r?\n/).includes(l));
   if (missing.length) writeIfChanged(ignoreFile, `${ignore}${ignore && !ignore.endsWith('\n') ? '\n' : ''}# trod: per-session tools and logs (the library in .trod/library is committed)\n${missing.join('\n')}\n`, res, dir);
   else res.unchanged.push('.gitignore');
-
-  if (opts.allowExec) res.notes.push('TROD_ALLOW_EXEC=1 is set in .mcp.json: tool code runs outside Claude Code\'s permission prompts. Fine for ephemeral cloud containers; think twice on your own machine.');
-  else res.notes.push('Tools are registered but not executed until TROD_ALLOW_EXEC=1 is set (re-run with --allow-exec, or set it in your cloud environment\'s variables).');
-  return res;
 }

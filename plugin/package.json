@@ -1,7 +1,7 @@
 {
   "name": "trod",
   "version": "0.5.0",
-  "description": "Self-morphing tools for Claude Code: an MCP server that turns files into live tools mid-session, plus forged tool libraries and verified notes.",
+  "description": "Self-morphing tools for Claude Code and Antigravity: an MCP server that turns files into live tools mid-session, plus forged tool libraries and verified notes.",
   "mcpName": "io.github.swissspidy/trod",
   "type": "module",
   "license": "MIT",
@@ -17,6 +17,7 @@
     "mcp",
     "model-context-protocol",
     "claude-code",
+    "antigravity",
     "claude",
     "ai-agents",
     "tools"
@@ -31,6 +32,7 @@
     "bin/",
     "server/",
     "skills/",
+    "antigravity/",
     "hooks/",
     ".claude-plugin/",
     "README.md",

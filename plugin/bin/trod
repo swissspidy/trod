@@ -7261,7 +7261,7 @@ import { existsSync as existsSync8, mkdtempSync as mkdtempSync2, readdirSync as 
 
 // packages/cli/src/forge.ts
 import { spawn as spawn2 } from "node:child_process";
-import { chmodSync, existsSync as existsSync5, mkdirSync as mkdirSync3, mkdtempSync, readdirSync as readdirSync3, readFileSync as readFileSync5, writeFileSync as writeFileSync3 } from "node:fs";
+import { chmodSync, existsSync as existsSync5, mkdirSync as mkdirSync4, mkdtempSync, readdirSync as readdirSync3, readFileSync as readFileSync5, writeFileSync as writeFileSync3 } from "node:fs";
 import { tmpdir } from "node:os";
 import path6 from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15806,7 +15806,7 @@ var EVAL_TOOL = {
 var RESERVED = /* @__PURE__ */ new Set([STATUS_TOOL.name, RUN_TOOL.name, EVAL_TOOL.name]);
 
 // packages/server/src/notes.ts
-import { appendFileSync as appendFileSync2, existsSync as existsSync4, readFileSync as readFileSync4, writeFileSync as writeFileSync2 } from "node:fs";
+import { appendFileSync as appendFileSync2, existsSync as existsSync4, mkdirSync as mkdirSync3, readFileSync as readFileSync4, writeFileSync as writeFileSync2 } from "node:fs";
 import path5 from "node:path";
 var NOTES_FILE = "notes.md";
 var CHECKS_FILE = "notes.checks.json";
@@ -15851,6 +15851,29 @@ function readChecks(file) {
 function notesLinked(paths) {
   const { claudeMd } = notesPaths(paths);
   return existsSync4(claudeMd) && readFileSync4(claudeMd, "utf8").split("\n").some((l) => l.trim() === NOTES_IMPORT);
+}
+var ANTIGRAVITY_NOTES_RULE = path5.join(".agents", "rules", "trod-notes.md");
+var ANTIGRAVITY_RULE_TEXT = `---
+trigger: always_on
+---
+
+# Project notes (trod)
+
+Verified notes about this project's environment, kept by trod (\`trod forge\`, \`trod learn\`, \`trod verify\`):
+
+@[trod notes](../../.trod/notes.md)
+`;
+function linkAntigravityNotes(paths) {
+  const rule = path5.join(paths.projectDir, ANTIGRAVITY_NOTES_RULE);
+  if (!existsSync4(path5.join(paths.projectDir, ".agents"))) return "skipped";
+  if (existsSync4(rule)) return "exists";
+  try {
+    mkdirSync3(path5.dirname(rule), { recursive: true });
+    writeFileSync2(rule, ANTIGRAVITY_RULE_TEXT);
+    return "written";
+  } catch (err) {
+    return { error: `could not write ${ANTIGRAVITY_NOTES_RULE}: ${err.message}` };
+  }
 }
 function linkNotes(paths) {
   if (notesLinked(paths)) return false;
@@ -15921,7 +15944,7 @@ var PRACTICE_PROMPT = (hasReset) => `## Practice
 
 You can practise on the environment itself. \`trod-try\` runs the practice check: it exits 0 when the current attempt succeeded, and its output says why when it did not.${hasReset ? " `trod-reset` starts a fresh attempt (a new instance of the same kind of task)." : ""} Make real attempts until they succeed reliably (at least 3 in a row where you can), and learn from every failure: what ends an attempt, what success needs that nobody says, which actions are reliable, which are traps. Then write into .trod/notes.md the rules you saw hold, each with the action to take, plus a short recipe that worked, with <placeholders> for what differs between attempts. Run checks only through \`trod-try\`: notes from a forge that never passed it are not linked.`;
 function writePracticeBins(binDir, logFile, practice) {
-  mkdirSync3(binDir, { recursive: true });
+  mkdirSync4(binDir, { recursive: true });
   writeFileSync3(path6.join(binDir, "package.json"), '{"type":"commonjs"}\n');
   const bin = (cmd, kind) => `#!/usr/bin/env node
 const { spawnSync } = require('node:child_process');
@@ -15989,7 +16012,7 @@ ${PRACTICE_PROMPT(!!opts.practice.reset)}` : ""}`;
     ...opts.maxBudgetUsd ? ["--max-budget-usd", opts.maxBudgetUsd] : []
   ];
   const streamFile = opts.streamFile ?? path6.join(scratch, "forge.jsonl");
-  mkdirSync3(path6.dirname(streamFile), { recursive: true });
+  mkdirSync4(path6.dirname(streamFile), { recursive: true });
   out(`forging tools in ${opts.projectDir}${opts.model ? ` with ${opts.model}` : ""} \u2026`);
   const exitCode = await new Promise((resolve) => {
     const child = spawn2(opts.claudeBin ?? baseEnv.TROD_CLAUDE_BIN ?? "claude", args, { cwd: opts.projectDir, env, stdio: ["ignore", "pipe", "inherit"] });
@@ -16036,13 +16059,16 @@ ${PRACTICE_PROMPT(!!opts.practice.reset)}` : ""}`;
     else if (opts.linkNotes !== false) {
       notesLinkedNow = linkNotes(paths);
       if (notesLinkedNow) out(`  linked .trod/notes.md into CLAUDE.md (${NOTES_IMPORT})${notes.checks.length ? "" : " (no checks: nothing in them is verified)"}`);
+      const rule = linkAntigravityNotes(paths);
+      if (rule === "written") out(`  linked .trod/notes.md into Antigravity (${ANTIGRAVITY_NOTES_RULE})`);
+      else if (typeof rule === "object") out(`  ${rule.error}`);
     }
   }
   return { exitCode, promoted, rejected, unverified, notes: notes.exists ? { ...notes, linked: notes.linked || notesLinkedNow } : void 0, costUsd: result?.total_cost_usd, turns: result?.num_turns, usage: result?.usage, practice };
 }
 
 // packages/cli/src/learn.ts
-import { existsSync as existsSync6, mkdirSync as mkdirSync4, readdirSync as readdirSync4, readFileSync as readFileSync6, realpathSync, statSync, writeFileSync as writeFileSync4 } from "node:fs";
+import { existsSync as existsSync6, mkdirSync as mkdirSync5, readdirSync as readdirSync4, readFileSync as readFileSync6, realpathSync, statSync, writeFileSync as writeFileSync4 } from "node:fs";
 import { homedir } from "node:os";
 import path7 from "node:path";
 function transcriptDir(projectDir, configDir = process.env.CLAUDE_CONFIG_DIR || path7.join(homedir(), ".claude")) {
@@ -16153,7 +16179,7 @@ function readOutcomes(file) {
   return map;
 }
 function writeDigests(dir, digests) {
-  mkdirSync4(dir, { recursive: true });
+  mkdirSync5(dir, { recursive: true });
   const counts = { pass: 0, fail: 0, unknown: 0 };
   const index = ["# Sessions", "", "| file | outcome | tool calls | errors | task (first line) |", "|---|---|---|---|---|"];
   digests.forEach((d, i) => {
@@ -16183,7 +16209,7 @@ Never copy answers to one particular task into the notes: write what transfers t
 import { tmpdir as tmpdir2 } from "node:os";
 
 // packages/cli/src/init.ts
-import { copyFileSync, existsSync as existsSync7, mkdirSync as mkdirSync5, readFileSync as readFileSync7, writeFileSync as writeFileSync5 } from "node:fs";
+import { copyFileSync, existsSync as existsSync7, mkdirSync as mkdirSync6, readFileSync as readFileSync7, writeFileSync as writeFileSync5 } from "node:fs";
 import path8 from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 function defaultPackageRoot() {
@@ -16209,7 +16235,7 @@ function writeIfChanged(file, content, res, projectDir) {
     res.unchanged.push(rel);
     return;
   }
-  mkdirSync5(path8.dirname(file), { recursive: true });
+  mkdirSync6(path8.dirname(file), { recursive: true });
   writeFileSync5(file, content);
   res.written.push(rel);
 }
@@ -16219,6 +16245,7 @@ function init(opts) {
   const res = { written: [], unchanged: [], notes: [] };
   const version2 = packageVersion(root);
   const spec = version2 ? `trod@${version2}` : "trod";
+  if (opts.antigravity) return initAntigravity(opts, root, spec, res);
   let server;
   let hookCommand;
   if (opts.vendor) {
@@ -16231,7 +16258,7 @@ function init(opts) {
       if (!existsSync7(src)) throw new Error(`trod init --vendor: ${src} not found`);
       const dest = path8.join(dir, to);
       const before = existsSync7(dest) ? readFileSync7(dest) : void 0;
-      mkdirSync5(path8.dirname(dest), { recursive: true });
+      mkdirSync6(path8.dirname(dest), { recursive: true });
       copyFileSync(src, dest);
       (before?.equals(readFileSync7(dest)) ? res.unchanged : res.written).push(to);
     }
@@ -16261,6 +16288,38 @@ function init(opts) {
   const skill = path8.join(root, "skills", "trod", "SKILL.md");
   if (existsSync7(skill)) writeIfChanged(path8.join(dir, ".claude", "skills", "trod", "SKILL.md"), readFileSync7(skill, "utf8"), res, dir);
   else res.notes.push(`skill not found at ${skill}; skipped`);
+  addIgnores(dir, res);
+  if (opts.allowExec) res.notes.push("TROD_ALLOW_EXEC=1 is set in .mcp.json: tool code runs outside Claude Code's permission prompts. Fine for ephemeral cloud containers; think twice on your own machine.");
+  else res.notes.push("Tools are registered but not executed until TROD_ALLOW_EXEC=1 is set (re-run with --allow-exec, or set it in your cloud environment's variables).");
+  return res;
+}
+function initAntigravity(opts, root, spec, res) {
+  const dir = opts.projectDir;
+  if (opts.vendor) throw new Error("trod init --antigravity: --vendor is not supported (Antigravity starts MCP servers outside the project, so a path inside it cannot be resolved)");
+  const mcpFile = path8.join(dir, ".agents", "mcp_config.json");
+  const mcp = readJson(mcpFile);
+  const servers = mcp.mcpServers ?? {};
+  const previous = servers.trod ?? {};
+  const env = { ...previous.env, ...opts.allowExec ? { TROD_ALLOW_EXEC: "1" } : {} };
+  servers.trod = { command: "npx", args: ["-y", spec, "mcp"], ...Object.keys(env).length ? { env } : {} };
+  mcp.mcpServers = servers;
+  writeIfChanged(mcpFile, JSON.stringify(mcp, null, 2) + "\n", res, dir);
+  const skill = path8.join(root, "antigravity", "skills", "trod", "SKILL.md");
+  if (existsSync7(skill)) writeIfChanged(path8.join(dir, ".agents", "skills", "trod", "SKILL.md"), readFileSync7(skill, "utf8"), res, dir);
+  else res.notes.push(`skill not found at ${skill}; skipped`);
+  if (existsSync7(path8.join(dir, ".trod", "notes.md"))) {
+    const rule = linkAntigravityNotes(trodPaths(dir));
+    if (rule === "written") res.written.push(ANTIGRAVITY_NOTES_RULE);
+    else if (rule === "exists") res.unchanged.push(ANTIGRAVITY_NOTES_RULE);
+    else if (typeof rule === "object") res.notes.push(rule.error);
+  }
+  addIgnores(dir, res);
+  res.notes.push("trod forge and trod learn add .agents/rules/trod-notes.md, which loads .trod/notes.md into every Antigravity conversation.");
+  if (opts.allowExec) res.notes.push("TROD_ALLOW_EXEC=1 is set in .agents/mcp_config.json: tool code runs outside the terminal sandbox. Antigravity still asks before each MCP tool call unless you allow it.");
+  else res.notes.push("Tools are registered but not executed until TROD_ALLOW_EXEC=1 is set (re-run with --allow-exec).");
+  return res;
+}
+function addIgnores(dir, res) {
   const ignoreFile = path8.join(dir, ".gitignore");
   const ignore = existsSync7(ignoreFile) ? readFileSync7(ignoreFile, "utf8") : "";
   const missing = [".trod/tools/", ".trod/logs/"].filter((l) => !ignore.split(/\r?\n/).includes(l));
@@ -16268,9 +16327,6 @@ function init(opts) {
 ${missing.join("\n")}
 `, res, dir);
   else res.unchanged.push(".gitignore");
-  if (opts.allowExec) res.notes.push("TROD_ALLOW_EXEC=1 is set in .mcp.json: tool code runs outside Claude Code's permission prompts. Fine for ephemeral cloud containers; think twice on your own machine.");
-  else res.notes.push("Tools are registered but not executed until TROD_ALLOW_EXEC=1 is set (re-run with --allow-exec, or set it in your cloud environment's variables).");
-  return res;
 }
 
 // packages/cli/src/cli.ts
@@ -16280,11 +16336,13 @@ import { parseArgs } from "node:util";
 var USAGE = `trod: self-morphing tools for Claude Code
 
 Usage:
-  trod init [--vendor] [--allow-exec]
+  trod init [--vendor] [--allow-exec] [--antigravity]
                            Set this repository up for trod in every Claude Code session, local or cloud (also
                            sessions started from the mobile app): writes .mcp.json, .claude/settings.json and the
                            skill. --vendor copies the server into .trod/pkg instead of running it through npx;
-                           --allow-exec lets tools run (TROD_ALLOW_EXEC=1; meant for ephemeral cloud containers)
+                           --allow-exec lets tools run (TROD_ALLOW_EXEC=1; meant for ephemeral cloud containers).
+                           --antigravity sets the repository up for Antigravity instead (.agents/mcp_config.json,
+                           the skill, and a rule that loads the notes)
   trod mcp                 Start the trod MCP server on stdio (for any MCP client)
   trod promote <name>      Move .trod/tools/<name> to .trod/library/<name> (commit the library)
   trod stats [--json]      Summarize tool usage across .trod/logs/*.jsonl
@@ -16336,6 +16394,7 @@ async function main(argv, out = console.log) {
       timeout: { type: "string" },
       vendor: { type: "boolean", default: false },
       "allow-exec": { type: "boolean", default: false },
+      antigravity: { type: "boolean", default: false },
       version: { type: "boolean", short: "v", default: false }
     }
   });
@@ -16368,11 +16427,17 @@ async function main(argv, out = console.log) {
       });
     }
     case "init": {
-      const res = init({ projectDir: paths.projectDir, vendor: values.vendor, allowExec: values["allow-exec"] });
+      let res;
+      try {
+        res = init({ projectDir: paths.projectDir, vendor: values.vendor, allowExec: values["allow-exec"], antigravity: values.antigravity });
+      } catch (err) {
+        out(err.message);
+        return 1;
+      }
       for (const f of res.written) out(`wrote     ${f}`);
       for (const f of res.unchanged) out(`unchanged ${f}`);
       for (const n of res.notes) out(n);
-      out("Commit these files. Local sessions and cloud sessions (also from the mobile app) start trod from .mcp.json.");
+      out(values.antigravity ? "Commit these files. Antigravity starts trod from .agents/mcp_config.json in this workspace." : "Commit these files. Local sessions and cloud sessions (also from the mobile app) start trod from .mcp.json.");
       return 0;
     }
     case "promote": {
@@ -16482,9 +16547,14 @@ async function main(argv, out = console.log) {
       if (values.link) {
         if (!notes.exists) out("trod notes --link: no .trod/notes.md to link");
         else if (failed) out("trod notes --link: not linked, some checks fail (fix or remove those claims and their checks first)");
-        else if (linkNotes(paths)) {
-          out(`linked .trod/notes.md into CLAUDE.md (${NOTES_IMPORT})`);
-          notes = { ...notes, linked: true };
+        else {
+          if (linkNotes(paths)) {
+            out(`linked .trod/notes.md into CLAUDE.md (${NOTES_IMPORT})`);
+            notes = { ...notes, linked: true };
+          }
+          const rule = linkAntigravityNotes(paths);
+          if (rule === "written") out(`linked .trod/notes.md into Antigravity (${ANTIGRAVITY_NOTES_RULE})`);
+          else if (typeof rule === "object") out(rule.error);
         }
       }
       if (values.json) out(JSON.stringify(notes, null, 2));
