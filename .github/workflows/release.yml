@@ -1,7 +1,7 @@
 name: Release
 
 # Publishes the trod package (plugin/: the bundled server, CLI, skill and hook) to npm when a v* tag is pushed.
-# Needs the NPM_TOKEN repository secret (an npm automation token). Provenance links the package to this workflow.
+# Needs the NPM_TOKEN secret (an npm granular access token with publish rights and 2FA bypass). Provenance links the package to this workflow.
 on:
   push:
     tags: ['v*']

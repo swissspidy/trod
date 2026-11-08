@@ -15,7 +15,8 @@ How trod reaches users, what is ready, and what needs the repository owner.
 
 ## Owner steps for the first release
 
-1. Create an npm granular access token with publish rights for the package (or an automation token) on the `swissspidy` account and add it as the `NPM_TOKEN` secret of a GitHub
+1. Create an npm granular access token on the `swissspidy` account with read and write access to packages (the
+   first publish creates `trod`, so the token cannot be limited to it yet) and 2FA bypass for CI and add it as the `NPM_TOKEN` secret of a GitHub
    environment named `npm` (Settings, Environments). The name `trod` was free on npm when this was written.
 2. Push the tag: `git tag v0.5.0 && git push origin v0.5.0`. The Release workflow checks, tests, publishes to npm
    with provenance and lists the server in the MCP Registry (GitHub OIDC; no extra secret).
