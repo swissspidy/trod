@@ -362,72 +362,96 @@ async function runOne(task: Task, arm: Arm, seed: number): Promise<RunRecord> {
 
   // Each step is one `claude -p` call; follow-ups resume the same session.
   let toolsmith: { costUsd: number; turns: number; wallMs: number; usage: unknown; library: string[] } | undefined;
-  if (arm === 'toolsmith') {
-    const brief = task.toolsmithBrief?.({ work, baseUrl }) ?? `Future sessions will get tasks like this one:\n\n${task.steps[0]!.prompt({ work, baseUrl })}`;
-    const prompt = `${TOOLSMITH}\n\n${brief}`;
-    writeFileSync(path.join(runDir, 'toolsmith-prompt.txt'), prompt);
-    const tsHome = path.join(runDir, 'home-toolsmith');
-    mkdirSync(path.join(tsHome, '.claude'), { recursive: true });
-    const tsEnv = { ...env, HOME: tsHome, CLAUDE_CONFIG_DIR: path.join(tsHome, '.claude') };
-    const tsStream = path.join(runDir, 'toolsmith.jsonl');
-    const t0 = Date.now();
-    await runClaude(['-p', prompt, ...common], work, tsEnv, tsStream, path.join(runDir, 'toolsmith-stderr.txt'), Number(values.timeout) * 1000);
-    const res = readFileSync(tsStream, 'utf8').split('\n').filter((l) => l.includes('"type":"result"')).map((l) => JSON.parse(l)).at(-1);
-    // Promote what it built, then start the measured sessions from a fresh checkout that has only the library.
-    await newCheckout(task, 'toolsmith', work, baseUrl, 0);
-    toolsmith = { costUsd: res?.total_cost_usd ?? 0, turns: res?.num_turns ?? 0, wallMs: Date.now() - t0, usage: res?.usage ?? {}, library: listEntries(path.join(work, '.trod', 'library')).map((e) => path.basename(e)) };
-  }
-  const started = Date.now();
+  let started = Date.now();
   const steps: StepOutcome[] = [];
   let sessionId: string | undefined;
   let timedOut = false;
   let exitCode: number | null = 0;
-  const deadline = started + Number(values.timeout) * 1000;
-  for (const [i, step] of task.steps.entries()) {
-    state.step = i;
-    if (i > 0 && values.mode === 'sessions') await newCheckout(task, arm, work, baseUrl, i);
-    else if (i > 0 && arm === 'toolsmith') await newCheckout(task, arm, work, baseUrl, i);
-    else if (i > 0) task.prepareStep?.({ work, baseUrl }, i);
-    const prompt = step.prompt({ work, baseUrl, info });
-    writeFileSync(path.join(runDir, `prompt-${i + 1}.txt`), prompt);
-    const resume = values.mode === 'sessions' || arm === 'toolsmith' ? [] : sessionId ? ['--resume', sessionId] : [];
-    const args = ['-p', prompt, ...common, ...resume];
-    const streamFile = path.join(runDir, `stream-${i + 1}.jsonl`);
-    const stepStarted = Date.now();
-    const exit = await runClaude(args, work, env, streamFile, path.join(runDir, `stderr-${i + 1}.txt`), Math.max(1000, deadline - Date.now()));
-    exitCode = exit.code;
-    timedOut ||= exit.timedOut;
-    sessionId = readSessionId(streamFile) ?? sessionId;
-    let check;
-    try {
-      check = await step.check({ work, baseUrl, info }, expected);
-    } catch (e) {
-      check = { pass: false, score: 0, details: `checker crashed: ${(e as Error).message}` };
+  // The fixture (a server, a browser) must not outlive a run that throws.
+  try {
+    if (arm === 'toolsmith') {
+      const brief = task.toolsmithBrief?.({ work, baseUrl }) ?? `Future sessions will get tasks like this one:\n\n${task.steps[0]!.prompt({ work, baseUrl, info })}`;
+      const prompt = `${TOOLSMITH}\n\n${brief}`;
+      writeFileSync(path.join(runDir, 'toolsmith-prompt.txt'), prompt);
+      const tsHome = path.join(runDir, 'home-toolsmith');
+      mkdirSync(path.join(tsHome, '.claude'), { recursive: true });
+      const tsEnv = { ...env, HOME: tsHome, CLAUDE_CONFIG_DIR: path.join(tsHome, '.claude') };
+      const tsStream = path.join(runDir, 'toolsmith.jsonl');
+      const t0 = Date.now();
+      await runClaude(['-p', prompt, ...common], work, tsEnv, tsStream, path.join(runDir, 'toolsmith-stderr.txt'), Number(values.timeout) * 1000);
+      const res = readFileSync(tsStream, 'utf8').split('\n').filter((l) => l.includes('"type":"result"')).map((l) => JSON.parse(l)).at(-1);
+      // Promote what it built, then start the measured sessions from a fresh checkout that has only the library.
+      await newCheckout(task, 'toolsmith', work, baseUrl, 0);
+      toolsmith = { costUsd: res?.total_cost_usd ?? 0, turns: res?.num_turns ?? 0, wallMs: Date.now() - t0, usage: res?.usage ?? {}, library: listEntries(path.join(work, '.trod', 'library')).map((e) => path.basename(e)) };
     }
-    steps.push({ step: i + 1, wallMs: Date.now() - stepStarted, exitCode: exit.code, timedOut: exit.timedOut, check });
-    if (exit.timedOut) break;
+    started = Date.now();
+    const deadline = started + Number(values.timeout) * 1000;
+    for (const [i, step] of task.steps.entries()) {
+      state.step = i;
+      if (i > 0 && values.mode === 'sessions') await newCheckout(task, arm, work, baseUrl, i);
+      else if (i > 0 && arm === 'toolsmith') await newCheckout(task, arm, work, baseUrl, i);
+      else if (i > 0) task.prepareStep?.({ work, baseUrl }, i);
+      const prompt = step.prompt({ work, baseUrl, info });
+      writeFileSync(path.join(runDir, `prompt-${i + 1}.txt`), prompt);
+      const resume = values.mode === 'sessions' || arm === 'toolsmith' ? [] : sessionId ? ['--resume', sessionId] : [];
+      const args = ['-p', prompt, ...common, ...resume];
+      const streamFile = path.join(runDir, `stream-${i + 1}.jsonl`);
+      const stepStarted = Date.now();
+      const exit = await runClaude(args, work, env, streamFile, path.join(runDir, `stderr-${i + 1}.txt`), Math.max(1000, deadline - Date.now()));
+      exitCode = exit.code;
+      timedOut ||= exit.timedOut;
+      sessionId = readSessionId(streamFile) ?? sessionId;
+      let check;
+      try {
+        check = await step.check({ work, baseUrl, info }, expected);
+      } catch (e) {
+        check = { pass: false, score: 0, details: `checker crashed: ${(e as Error).message}` };
+      }
+      steps.push({ step: i + 1, wallMs: Date.now() - stepStarted, exitCode: exit.code, timedOut: exit.timedOut, check });
+      if (exit.timedOut) break;
+    }
+  } finally {
+    server?.close();
   }
   const wallMs = Date.now() - started;
-  server?.close();
 
   // Steps not reached (timeout) count as failed.
   const scores = task.steps.map((_, i) => steps[i]?.check.score ?? 0);
+  // A session the API refused (no credit, overload, ...) never tried the task: infra, not a failure.
+  const apiError = steps.map((_, i) => apiErrorOf(path.join(runDir, `stream-${i + 1}.jsonl`))).find(Boolean);
   const check = {
-    pass: steps.length === task.steps.length && steps.every((s) => s.check.pass),
+    ...(apiError ? { infra: true } : {}),
+    pass: !apiError && steps.length === task.steps.length && steps.every((s) => s.check.pass),
     score: scores.reduce((a, b) => a + b, 0) / scores.length,
-    details: steps.map((s) => `step ${s.step}: ${s.check.pass ? 'ok' : s.check.details}`).join(' | '),
+    details: apiError ? `infra: API error (${apiError})` : steps.map((s) => `step ${s.step}: ${s.check.pass ? 'ok' : s.check.details}`).join(' | '),
   };
   const record: RunRecord & { toolsmith?: unknown } = collectMetrics({ id, task, arm, seed, runDir, work, home, wallMs, exitCode, timedOut, check, steps, model: values.model! });
   if (toolsmith) record.toolsmith = toolsmith;
   if (forgeInfo) (record as RunRecord & { forge?: unknown }).forge = forgeInfo;
-  writeFileSync(path.join(runDir, 'result.json'), JSON.stringify(record, null, 2));
+  // An infra run is kept for inspection but not as result.json, so the next invocation retries it.
+  writeFileSync(path.join(runDir, apiError ? 'result.infra.json' : 'result.json'), JSON.stringify(record, null, 2));
   task.afterRun?.({ work, baseUrl });
   console.log(
-    `${record.check.pass ? 'PASS' : 'FAIL'} ${id.padEnd(34)} score=${record.check.score.toFixed(2)} turns=${record.turns} tokens=${record.tokens.total} cost=$${record.costUsd.toFixed(3)} wall=${Math.round(wallMs / 1000)}s` +
+    `${apiError ? 'INFRA' : record.check.pass ? 'PASS' : 'FAIL'} ${id.padEnd(34)} score=${record.check.score.toFixed(2)} turns=${record.turns} tokens=${record.tokens.total} cost=$${record.costUsd.toFixed(3)} wall=${Math.round(wallMs / 1000)}s` +
       (arm !== 'baseline' ? ` tools=${record.trod.toolsCreated} calls=${record.trod.calls}` : '') +
       (record.check.pass ? '' : `  (${record.check.details.slice(0, 140)})`),
   );
   return record;
+}
+
+/** The API error a session's stream reports (its result event's api_error_status), if any. */
+function apiErrorOf(streamFile: string): string | undefined {
+  if (!existsSync(streamFile)) return undefined;
+  for (const line of readFileSync(streamFile, 'utf8').split('\n')) {
+    if (!line.includes('"api_error_status"')) continue;
+    try {
+      const e = JSON.parse(line) as { type?: string; api_error_status?: number | null; result?: string };
+      if (e.type === 'result' && e.api_error_status) return `${e.api_error_status}: ${String(e.result ?? '').slice(0, 80)}`;
+    } catch {
+      // not JSON
+    }
+  }
+  return undefined;
 }
 
 const jobs: [Task, Arm, number][] = [];

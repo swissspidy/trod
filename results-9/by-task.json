@@ -365,7 +365,7 @@
  },
  "stock-market": {
   "baseline": [
-   3,
+   4,
    5
   ],
   "notes": [
@@ -379,7 +379,7 @@
  },
  "tic-tac-toe": {
   "baseline": [
-   1,
+   4,
    5
   ],
   "notes": [
@@ -393,7 +393,7 @@
  },
  "use-autocomplete": {
   "baseline": [
-   0,
+   4,
    5
   ],
   "notes": [
@@ -407,7 +407,7 @@
  },
  "visual-addition": {
   "baseline": [
-   0,
+   4,
    5
   ],
   "notes": [

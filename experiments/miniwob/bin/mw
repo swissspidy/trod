@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Act in the MiniWoB++ task: `mw click 12`, or several actions on stdin (one per line). `mw help` lists actions."""
-import base64, json, os, sys, urllib.request
+import base64, json, os, sys, urllib.error, urllib.request
 
 work = os.environ.get("MW_WORK") or os.getcwd()
 with open(os.path.join(work, ".service", "base-url")) as f:
@@ -11,8 +11,15 @@ if len(sys.argv) > 1 and sys.argv[1] in ("help", "--help", "-h"):
     sys.exit(0)
 text = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else sys.stdin.read()
 req = urllib.request.Request(base + "/act", data=text.encode(), method="POST")
-with urllib.request.urlopen(req) as r:
-    res = json.load(r)
+try:
+    with urllib.request.urlopen(req) as r:
+        res = json.load(r)
+except urllib.error.HTTPError as e:
+    # The server answers errors with JSON too (what earlier actions printed, and the error).
+    try:
+        res = json.load(e)
+    except ValueError:
+        res = {"output": f"error {e.code}"}
 for f in res.get("files", []):
     path = f["screenshot"] if os.path.isabs(f["screenshot"]) else os.path.join(os.getcwd(), f["screenshot"])
     with open(path, "wb") as out:

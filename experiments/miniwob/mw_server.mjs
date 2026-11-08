@@ -22,6 +22,7 @@ const MAX_ACTIONS = Number(process.env.MW_MAX_ACTIONS ?? 60);
 // Train mode (forges only, on train seeds): `reset` starts the next episode and `reward` shows how the last one went.
 const TRAIN = process.env.MW_TRAIN === '1';
 let episodeSeed = Number(seed);
+let practice = { episodes: 1, solved: 0 }; // train mode: how practice went, for the forge (GET /practice with the token)
 
 const HELP = `Actions (one per line; element ids come from the latest observation):
   observe                 list the task's elements again
@@ -118,11 +119,15 @@ async function act(line) {
       const r = await reward();
       return `reward ${r.reward}${r.done ? ' (episode ended)' : ' (episode still running)'}${r.reason ? `: ${r.reason}` : ''}`;
     }
-    case 'reset':
+    case 'reset': {
       if (!TRAIN) break;
+      const r = await reward();
+      if (r.done && r.reward > 0) practice.solved++;
+      practice.episodes++;
       await start(++episodeSeed);
       actions = 0;
       return `new episode\n${await observe()}`;
+    }
     case 'click':
       await el(rest[0]).click({ timeout: 3000, force: true });
       return `clicked ${rest[0]}`;
@@ -133,7 +138,8 @@ async function act(line) {
       await el(rest[0]).hover({ timeout: 3000, force: true });
       return `hovered ${rest[0]}`;
     case 'type': {
-      const text = arg.slice(rest[0].length).trim();
+      // Keep the text's own leading and trailing spaces (copy tasks compare exactly); drop only the separator.
+      const text = line.replace(/^\s*type\s+\S+ ?/, '');
       await el(rest[0]).click({ timeout: 3000, force: true });
       await page.keyboard.press('Control+A');
       await page.keyboard.press('Delete');
@@ -189,15 +195,20 @@ createServer(async (req, res) => {
   };
   try {
     if (req.method === 'GET' && req.url === '/task') return send(200, { task, utterance: await page.evaluate(() => document.getElementById('query')?.innerText.trim() ?? ''), help: HELP, observation: await observe() });
+    if (req.method === 'GET' && req.url === '/practice') {
+      if (!TRAIN || !TOKEN || req.headers['x-score-token'] !== TOKEN) return send(403, { error: 'forbidden' });
+      const r = await reward();
+      return send(200, { episodes: practice.episodes, solved: practice.solved + (r.done && r.reward > 0 ? 1 : 0) });
+    }
     if (req.method === 'POST' && req.url === '/score') {
       if (!TOKEN || req.headers['x-score-token'] !== TOKEN) return send(403, { error: 'forbidden' });
       return send(200, await reward());
     }
     if (req.method === 'POST' && req.url === '/act') {
       const text = await body(req);
+      const out = [];
+      const files = [];
       const run = queue.then(async () => {
-        const out = [];
-        const files = [];
         for (const line of text.split('\n').filter((l) => l.trim())) {
           const train = TRAIN && /^(reset|reward)\b/.test(line.trim());
           if (!train && (await page.evaluate(() => WOB_DONE_GLOBAL))) {
@@ -227,7 +238,13 @@ createServer(async (req, res) => {
         return { output: out.join('\n'), files, done, actions };
       });
       queue = run.catch(() => {});
-      return send(200, await run);
+      try {
+        return send(200, await run);
+      } catch (e) {
+        // The page itself failed (e.g. crashed): keep what the earlier actions printed.
+        out.push(`error: ${e.message.split('\n')[0]}`);
+        return send(500, { output: out.join('\n'), files, done: false, actions, error: e.message });
+      }
     }
     send(404, { error: 'not found' });
   } catch (e) {

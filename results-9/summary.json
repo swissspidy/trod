@@ -3,11 +3,14 @@
     "condition": "baseline",
     "label": "Haiku, no notes",
     "runs": 150,
-    "solved": 90,
-    "solvedRate": 0.6,
-    "meanTokens": 127889,
-    "meanCostUsd": 0.00317,
-    "meanTurns": 6.4
+    "solved": 102,
+    "solvedRate": 0.68,
+    "fullCredit": 97,
+    "fullCreditRate": 0.647,
+    "meanReward": 0.522,
+    "meanTokens": 136261,
+    "meanCostUsd": 0.0034,
+    "meanTurns": 6.8
   },
   {
     "condition": "notes",
@@ -15,6 +18,9 @@
     "runs": 150,
     "solved": 135,
     "solvedRate": 0.9,
+    "fullCredit": 135,
+    "fullCreditRate": 0.9,
+    "meanReward": 0.864,
     "meanTokens": 91051,
     "meanCostUsd": 0.00248,
     "meanTurns": 4.7
@@ -25,6 +31,9 @@
     "runs": 150,
     "solved": 101,
     "solvedRate": 0.673,
+    "fullCredit": 96,
+    "fullCreditRate": 0.64,
+    "meanReward": 0.416,
     "meanTokens": 69225,
     "meanCostUsd": 0.0271,
     "meanTurns": 4.5

@@ -51,6 +51,7 @@ async function forge(task: string): Promise<void> {
   const live = await startMw(task, SEEDS.train, { MW_TRAIN: '1', MW_MAX_ACTIONS: '400' });
   let stream = '';
   let exitCode: number | null = null;
+  let practice = { episodes: 0, solved: 0 };
   const t0 = Date.now();
   try {
     const info = (await (await fetch(`${live.baseUrl}/task`)).json()) as { utterance: string };
@@ -75,16 +76,19 @@ async function forge(task: string): Promise<void> {
         resolve([text, code]);
       });
     });
+    // How practice went, from the server itself (not from what the session says).
+    practice = (await (await fetch(`${live.baseUrl}/practice`, { headers: { 'x-score-token': live.token } })).json()) as typeof practice;
   } finally {
     live.close();
   }
   writeFileSync(path.join(dir, 'stream.jsonl'), stream);
   const res = stream.split('\n').filter((l) => l.includes('"type":"result"')).map((l) => JSON.parse(l)).at(-1) ?? {};
   const notes = path.join(work, 'NOTES.md');
-  // Publish only notes from a session that finished cleanly; a failed attempt is not cached, so a rerun retries it.
-  const ok = exitCode === 0 && res.subtype === 'success' && !res.is_error && existsSync(notes);
+  // Publish only notes from a session that finished cleanly and solved at least one practice episode; a failed
+  // attempt is not cached, so a rerun retries it.
+  const ok = exitCode === 0 && res.subtype === 'success' && !res.is_error && practice.solved > 0 && existsSync(notes);
   if (ok) copyFileSync(notes, path.join(NOTES_DIR, `${task}.md`));
-  const result = { task, ok, exitCode, chars: ok ? statSync(notes).size : 0, costUsd: res.total_cost_usd ?? 0, turns: res.num_turns ?? 0, wallMs: Date.now() - t0, model: values.model };
+  const result = { task, ok, exitCode, chars: ok ? statSync(notes).size : 0, practice, costUsd: res.total_cost_usd ?? 0, turns: res.num_turns ?? 0, wallMs: Date.now() - t0, model: values.model };
   if (ok) writeFileSync(done, JSON.stringify(result, null, 2));
   console.log(JSON.stringify(result));
 }
