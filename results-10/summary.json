@@ -1,0 +1,26 @@
+[
+  {
+    "condition": "wiki",
+    "label": "Haiku + wiki index (reads its own page)",
+    "runs": 150,
+    "solved": 134,
+    "solvedRate": 0.893,
+    "fullCredit": 133,
+    "meanReward": 0.886,
+    "meanTokens": 112375,
+    "meanCostUsd": 0.003,
+    "meanTurns": 5.5
+  },
+  {
+    "condition": "allnotes",
+    "label": "Haiku + all 29 pages in CLAUDE.md",
+    "runs": 150,
+    "solved": 136,
+    "solvedRate": 0.907,
+    "fullCredit": 135,
+    "meanReward": 0.899,
+    "meanTokens": 141058,
+    "meanCostUsd": 0.00466,
+    "meanTurns": 4.1
+  }
+]
