@@ -1,0 +1,307 @@
+{
+ "model": "claude-opus-5-5",
+ "seeds": "train 1000+ (practice mode: mw reward, mw reset)",
+ "totalCostUsd": 8.01,
+ "tasks": [
+  {
+   "task": "button-delay",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1333,
+   "costUsd": 0.28162980000000004,
+   "turns": 16,
+   "wallMs": 203253,
+   "model": "claude-opus-5-5"
+  },
+  {
+   "task": "click-button-sequence",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1061,
+   "costUsd": 0.13766660000000003,
+   "turns": 7,
+   "wallMs": 25563,
+   "model": "claude-opus-5-5"
+  },
+  {
+   "task": "click-checkboxes-soft",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1394,
+   "costUsd": 0.225029,
+   "turns": 14,
+   "wallMs": 53586,
+   "model": "claude-opus-5-5"
+  },
+  {
+   "task": "click-menu-2",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1421,
+   "costUsd": 0.23107359999999993,
+   "turns": 19,
+   "wallMs": 45017,
+   "model": "claude-opus-5-5"
+  },
+  {
+   "task": "click-menu",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1252,
+   "costUsd": 0.16640639999999998,
+   "turns": 16,
+   "wallMs": 51082,
+   "model": "claude-opus-5-5"
+  },
+  {
+   "task": "click-test-2",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 971,
+   "costUsd": 0.072229,
+   "turns": 5,
+   "wallMs": 18882,
+   "model": "claude-opus-5-5"
+  },
+  {
+   "task": "click-test-transfer",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1094,
+   "costUsd": 0.09013700000000001,
+   "turns": 7,
+   "wallMs": 32166,
+   "model": "claude-opus-5-5"
+  },
+  {
+   "task": "copy-paste-2",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1209,
+   "costUsd": 0.1365606,
+   "turns": 9,
+   "wallMs": 49399,
+   "model": "claude-opus-5-5"
+  },
+  {
+   "task": "copy-paste",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1109,
+   "costUsd": 0.129364,
+   "turns": 10,
+   "wallMs": 44780,
+   "model": "claude-opus-5-5"
+  },
+  {
+   "task": "count-shape",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1323,
+   "costUsd": 0.2540818,
+   "turns": 26,
+   "wallMs": 86656,
+   "model": "claude-opus-5-5"
+  },
+  {
+   "task": "count-sides",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1110,
+   "costUsd": 0.1328492,
+   "turns": 16,
+   "wallMs": 32767,
+   "model": "claude-opus-5-5"
+  },
+  {
+   "task": "daily-calendar",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1462,
+   "costUsd": 0.38068580000000013,
+   "turns": 34,
+   "wallMs": 89435,
+   "model": "claude-opus-5-5"
+  },
+  {
+   "task": "drag-items-grid",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1450,
+   "costUsd": 0.1650622,
+   "turns": 16,
+   "wallMs": 45898,
+   "model": "claude-opus-5-5"
+  },
+  {
+   "task": "drag-items",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1327,
+   "costUsd": 0.19062960000000004,
+   "turns": 22,
+   "wallMs": 50475,
+   "model": "claude-opus-5-5"
+  },
+  {
+   "task": "drag-shapes",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1492,
+   "costUsd": 0.2224576,
+   "turns": 26,
+   "wallMs": 56182,
+   "model": "claude-opus-5-5"
+  },
+  {
+   "task": "draw-circle",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1351,
+   "costUsd": 0.7477422,
+   "turns": 46,
+   "wallMs": 316203,
+   "model": "claude-opus-5-5"
+  },
+  {
+   "task": "email-inbox-nl-turk",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1447,
+   "costUsd": 0.2898404,
+   "turns": 28,
+   "wallMs": 67955,
+   "model": "claude-opus-5-5"
+  },
+  {
+   "task": "enter-date",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1315,
+   "costUsd": 0.15315180000000003,
+   "turns": 14,
+   "wallMs": 50941,
+   "model": "claude-opus-5-5"
+  },
+  {
+   "task": "enter-text-2",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 996,
+   "costUsd": 0.1070444,
+   "turns": 10,
+   "wallMs": 37350,
+   "model": "claude-opus-5-5"
+  },
+  {
+   "task": "form-sequence-2",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1276,
+   "costUsd": 0.12144479999999999,
+   "turns": 11,
+   "wallMs": 40083,
+   "model": "claude-opus-5-5"
+  },
+  {
+   "task": "hot-cold",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1490,
+   "costUsd": 1.1065612,
+   "turns": 59,
+   "wallMs": 612091,
+   "model": "claude-opus-5-5"
+  },
+  {
+   "task": "hover-shape",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1481,
+   "costUsd": 0.6450776000000001,
+   "turns": 35,
+   "wallMs": 325702,
+   "model": "claude-opus-5-5"
+  },
+  {
+   "task": "order-food",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1393,
+   "costUsd": 0.4308522,
+   "turns": 41,
+   "wallMs": 106062,
+   "model": "claude-opus-5-5"
+  },
+  {
+   "task": "right-angle",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1467,
+   "costUsd": 0.17296040000000007,
+   "turns": 15,
+   "wallMs": 44969,
+   "model": "claude-opus-5-5"
+  },
+  {
+   "task": "social-media-all",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1364,
+   "costUsd": 0.33027080000000003,
+   "turns": 31,
+   "wallMs": 102431,
+   "model": "claude-opus-5-5"
+  },
+  {
+   "task": "social-media-some",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1408,
+   "costUsd": 0.2472232,
+   "turns": 24,
+   "wallMs": 61725,
+   "model": "claude-opus-5-5"
+  },
+  {
+   "task": "stock-market",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1360,
+   "costUsd": 0.2622446,
+   "turns": 15,
+   "wallMs": 150495,
+   "model": "claude-opus-5-5"
+  },
+  {
+   "task": "tic-tac-toe",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1500,
+   "costUsd": 0.22686079999999997,
+   "turns": 32,
+   "wallMs": 56581,
+   "model": "claude-opus-5-5"
+  },
+  {
+   "task": "use-autocomplete",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1487,
+   "costUsd": 0.1665158,
+   "turns": 16,
+   "wallMs": 57732,
+   "model": "claude-opus-5-5"
+  },
+  {
+   "task": "visual-addition",
+   "ok": true,
+   "exitCode": 0,
+   "chars": 1087,
+   "costUsd": 0.19057180000000004,
+   "turns": 15,
+   "wallMs": 31328,
+   "model": "claude-opus-5-5"
+  }
+ ]
+}
