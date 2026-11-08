@@ -25,9 +25,9 @@ jobs:
           persist-credentials: false
       - name: Assemble site
         run: |
-          # site/index.html is the landing page; results/ is round 1, results-<n>[-x]/ are round-<n>[-x].
+          # site/*.html: the landing page (index.html) and the experiments index; results/ is round 1, results-<n>[-x]/ are round-<n>[-x].
           mkdir -p _site/round-1
-          cp site/index.html _site/index.html
+          cp site/*.html _site/
           cp results/report.html _site/round-1/index.html
           for d in results-*/; do
             [ -f "$d/report.html" ] || continue
