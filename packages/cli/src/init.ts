@@ -107,7 +107,8 @@ export function init(opts: InitOptions): InitResult {
   type HookGroup = { matcher?: string; hooks: { type: string; command: string; timeout?: number }[] };
   const hooks = (settings.hooks ?? {}) as Record<string, HookGroup[]>;
   // Drop only earlier trod hooks (keeping any other hooks in their groups), then add the current one.
-  const isTrodHook = (h: { command: string }) => /\btrod\b.*\bhook$/.test(h.command);
+  // Only the commands trod installs: `npx -y trod[@v] hook`, or `node "<...>/trod" hook` (plugin, repo or vendored).
+  const isTrodHook = (h: { command: string }) => /^(npx -y trod(@\S+)? hook|node "[^"]*\/bin\/trod" hook)$/.test(h.command.trim());
   const post = (hooks.PostToolUse ?? []).map((g) => ({ ...g, hooks: g.hooks.filter((h) => !isTrodHook(h)) })).filter((g) => g.hooks.length > 0);
   post.push({ matcher: 'Write|Edit|MultiEdit', hooks: [{ type: 'command', command: hookCommand, timeout: 60 }] });
   hooks.PostToolUse = post;

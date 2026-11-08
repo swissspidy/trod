@@ -72,7 +72,7 @@ export interface ForgeResult {
   turns?: number;
   usage?: Record<string, number>;
   /** Practice attempts the forge checked with trod-try, and how many passed. */
-  practice?: { attempts: number; passed: number };
+  practice?: { attempts: number; passed: number; corrupt: number };
 }
 
 /** Writes trod-try (and trod-reset) into binDir: each runs its command and logs the outcome to logFile. */
@@ -95,11 +95,19 @@ process.exit(code);
   }
 }
 
-function readPractice(logFile: string): { attempts: number; passed: number } {
-  const tries = existsSync(logFile)
-    ? readFileSync(logFile, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as { kind: string; exit: number }).filter((e) => e.kind === 'try')
-    : [];
-  return { attempts: tries.length, passed: tries.filter((e) => e.exit === 0).length };
+function readPractice(logFile: string): { attempts: number; passed: number; corrupt: number } {
+  const lines = existsSync(logFile) ? readFileSync(logFile, 'utf8').split('\n').filter(Boolean) : [];
+  const entries: { kind?: string; exit?: number }[] = [];
+  let corrupt = 0;
+  for (const l of lines) {
+    try {
+      entries.push(JSON.parse(l));
+    } catch {
+      corrupt++; // a torn write: skip it rather than abort the forge (it can only lower the pass count)
+    }
+  }
+  const tries = entries.filter((e) => e.kind === 'try');
+  return { attempts: tries.length, passed: tries.filter((e) => e.exit === 0).length, corrupt };
 }
 
 export function defaultServerPath(): string {
@@ -142,7 +150,7 @@ export async function forge(opts: ForgeOptions): Promise<ForgeResult> {
     });
   });
   const practice = opts.practice ? readPractice(practiceLog) : undefined;
-  if (practice) out(`  practice: ${practice.passed}/${practice.attempts} attempt(s) passed`);
+  if (practice) out(`  practice: ${practice.passed}/${practice.attempts} attempt(s) passed${practice.corrupt ? ` (${practice.corrupt} unreadable log line(s) skipped)` : ''}`);
   const result = readFileSync(streamFile, 'utf8')
     .split('\n')
     .filter((l) => l.includes('"type":"result"'))

@@ -47,10 +47,10 @@ describe('trod init', () => {
     init({ projectDir: dir, packageRoot: PLUGIN });
     init({ projectDir: dir, packageRoot: PLUGIN, vendor: true });
     expect(json(path.join(dir, '.mcp.json')).mcpServers.trod).toEqual({ command: 'node', args: ['.trod/pkg/server/trod-server.mjs'] });
-    for (const f of ['server/trod-server.mjs', 'bin/trod', 'package.json']) expect(existsSync(path.join(dir, '.trod', 'pkg', f))).toBe(true);
+    for (const f of ['server/trod-server.mjs', 'bin/trod', 'package.json']) expect(readFileSync(path.join(dir, '.trod', 'pkg', f))).toEqual(readFileSync(path.join(PLUGIN, f)));
     const post = json(path.join(dir, '.claude', 'settings.json')).hooks.PostToolUse;
     expect(post).toHaveLength(1);
-    expect(post[0].hooks[0].command).toContain('.trod/pkg/bin/trod');
+    expect(post[0].hooks[0].command).toBe('node "$CLAUDE_PROJECT_DIR/.trod/pkg/bin/trod" hook');
   });
 
   it('keeps other hooks that share a group with the trod hook, and rejects a non-object .mcp.json', () => {
@@ -58,12 +58,13 @@ describe('trod init', () => {
     init({ projectDir: dir, packageRoot: PLUGIN });
     const file = path.join(dir, '.claude', 'settings.json');
     const settings = json(file);
-    settings.hooks.PostToolUse[0].hooks.push({ type: 'command', command: 'npx prettier --write' });
+    settings.hooks.PostToolUse[0].hooks.push({ type: 'command', command: 'npx prettier --write' }, { type: 'command', command: 'echo trod something hook' });
     writeFileSync(file, JSON.stringify(settings));
     init({ projectDir: dir, packageRoot: PLUGIN });
     const commands = json(file).hooks.PostToolUse.flatMap((g: { hooks: { command: string }[] }) => g.hooks.map((h) => h.command));
-    expect(commands.filter((c: string) => c.includes('trod'))).toHaveLength(1);
+    expect(commands.filter((c: string) => /^npx -y trod@\S+ hook$/.test(c))).toHaveLength(1);
     expect(commands).toContain('npx prettier --write');
+    expect(commands).toContain('echo trod something hook');
     writeFileSync(path.join(dir, '.mcp.json'), '[]');
     expect(() => init({ projectDir: dir, packageRoot: PLUGIN })).toThrow(/JSON object/);
   });

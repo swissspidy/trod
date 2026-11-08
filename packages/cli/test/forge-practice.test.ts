@@ -39,7 +39,7 @@ describe('trod forge --practice', () => {
     const { work, state, claude } = setup('trod-try; trod-reset; trod-try; trod-try');
     // The check passes once the state file says 1; reset flips it.
     const res = await forge({ projectDir: work, brief: 'A web form.', claudeBin: claude, practice: { check: `test "$(cat ${state})" = 1`, reset: `echo 1 > ${state}` } });
-    expect(res.practice).toEqual({ attempts: 3, passed: 2 });
+    expect(res.practice).toEqual({ attempts: 3, passed: 2, corrupt: 0 });
     expect(res.notes?.errors).toEqual([]);
     expect(readFileSync(path.join(work, 'CLAUDE.md'), 'utf8')).toContain('@.trod/notes.md');
   });
@@ -47,7 +47,7 @@ describe('trod forge --practice', () => {
   it('does not link notes from a forge that never passed the check', async () => {
     const { work, claude } = setup('trod-try; trod-try');
     const res = await forge({ projectDir: work, brief: 'A web form.', claudeBin: claude, practice: { check: 'exit 3' } });
-    expect(res.practice).toEqual({ attempts: 2, passed: 0 });
+    expect(res.practice).toEqual({ attempts: 2, passed: 0, corrupt: 0 });
     expect(res.notes?.errors.join(' ')).toContain('never passed the practice check');
     expect(existsSync(path.join(work, 'CLAUDE.md'))).toBe(false);
   });

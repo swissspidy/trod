@@ -15938,8 +15938,18 @@ process.exit(code);
   }
 }
 function readPractice(logFile) {
-  const tries = existsSync5(logFile) ? readFileSync5(logFile, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)).filter((e) => e.kind === "try") : [];
-  return { attempts: tries.length, passed: tries.filter((e) => e.exit === 0).length };
+  const lines = existsSync5(logFile) ? readFileSync5(logFile, "utf8").split("\n").filter(Boolean) : [];
+  const entries = [];
+  let corrupt = 0;
+  for (const l of lines) {
+    try {
+      entries.push(JSON.parse(l));
+    } catch {
+      corrupt++;
+    }
+  }
+  const tries = entries.filter((e) => e.kind === "try");
+  return { attempts: tries.length, passed: tries.filter((e) => e.exit === 0).length, corrupt };
 }
 function defaultServerPath() {
   return path6.resolve(path6.dirname(fileURLToPath(import.meta.url)), "..", "server", "trod-server.mjs");
@@ -15993,7 +16003,7 @@ ${PRACTICE_PROMPT(!!opts.practice.reset)}` : ""}`;
     });
   });
   const practice = opts.practice ? readPractice(practiceLog) : void 0;
-  if (practice) out(`  practice: ${practice.passed}/${practice.attempts} attempt(s) passed`);
+  if (practice) out(`  practice: ${practice.passed}/${practice.attempts} attempt(s) passed${practice.corrupt ? ` (${practice.corrupt} unreadable log line(s) skipped)` : ""}`);
   const result = readFileSync5(streamFile, "utf8").split("\n").filter((l) => l.includes('"type":"result"')).map((l) => JSON.parse(l)).at(-1);
   const promoted = [];
   const rejected = [];
@@ -16100,7 +16110,7 @@ function init(opts) {
   const settings = readJson(settingsFile);
   settings.enableAllProjectMcpServers = true;
   const hooks = settings.hooks ?? {};
-  const isTrodHook = (h) => /\btrod\b.*\bhook$/.test(h.command);
+  const isTrodHook = (h) => /^(npx -y trod(@\S+)? hook|node "[^"]*\/bin\/trod" hook)$/.test(h.command.trim());
   const post = (hooks.PostToolUse ?? []).map((g) => ({ ...g, hooks: g.hooks.filter((h) => !isTrodHook(h)) })).filter((g) => g.hooks.length > 0);
   post.push({ matcher: "Write|Edit|MultiEdit", hooks: [{ type: "command", command: hookCommand, timeout: 60 }] });
   hooks.PostToolUse = post;
