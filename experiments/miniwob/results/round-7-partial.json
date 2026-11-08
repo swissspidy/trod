@@ -1,0 +1,659 @@
+{
+ "model": "claude-haiku-5-5 (agent), claude-opus-5-5 (forge)",
+ "dev4_baseline": {
+  "ascending-numbers": [
+   4,
+   4
+  ],
+  "bisect-angle": [
+   4,
+   4
+  ],
+  "book-flight": [
+   4,
+   4
+  ],
+  "button-delay": [
+   3,
+   4
+  ],
+  "buy-ticket": [
+   4,
+   4
+  ],
+  "choose-date": [
+   4,
+   4
+  ],
+  "choose-date-easy": [
+   4,
+   4
+  ],
+  "choose-date-medium": [
+   4,
+   4
+  ],
+  "choose-list": [
+   4,
+   4
+  ],
+  "circle-center": [
+   4,
+   4
+  ],
+  "click-button": [
+   4,
+   4
+  ],
+  "click-button-sequence": [
+   3,
+   4
+  ],
+  "click-checkboxes": [
+   4,
+   4
+  ],
+  "click-checkboxes-large": [
+   4,
+   4
+  ],
+  "click-checkboxes-soft": [
+   3,
+   4
+  ],
+  "click-checkboxes-transfer": [
+   4,
+   4
+  ],
+  "click-collapsible": [
+   4,
+   4
+  ],
+  "click-collapsible-2": [
+   4,
+   4
+  ],
+  "click-color": [
+   4,
+   4
+  ],
+  "click-dialog": [
+   4,
+   4
+  ],
+  "click-dialog-2": [
+   4,
+   4
+  ],
+  "click-link": [
+   4,
+   4
+  ],
+  "click-menu": [
+   2,
+   4
+  ],
+  "click-menu-2": [
+   3,
+   4
+  ],
+  "click-option": [
+   4,
+   4
+  ],
+  "click-pie": [
+   4,
+   4
+  ],
+  "click-scroll-list": [
+   4,
+   4
+  ],
+  "click-shades": [
+   4,
+   4
+  ],
+  "click-shape": [
+   4,
+   4
+  ],
+  "click-tab": [
+   4,
+   4
+  ],
+  "click-tab-2": [
+   4,
+   4
+  ],
+  "click-tab-2-easy": [
+   4,
+   4
+  ],
+  "click-tab-2-hard": [
+   4,
+   4
+  ],
+  "click-tab-2-medium": [
+   4,
+   4
+  ],
+  "click-test": [
+   4,
+   4
+  ],
+  "click-test-2": [
+   3,
+   4
+  ],
+  "click-test-transfer": [
+   3,
+   4
+  ],
+  "click-widget": [
+   4,
+   4
+  ],
+  "copy-paste": [
+   0,
+   4
+  ],
+  "copy-paste-2": [
+   0,
+   4
+  ],
+  "count-shape": [
+   1,
+   4
+  ],
+  "count-sides": [
+   3,
+   4
+  ],
+  "daily-calendar": [
+   1,
+   4
+  ],
+  "drag-box": [
+   4,
+   4
+  ],
+  "drag-circle": [
+   4,
+   4
+  ],
+  "drag-cube": [
+   4,
+   4
+  ],
+  "drag-items": [
+   2,
+   4
+  ],
+  "drag-items-grid": [
+   2,
+   4
+  ],
+  "drag-shapes": [
+   2,
+   4
+  ],
+  "drag-shapes-2": [
+   4,
+   4
+  ],
+  "drag-single-shape": [
+   4,
+   4
+  ],
+  "drag-sort-numbers": [
+   4,
+   4
+  ],
+  "draw-circle": [
+   0,
+   4
+  ],
+  "draw-line": [
+   4,
+   4
+  ],
+  "email-inbox": [
+   4,
+   4
+  ],
+  "email-inbox-delete": [
+   4,
+   4
+  ],
+  "email-inbox-forward": [
+   4,
+   4
+  ],
+  "email-inbox-forward-nl": [
+   4,
+   4
+  ],
+  "email-inbox-forward-nl-turk": [
+   4,
+   4
+  ],
+  "email-inbox-important": [
+   4,
+   4
+  ],
+  "email-inbox-nl-turk": [
+   3,
+   4
+  ],
+  "email-inbox-noscroll": [
+   4,
+   4
+  ],
+  "email-inbox-reply": [
+   4,
+   4
+  ],
+  "email-inbox-star-reply": [
+   4,
+   4
+  ],
+  "enter-date": [
+   2,
+   4
+  ],
+  "enter-password": [
+   4,
+   4
+  ],
+  "enter-text": [
+   4,
+   4
+  ],
+  "enter-text-2": [
+   3,
+   4
+  ],
+  "enter-text-dynamic": [
+   4,
+   4
+  ],
+  "enter-time": [
+   4,
+   4
+  ],
+  "find-greatest": [
+   4,
+   4
+  ],
+  "find-midpoint": [
+   4,
+   4
+  ],
+  "find-word": [
+   4,
+   4
+  ],
+  "focus-text": [
+   4,
+   4
+  ],
+  "focus-text-2": [
+   4,
+   4
+  ],
+  "form-sequence": [
+   4,
+   4
+  ],
+  "form-sequence-2": [
+   0,
+   4
+  ],
+  "form-sequence-3": [
+   4,
+   4
+  ],
+  "generate-number": [
+   4,
+   4
+  ],
+  "grid-coordinate": [
+   4,
+   4
+  ],
+  "guess-number": [
+   4,
+   4
+  ],
+  "highlight-text": [
+   4,
+   4
+  ],
+  "highlight-text-2": [
+   4,
+   4
+  ],
+  "hot-cold": [
+   1,
+   4
+  ],
+  "hover-shape": [
+   0,
+   4
+  ],
+  "identify-shape": [
+   4,
+   4
+  ],
+  "login-user": [
+   4,
+   4
+  ],
+  "login-user-popup": [
+   4,
+   4
+  ],
+  "multi-layouts": [
+   4,
+   4
+  ],
+  "multi-orderings": [
+   4,
+   4
+  ],
+  "navigate-tree": [
+   4,
+   4
+  ],
+  "number-checkboxes": [
+   4,
+   4
+  ],
+  "odd-or-even": [
+   4,
+   4
+  ],
+  "order-food": [
+   3,
+   4
+  ],
+  "phone-book": [
+   4,
+   4
+  ],
+  "read-table": [
+   4,
+   4
+  ],
+  "read-table-2": [
+   4,
+   4
+  ],
+  "resize-textarea": [
+   4,
+   4
+  ],
+  "right-angle": [
+   2,
+   4
+  ],
+  "scroll-text": [
+   4,
+   4
+  ],
+  "scroll-text-2": [
+   4,
+   4
+  ],
+  "search-engine": [
+   4,
+   4
+  ],
+  "sign-agreement": [
+   4,
+   4
+  ],
+  "simple-algebra": [
+   4,
+   4
+  ],
+  "simple-arithmetic": [
+   4,
+   4
+  ],
+  "social-media": [
+   4,
+   4
+  ],
+  "social-media-all": [
+   1,
+   4
+  ],
+  "social-media-some": [
+   3,
+   4
+  ],
+  "stock-market": [
+   3,
+   4
+  ],
+  "terminal": [
+   4,
+   4
+  ],
+  "text-editor": [
+   4,
+   4
+  ],
+  "text-transform": [
+   4,
+   4
+  ],
+  "tic-tac-toe": [
+   3,
+   4
+  ],
+  "unicode-test": [
+   4,
+   4
+  ],
+  "use-autocomplete": [
+   1,
+   4
+  ],
+  "use-colorwheel": [
+   4,
+   4
+  ],
+  "use-colorwheel-2": [
+   4,
+   4
+  ],
+  "use-slider": [
+   4,
+   4
+  ],
+  "use-slider-2": [
+   4,
+   4
+  ],
+  "use-spinner": [
+   4,
+   4
+  ],
+  "visual-addition": [
+   2,
+   4
+  ]
+ },
+ "test_baseline_headroom_types": {
+  "button-delay": [
+   4,
+   5
+  ],
+  "click-button-sequence": [
+   5,
+   5
+  ],
+  "click-checkboxes-soft": [
+   5,
+   5
+  ],
+  "click-menu": [
+   1,
+   5
+  ],
+  "click-menu-2": [
+   3,
+   5
+  ],
+  "click-test-2": [
+   5,
+   5
+  ],
+  "click-test-transfer": [
+   5,
+   5
+  ],
+  "copy-paste": [
+   5,
+   5
+  ],
+  "copy-paste-2": [
+   4,
+   5
+  ],
+  "count-shape": [
+   4,
+   5
+  ],
+  "count-sides": [
+   5,
+   5
+  ],
+  "daily-calendar": [
+   5,
+   5
+  ],
+  "drag-items": [
+   3,
+   5
+  ],
+  "drag-items-grid": [
+   3,
+   5
+  ],
+  "drag-shapes": [
+   1,
+   5
+  ],
+  "draw-circle": [
+   0,
+   5
+  ],
+  "email-inbox-nl-turk": [
+   5,
+   5
+  ],
+  "enter-date": [
+   4,
+   5
+  ],
+  "enter-text-2": [
+   5,
+   5
+  ],
+  "form-sequence-2": [
+   0,
+   5
+  ],
+  "hot-cold": [
+   1,
+   5
+  ],
+  "hover-shape": [
+   0,
+   5
+  ],
+  "order-food": [
+   4,
+   5
+  ],
+  "right-angle": [
+   5,
+   5
+  ],
+  "social-media-all": [
+   3,
+   5
+  ],
+  "social-media-some": [
+   1,
+   5
+  ],
+  "stock-market": [
+   3,
+   5
+  ],
+  "tic-tac-toe": [
+   1,
+   5
+  ],
+  "use-autocomplete": [
+   0,
+   5
+  ],
+  "visual-addition": [
+   0,
+   5
+  ]
+ },
+ "dev_notes_pilot": {
+  "click-menu": [
+   4,
+   6
+  ],
+  "form-sequence-2": [
+   6,
+   6
+  ]
+ },
+ "dev_baseline_6seeds": {
+  "button-delay": [
+   5,
+   6
+  ],
+  "click-menu": [
+   2,
+   6
+  ],
+  "draw-circle": [
+   0,
+   6
+  ],
+  "form-sequence-2": [
+   0,
+   6
+  ],
+  "highlight-text-2": [
+   5,
+   6
+  ],
+  "hot-cold": [
+   1,
+   6
+  ],
+  "hover-shape": [
+   0,
+   6
+  ],
+  "social-media-all": [
+   5,
+   6
+  ],
+  "stock-market": [
+   4,
+   6
+  ]
+ }
+}
