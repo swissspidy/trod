@@ -7,7 +7,7 @@ import { buildReport, formatReport, notesSince, sessionMetrics, type SessionMetr
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
-import { ANTIGRAVITY_NOTES_RULE, CODEX_NOTES_FILE, linkAntigravityNotes, linkCodexNotes, computeStats, formatStats, linkNotes, listToolEntries, loadToolEntry, NOTES_IMPORT, NOTES_MAX_CHARS, promoteTool, readLogs, resolveProjectDir, runToolExamples, trodPaths, verifyNotes, type NotesReport } from '@trod/server';
+import { ANTIGRAVITY_NOTES_RULE, codexNotesFile, linkAntigravityNotes, linkCodexNotes, computeStats, formatStats, linkNotes, listToolEntries, loadToolEntry, NOTES_IMPORT, NOTES_MAX_CHARS, promoteTool, readLogs, resolveProjectDir, runToolExamples, trodPaths, verifyNotes, type NotesReport } from '@trod/server';
 
 const USAGE = `trod: self-morphing tools for Claude Code
 
@@ -300,7 +300,7 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
           if (rule === 'written') out(`linked .trod/notes.md into Antigravity (${ANTIGRAVITY_NOTES_RULE})`);
           else if (typeof rule === 'object') out(rule.error);
           const codex = linkCodexNotes(paths);
-          if (codex === 'written') out(`linked .trod/notes.md into Codex (${CODEX_NOTES_FILE})`);
+          if (codex === 'written') out(`linked .trod/notes.md into Codex (${codexNotesFile(paths)})`);
           else if (typeof codex === 'object') out(codex.error);
         }
       }

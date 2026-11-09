@@ -121,6 +121,10 @@ export function linkAntigravityNotes(paths: TrodPaths): 'written' | 'exists' | '
 
 /** Codex reads AGENTS.md, which cannot import a file, so the block tells the agent to read the notes. */
 export const CODEX_NOTES_FILE = 'AGENTS.md';
+/** Codex reads AGENTS.override.md instead of AGENTS.md when both exist. */
+export function codexNotesFile(paths: TrodPaths): string {
+  return existsSync(path.join(paths.projectDir, 'AGENTS.override.md')) ? 'AGENTS.override.md' : CODEX_NOTES_FILE;
+}
 export const CODEX_NOTES_MARKER = '<!-- trod notes -->';
 const CODEX_NOTES_BLOCK = `${CODEX_NOTES_MARKER}
 ## Project notes (trod)
@@ -131,19 +135,22 @@ your kind of task, read that page too.
 `;
 
 /**
- * For projects set up for Codex (a .codex/ folder, e.g. from `trod init --codex`): adds a block to AGENTS.md that
- * points Codex at .trod/notes.md. 'skipped' when the project has no .codex/ folder. Errors come back as { error }.
+ * For projects that use Codex (a .codex/ folder, e.g. from `trod init --codex`, or an AGENTS.md or
+ * AGENTS.override.md already there, as in projects that only use the Codex plugin): adds a block to the instruction
+ * file Codex reads (AGENTS.override.md if it exists, else AGENTS.md) that points it at .trod/notes.md. 'skipped' when
+ * there is neither. Errors come back as { error }.
  */
 export function linkCodexNotes(paths: TrodPaths): 'written' | 'exists' | 'skipped' | { error: string } {
-  if (!existsSync(path.join(paths.projectDir, '.codex'))) return 'skipped';
-  const file = path.join(paths.projectDir, CODEX_NOTES_FILE);
+  const name = codexNotesFile(paths);
+  const file = path.join(paths.projectDir, name);
+  if (!existsSync(path.join(paths.projectDir, '.codex')) && !existsSync(file)) return 'skipped';
   try {
     const current = existsSync(file) ? readFileSync(file, 'utf8') : '';
     if (current.includes(CODEX_NOTES_MARKER)) return 'exists';
     writeFileSync(file, current ? `${current}${current.endsWith('\n') ? '' : '\n'}\n${CODEX_NOTES_BLOCK}` : CODEX_NOTES_BLOCK);
     return 'written';
   } catch (err) {
-    return { error: `could not update ${CODEX_NOTES_FILE}: ${(err as Error).message}` };
+    return { error: `could not update ${name}: ${(err as Error).message}` };
   }
 }
 

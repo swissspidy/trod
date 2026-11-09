@@ -50,6 +50,15 @@ describe('sessionMetrics', () => {
     expect(sessionMetrics(file)).toMatchObject({ client: 'codex', turns: 1, toolCalls: 1, toolErrors: 1, followUps: 0, inputTokens: 500, outputTokens: 40, durationMin: 6 });
   });
 
+  it('takes the last usage of a split message and counts a multi-block prompt once', () => {
+    const file = write(path.join(tmp(), 'u.jsonl'), [
+      { type: 'user', timestamp: '2026-11-01T10:00:00Z', message: { role: 'user', content: [{ type: 'text', text: 'Part one.' }, { type: 'text', text: 'Part two.' }] } },
+      { type: 'assistant', timestamp: '2026-11-01T10:00:01Z', message: { id: 'a', content: [{ type: 'text', text: 'x' }], usage: { input_tokens: 5, output_tokens: 1 } } },
+      { type: 'assistant', timestamp: '2026-11-01T10:00:02Z', message: { id: 'a', content: [{ type: 'text', text: 'y' }], usage: { input_tokens: 5, output_tokens: 30 } } },
+    ]);
+    expect(sessionMetrics(file)).toMatchObject({ turns: 1, followUps: 0, outputTokens: 30, inputTokens: 5 });
+  });
+
   it('marks trod forge and learn sessions, which the report leaves out', () => {
     expect(sessionMetrics(claudeSession(tmp(), 'f', '2026-11-01T10:00:00Z', { calls: 1, fails: 0, task: 'You are a toolsmith for this project.' }))!.trodRun).toBe(true);
     expect(sessionMetrics(claudeSession(tmp(), 'l', '2026-11-01T10:00:00Z', { calls: 1, fails: 0, task: 'trod-learn-run-7c1e5a\nrun trod learn' }))!.trodRun).toBe(true);
@@ -92,5 +101,6 @@ describe('trod report', () => {
   it('says so when no commit links the notes', () => {
     const s: SessionMetrics = { id: 'a', client: 'claude', start: '2026-11-01T00:00:00Z', turns: 1, toolCalls: 1, toolErrors: 0, followUps: 0, outputTokens: 1, inputTokens: 1, trodRun: false };
     expect(formatReport(buildReport([s], {}))).toContain('No commit links the notes yet');
+    expect(formatReport(buildReport([s], {}), '3 rules: 3 new')).toContain('evidence: 3 rules: 3 new');
   });
 });

@@ -81,6 +81,44 @@ describe('notes for Codex', () => {
   });
 });
 
+describe('Codex notes, review fixes', () => {
+  it('writes to AGENTS.override.md when Codex would read that, and links plugin-only projects that have an AGENTS.md', () => {
+    const dir = tmp();
+    writeFileSync(path.join(dir, 'AGENTS.md'), '# Agents\n');
+    expect(linkCodexNotes(trodPaths(dir))).toBe('written'); // no .codex/: the plugin-only case
+    expect(read(dir, 'AGENTS.md')).toContain('<!-- trod notes -->');
+    const other = tmp();
+    mkdirSync(path.join(other, '.codex'));
+    writeFileSync(path.join(other, 'AGENTS.override.md'), '# Override\n');
+    expect(linkCodexNotes(trodPaths(other))).toBe('written');
+    expect(read(other, 'AGENTS.override.md')).toContain('<!-- trod notes -->');
+    expect(existsSync(path.join(other, 'AGENTS.md'))).toBe(false);
+  });
+
+  it('recognizes quoted TOML table names and keeps literal-string variables', () => {
+    const dir = tmp();
+    mkdirSync(path.join(dir, '.codex'));
+    writeFileSync(path.join(dir, '.codex', 'config.toml'), '["features"]\nweb_search = true\n');
+    init({ projectDir: dir, packageRoot: PLUGIN, codex: true });
+    expect(read(dir, '.codex', 'config.toml').match(/features/g)).toHaveLength(1);
+    writeFileSync(path.join(dir, '.codex', 'config.toml'), '[mcp_servers."trod"]\ncommand = "x"\n');
+    expect(() => init({ projectDir: dir, packageRoot: PLUGIN, codex: true })).toThrow(/outside trod's block/);
+    const env = tmp();
+    init({ projectDir: env, packageRoot: PLUGIN, codex: true });
+    const file = path.join(env, '.codex', 'config.toml');
+    writeFileSync(file, read(file).replace('tool_timeout_sec = 600', "tool_timeout_sec = 600\n\n[mcp_servers.trod.env]\nTROD_PROJECT_DIR = 'C:\\work\\app'\nEMOJI = \"\\U0001F600\""));
+    init({ projectDir: env, packageRoot: PLUGIN, codex: true });
+    expect(read(file)).toContain('TROD_PROJECT_DIR = "C:\\\\work\\\\app"');
+    expect(read(file)).toContain('EMOJI = "\u{1F600}"');
+  });
+
+  it('keeps a Codex prompt that starts with a tag of its own', () => {
+    const sessions = tmp();
+    const d = digestTranscript(rollout(sessions, 't', '/w', '<task>Fix the checkout test.</task>'))!;
+    expect(d.task).toBe('<task>Fix the checkout test.</task>');
+  });
+});
+
 describe('the project directory', () => {
   it('is the nearest folder with .trod/ up to the git root when no directory is configured', () => {
     const repo = tmp();
@@ -93,6 +131,12 @@ describe('the project directory', () => {
     mkdirSync(path.join(other, '.git'));
     mkdirSync(path.join(other, 'sub'));
     expect(resolveProjectDir({}, path.join(other, 'sub'))).toBe(path.join(other, 'sub'));
+    // A project set up with trod init --codex has .codex/ before it has any .trod/.
+    const codex = tmp();
+    mkdirSync(path.join(codex, '.git'));
+    mkdirSync(path.join(codex, '.codex'));
+    mkdirSync(path.join(codex, 'src'));
+    expect(resolveProjectDir({}, path.join(codex, 'src'))).toBe(codex);
     expect(resolveProjectDir({ TROD_PROJECT_DIR: '/x' }, repo)).toBe(path.resolve('/x'));
   });
 });

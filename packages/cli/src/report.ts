@@ -29,7 +29,7 @@ export interface SessionMetrics {
 
 const TROD_TASK = /^You are (a toolsmith|distilling experience)/;
 const CLAUDE_WRAPPER = /^<(command-[a-z]+|local-command-[a-z]+|system-reminder|bash-(input|stdout|stderr)|task-notification|user-memory-input)>/;
-const CODEX_WRAPPER = /^(<[a-z_]+>|# AGENTS\.md instructions)/;
+const CODEX_WRAPPER = /^(<(environment_context|user_instructions|skills_instructions|turn_aborted|user_shell_command|subagent_notification|permissions instructions|apps_instructions|collaboration_mode|multi_agent_[a-z_]+)>|# AGENTS\.md instructions)/;
 
 function lines(file: string): Record<string, unknown>[] {
   const out: Record<string, unknown>[] = [];
@@ -60,6 +60,7 @@ export function sessionMetrics(file: string): SessionMetrics | undefined {
     if (text.includes(LEARN_RUN_MARKER) || (prompts === 0 && TROD_TASK.test(text))) m.trodRun = true;
     prompts++;
   };
+  const usage = new Map<string, { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number }>();
   if (m.client === 'codex') {
     for (const e of events) {
       const p = (e.payload ?? {}) as { type?: string; role?: string; content?: { type?: string; text?: string }[]; output?: unknown; info?: { total_token_usage?: { input_tokens?: number; output_tokens?: number } } };
@@ -76,28 +77,32 @@ export function sessionMetrics(file: string): SessionMetrics | undefined {
       else if ((p.type === 'function_call_output' || p.type === 'custom_tool_call_output') && codexOutput(p.output).error) m.toolErrors++;
     }
   } else {
-    const counted = new Set<string>();
     for (const e of events) {
       if (e.isSidechain) continue;
       const msg = e.message as { id?: string; content?: unknown; usage?: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number } } | undefined;
       if (e.type === 'user' && msg && !e.isMeta) {
         const blocks = typeof msg.content === 'string' ? [{ type: 'text', text: msg.content }] : ((msg.content as { type?: string; text?: string; is_error?: boolean }[]) ?? []);
+        const typed: string[] = [];
         for (const c of blocks) {
           if (c?.type === 'tool_result' && c.is_error) m.toolErrors++;
-          else if (c?.type === 'text' && c.text?.trim() && !CLAUDE_WRAPPER.test(c.text.trim())) prompt(c.text.trim());
+          else if (c?.type === 'text' && c.text?.trim() && !CLAUDE_WRAPPER.test(c.text.trim())) typed.push(c.text.trim());
         }
+        // One message is one prompt, however many text blocks it has.
+        if (typed.length) prompt(typed.join('\n'));
       } else if (e.type === 'assistant' && msg) {
-        // One API message is split over several transcript events; count it, and its usage, once.
+        // One API message is split over several transcript events: count it once, with the usage of its last event
+        // (earlier ones can carry partial counts).
         const key = msg.id ?? String(e.uuid);
-        if (!counted.has(key)) {
-          counted.add(key);
-          m.turns++;
-          const u = msg.usage ?? {};
-          m.outputTokens += u.output_tokens ?? 0;
-          m.inputTokens += (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0);
-        }
+        if (!usage.has(key)) m.turns++;
+        usage.set(key, msg.usage ?? usage.get(key) ?? {});
         if (Array.isArray(msg.content)) m.toolCalls += (msg.content as { type?: string }[]).filter((c) => c?.type === 'tool_use').length;
       }
+    }
+  }
+  if (m.client === 'claude') {
+    for (const u of usage.values()) {
+      m.outputTokens += u.output_tokens ?? 0;
+      m.inputTokens += (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0);
     }
   }
   if (!prompts && !m.turns) return undefined;
@@ -182,6 +187,7 @@ export function formatReport(r: Report, ledgerLine?: string): string {
   if (!since) {
     out.push('No commit links the notes yet (the @.trod/notes.md import in CLAUDE.md, or the trod block in AGENTS.md), so there is no before and after to compare.');
     out.push(`${r.before.sessions + r.after.sessions + r.ungrouped} session(s) found${r.excludedTrodRuns ? `, besides ${r.excludedTrodRuns} trod forge/learn session(s)` : ''}.`);
+    if (ledgerLine) out.push(`evidence: ${ledgerLine}`);
     return out.join('\n');
   }
   out.push(`Notes linked: ${since}.`);

@@ -1,7 +1,7 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ANTIGRAVITY_NOTES_RULE, CODEX_NOTES_FILE, linkAntigravityNotes, linkCodexNotes, trodPaths } from '@trod/server';
+import { ANTIGRAVITY_NOTES_RULE, codexNotesFile, linkAntigravityNotes, linkCodexNotes, trodPaths } from '@trod/server';
 
 /**
  * `trod init`: set a repository up so that every Claude Code session in it, local or cloud (including sessions
@@ -208,14 +208,23 @@ function initCodex(opts: InitOptions, root: string, spec: string, res: InitResul
   const begin = current.indexOf(TOML_BEGIN);
   const end = current.indexOf(TOML_END, begin);
   const outside = begin >= 0 && end > begin ? current.slice(0, begin) + current.slice(end + TOML_END.length) : current;
-  if (/^\s*\[mcp_servers\.trod(\.env)?\]/m.test(outside)) throw new Error(`trod init --codex: ${path.relative(dir, file)} already defines [mcp_servers.trod] outside trod's block; remove it and run again`);
+  if (/^\s*\[\s*("?)mcp_servers\1\s*\.\s*("?)trod\2\s*(\.\s*("?)env\4\s*)?\]/m.test(outside)) throw new Error(`trod init --codex: ${path.relative(dir, file)} already defines [mcp_servers.trod] outside trod's block; remove it and run again`);
   // Keep variables the user put in our block (e.g. TROD_PROJECT_DIR).
   const previousEnv: Record<string, string> = {};
   if (begin >= 0 && end > begin) {
     const envPart = current.slice(begin, end).split('[mcp_servers.trod.env]')[1]?.split(/^\s*\[/m)[0] ?? '';
-    for (const m of envPart.matchAll(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"((?:[^"\\]|\\.)*)"/gm)) previousEnv[m[1]] = JSON.parse(`"${m[2]}"`);
+    for (const m of envPart.matchAll(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:"((?:[^"\\]|\\.)*)"|'([^']*)')/gm)) {
+      if (m[3] !== undefined) previousEnv[m[1]] = m[3]; // a literal string: no escapes
+      else {
+        try {
+          previousEnv[m[1]] = JSON.parse(`"${m[2].replace(/\\U([0-9A-Fa-f]{8})/g, (_, h: string) => String.fromCodePoint(parseInt(h, 16)))}"`);
+        } catch {
+          previousEnv[m[1]] = m[2];
+        }
+      }
+    }
   }
-  const featuresTable = /^\s*\[features\]/m.test(outside);
+  const featuresTable = /^\s*\[\s*("?)features\1\s*\]/m.test(outside);
   const block = codexConfigBlock(spec, { allowExec: opts.allowExec, env: previousEnv, featuresTable });
   const next = begin >= 0 && end > begin ? current.slice(0, begin) + block.trimEnd() + current.slice(end + TOML_END.length) : `${current}${current && !current.endsWith('\n') ? '\n' : ''}${current ? '\n' : ''}${block}`;
   writeIfChanged(file, next, res, dir);
@@ -223,8 +232,8 @@ function initCodex(opts: InitOptions, root: string, spec: string, res: InitResul
   writeAgentsSkills(root, dir, res);
   if (existsSync(path.join(dir, '.trod', 'notes.md'))) {
     const notes = linkCodexNotes(trodPaths(dir));
-    if (notes === 'written') res.written.push(CODEX_NOTES_FILE);
-    else if (notes === 'exists') res.unchanged.push(CODEX_NOTES_FILE);
+    if (notes === 'written') res.written.push(codexNotesFile(trodPaths(dir)));
+    else if (notes === 'exists') res.unchanged.push(codexNotesFile(trodPaths(dir)));
     else if (typeof notes === 'object') res.notes.push(notes.error);
   }
   addIgnores(dir, res);

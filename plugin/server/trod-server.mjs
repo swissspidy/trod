@@ -15291,7 +15291,7 @@ function resolveProjectDir(env = process.env, cwd = process.cwd()) {
   if (configured) return path.resolve(configured);
   const start = path.resolve(cwd);
   for (let dir = start; ; dir = path.dirname(dir)) {
-    if (existsSync(path.join(dir, ".trod"))) return dir;
+    if (existsSync(path.join(dir, ".trod")) || existsSync(path.join(dir, ".codex"))) return dir;
     if (existsSync(path.join(dir, ".git")) || path.dirname(dir) === dir) return start;
   }
 }

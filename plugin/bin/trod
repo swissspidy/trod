@@ -7507,7 +7507,7 @@ function resolveProjectDir(env = process.env, cwd = process.cwd()) {
   if (configured) return path2.resolve(configured);
   const start = path2.resolve(cwd);
   for (let dir = start; ; dir = path2.dirname(dir)) {
-    if (existsSync2(path2.join(dir, ".trod"))) return dir;
+    if (existsSync2(path2.join(dir, ".trod")) || existsSync2(path2.join(dir, ".codex"))) return dir;
     if (existsSync2(path2.join(dir, ".git")) || path2.dirname(dir) === dir) return start;
   }
 }
@@ -15883,6 +15883,9 @@ function linkAntigravityNotes(paths) {
   }
 }
 var CODEX_NOTES_FILE = "AGENTS.md";
+function codexNotesFile(paths) {
+  return existsSync5(path5.join(paths.projectDir, "AGENTS.override.md")) ? "AGENTS.override.md" : CODEX_NOTES_FILE;
+}
 var CODEX_NOTES_MARKER = "<!-- trod notes -->";
 var CODEX_NOTES_BLOCK = `${CODEX_NOTES_MARKER}
 ## Project notes (trod)
@@ -15892,8 +15895,9 @@ Before you start a task, read \`.trod/notes.md\`: verified rules about this proj
 your kind of task, read that page too.
 `;
 function linkCodexNotes(paths) {
-  if (!existsSync5(path5.join(paths.projectDir, ".codex"))) return "skipped";
-  const file = path5.join(paths.projectDir, CODEX_NOTES_FILE);
+  const name = codexNotesFile(paths);
+  const file = path5.join(paths.projectDir, name);
+  if (!existsSync5(path5.join(paths.projectDir, ".codex")) && !existsSync5(file)) return "skipped";
   try {
     const current = existsSync5(file) ? readFileSync4(file, "utf8") : "";
     if (current.includes(CODEX_NOTES_MARKER)) return "exists";
@@ -15901,7 +15905,7 @@ function linkCodexNotes(paths) {
 ${CODEX_NOTES_BLOCK}` : CODEX_NOTES_BLOCK);
     return "written";
   } catch (err) {
-    return { error: `could not update ${CODEX_NOTES_FILE}: ${err.message}` };
+    return { error: `could not update ${name}: ${err.message}` };
   }
 }
 function linkNotes(paths) {
@@ -16093,7 +16097,7 @@ ${PRACTICE_PROMPT(!!opts.practice.reset)}` : ""}`;
       if (rule === "written") out(`  linked .trod/notes.md into Antigravity (${ANTIGRAVITY_NOTES_RULE})`);
       else if (typeof rule === "object") out(`  ${rule.error}`);
       const codex = linkCodexNotes(paths);
-      if (codex === "written") out(`  linked .trod/notes.md into Codex (${CODEX_NOTES_FILE})`);
+      if (codex === "written") out(`  linked .trod/notes.md into Codex (${codexNotesFile(paths)})`);
       else if (typeof codex === "object") out(`  ${codex.error}`);
     }
   }
@@ -16232,7 +16236,7 @@ ${clip(final, 800)}
   return { id, file, task, outcome, toolCalls, errors, learnRun, text: `${head}${body}
 ${finalPart(body)}` };
 }
-var CODEX_WRAPPER = /^(<[a-z_]+>|# AGENTS\.md instructions)/;
+var CODEX_WRAPPER = /^(<(environment_context|user_instructions|skills_instructions|turn_aborted|user_shell_command|subagent_notification|permissions instructions|apps_instructions|collaboration_mode|multi_agent_[a-z_]+)>|# AGENTS\.md instructions)/;
 function codexOutput(output) {
   let value = output;
   if (typeof value === "string" && value.trimStart().startsWith("{")) {
@@ -16556,13 +16560,22 @@ function initCodex(opts, root, spec, res) {
   const begin = current.indexOf(TOML_BEGIN);
   const end = current.indexOf(TOML_END, begin);
   const outside = begin >= 0 && end > begin ? current.slice(0, begin) + current.slice(end + TOML_END.length) : current;
-  if (/^\s*\[mcp_servers\.trod(\.env)?\]/m.test(outside)) throw new Error(`trod init --codex: ${path8.relative(dir, file)} already defines [mcp_servers.trod] outside trod's block; remove it and run again`);
+  if (/^\s*\[\s*("?)mcp_servers\1\s*\.\s*("?)trod\2\s*(\.\s*("?)env\4\s*)?\]/m.test(outside)) throw new Error(`trod init --codex: ${path8.relative(dir, file)} already defines [mcp_servers.trod] outside trod's block; remove it and run again`);
   const previousEnv = {};
   if (begin >= 0 && end > begin) {
     const envPart = current.slice(begin, end).split("[mcp_servers.trod.env]")[1]?.split(/^\s*\[/m)[0] ?? "";
-    for (const m of envPart.matchAll(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"((?:[^"\\]|\\.)*)"/gm)) previousEnv[m[1]] = JSON.parse(`"${m[2]}"`);
+    for (const m of envPart.matchAll(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:"((?:[^"\\]|\\.)*)"|'([^']*)')/gm)) {
+      if (m[3] !== void 0) previousEnv[m[1]] = m[3];
+      else {
+        try {
+          previousEnv[m[1]] = JSON.parse(`"${m[2].replace(/\\U([0-9A-Fa-f]{8})/g, (_, h) => String.fromCodePoint(parseInt(h, 16)))}"`);
+        } catch {
+          previousEnv[m[1]] = m[2];
+        }
+      }
+    }
   }
-  const featuresTable = /^\s*\[features\]/m.test(outside);
+  const featuresTable = /^\s*\[\s*("?)features\1\s*\]/m.test(outside);
   const block = codexConfigBlock(spec, { allowExec: opts.allowExec, env: previousEnv, featuresTable });
   const next = begin >= 0 && end > begin ? current.slice(0, begin) + block.trimEnd() + current.slice(end + TOML_END.length) : `${current}${current && !current.endsWith("\n") ? "\n" : ""}${current ? "\n" : ""}${block}`;
   writeIfChanged(file, next, res, dir);
@@ -16570,8 +16583,8 @@ function initCodex(opts, root, spec, res) {
   writeAgentsSkills(root, dir, res);
   if (existsSync8(path8.join(dir, ".trod", "notes.md"))) {
     const notes = linkCodexNotes(trodPaths(dir));
-    if (notes === "written") res.written.push(CODEX_NOTES_FILE);
-    else if (notes === "exists") res.unchanged.push(CODEX_NOTES_FILE);
+    if (notes === "written") res.written.push(codexNotesFile(trodPaths(dir)));
+    else if (notes === "exists") res.unchanged.push(codexNotesFile(trodPaths(dir)));
     else if (typeof notes === "object") res.notes.push(notes.error);
   }
   addIgnores(dir, res);
@@ -16599,7 +16612,7 @@ import { readFileSync as readFileSync8 } from "node:fs";
 import path9 from "node:path";
 var TROD_TASK = /^You are (a toolsmith|distilling experience)/;
 var CLAUDE_WRAPPER = /^<(command-[a-z]+|local-command-[a-z]+|system-reminder|bash-(input|stdout|stderr)|task-notification|user-memory-input)>/;
-var CODEX_WRAPPER2 = /^(<[a-z_]+>|# AGENTS\.md instructions)/;
+var CODEX_WRAPPER2 = /^(<(environment_context|user_instructions|skills_instructions|turn_aborted|user_shell_command|subagent_notification|permissions instructions|apps_instructions|collaboration_mode|multi_agent_[a-z_]+)>|# AGENTS\.md instructions)/;
 function lines(file) {
   const out = [];
   for (const l of readFileSync8(file, "utf8").split("\n")) {
@@ -16625,6 +16638,7 @@ function sessionMetrics(file) {
     if (text.includes(LEARN_RUN_MARKER) || prompts === 0 && TROD_TASK.test(text)) m.trodRun = true;
     prompts++;
   };
+  const usage = /* @__PURE__ */ new Map();
   if (m.client === "codex") {
     for (const e of events) {
       const p = e.payload ?? {};
@@ -16641,27 +16655,29 @@ function sessionMetrics(file) {
       else if ((p.type === "function_call_output" || p.type === "custom_tool_call_output") && codexOutput(p.output).error) m.toolErrors++;
     }
   } else {
-    const counted = /* @__PURE__ */ new Set();
     for (const e of events) {
       if (e.isSidechain) continue;
       const msg = e.message;
       if (e.type === "user" && msg && !e.isMeta) {
         const blocks = typeof msg.content === "string" ? [{ type: "text", text: msg.content }] : msg.content ?? [];
+        const typed = [];
         for (const c of blocks) {
           if (c?.type === "tool_result" && c.is_error) m.toolErrors++;
-          else if (c?.type === "text" && c.text?.trim() && !CLAUDE_WRAPPER.test(c.text.trim())) prompt(c.text.trim());
+          else if (c?.type === "text" && c.text?.trim() && !CLAUDE_WRAPPER.test(c.text.trim())) typed.push(c.text.trim());
         }
+        if (typed.length) prompt(typed.join("\n"));
       } else if (e.type === "assistant" && msg) {
         const key = msg.id ?? String(e.uuid);
-        if (!counted.has(key)) {
-          counted.add(key);
-          m.turns++;
-          const u = msg.usage ?? {};
-          m.outputTokens += u.output_tokens ?? 0;
-          m.inputTokens += (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0);
-        }
+        if (!usage.has(key)) m.turns++;
+        usage.set(key, msg.usage ?? usage.get(key) ?? {});
         if (Array.isArray(msg.content)) m.toolCalls += msg.content.filter((c) => c?.type === "tool_use").length;
       }
+    }
+  }
+  if (m.client === "claude") {
+    for (const u of usage.values()) {
+      m.outputTokens += u.output_tokens ?? 0;
+      m.inputTokens += (u.input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0);
     }
   }
   if (!prompts && !m.turns) return void 0;
@@ -16716,6 +16732,7 @@ function formatReport(r, ledgerLine) {
   if (!since) {
     out.push("No commit links the notes yet (the @.trod/notes.md import in CLAUDE.md, or the trod block in AGENTS.md), so there is no before and after to compare.");
     out.push(`${r.before.sessions + r.after.sessions + r.ungrouped} session(s) found${r.excludedTrodRuns ? `, besides ${r.excludedTrodRuns} trod forge/learn session(s)` : ""}.`);
+    if (ledgerLine) out.push(`evidence: ${ledgerLine}`);
     return out.join("\n");
   }
   out.push(`Notes linked: ${since}.`);
@@ -17025,7 +17042,7 @@ async function main(argv, out = console.log) {
           if (rule === "written") out(`linked .trod/notes.md into Antigravity (${ANTIGRAVITY_NOTES_RULE})`);
           else if (typeof rule === "object") out(rule.error);
           const codex = linkCodexNotes(paths);
-          if (codex === "written") out(`linked .trod/notes.md into Codex (${CODEX_NOTES_FILE})`);
+          if (codex === "written") out(`linked .trod/notes.md into Codex (${codexNotesFile(paths)})`);
           else if (typeof codex === "object") out(codex.error);
         }
       }

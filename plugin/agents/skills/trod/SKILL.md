@@ -98,4 +98,5 @@ say so instead of silently working around it.
 - If `trod_status` reports the home directory as the project, the client did not tell trod which workspace you
   are in: ask the user to set `TROD_PROJECT_DIR` for the trod server.
 - In Codex, a tool you just wrote shows up in your tool list only with the `mcp_tool_list_changed` feature on
-  (`trod init --codex` turns it on); `trod_run` calls it either way.
+  (`trod init --codex` turns it on, unless `.codex/config.toml` already had a `[features]` table without it);
+  `trod_run` calls it either way.

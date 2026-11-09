@@ -170,7 +170,7 @@ function assembleDigest(file: string, d: { task: string; steps: string[]; toolCa
 }
 
 /** Text Codex puts in user messages that the user did not type (environment, AGENTS.md, skills, turn context). */
-const CODEX_WRAPPER = /^(<[a-z_]+>|# AGENTS\.md instructions)/;
+const CODEX_WRAPPER = /^(<(environment_context|user_instructions|skills_instructions|turn_aborted|user_shell_command|subagent_notification|permissions instructions|apps_instructions|collaboration_mode|multi_agent_[a-z_]+)>|# AGENTS\.md instructions)/;
 
 type CodexItem = { type?: string; role?: string; content?: { type?: string; text?: string }[]; name?: string; arguments?: string; input?: string; call_id?: string; output?: unknown };
 
