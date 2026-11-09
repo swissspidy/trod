@@ -27,6 +27,9 @@ This repository uses [changesets](https://github.com/changesets/changesets) to v
   open the "Version packages" pull request.
 - The MCP Registry needs nothing: it authenticates the workflow through GitHub OIDC.
 
+The "Version packages" pull request is opened with the workflow's own token, which starts no workflows, so CI does
+not run on it; the release's `pack` job runs the same checks before anything is published.
+
 ## How the release workflow runs
 
 1. `version` runs on every push to `main`. Changesets opens or updates the "Version packages" pull request; it

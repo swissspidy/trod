@@ -34,7 +34,11 @@ jobs:
           name="$(jq -r .name plugin/server.json)"
           version="$(jq -r .version plugin/server.json)"
           needed=false
-          if ! npm view "trod@$version" version >/dev/null 2>&1; then
+          if ! out="$(npm view "trod@$version" version 2>&1)" || [ -z "$out" ]; then
+            if [ -n "$out" ] && ! grep -q E404 <<<"$out"; then
+              echo "::error::npm lookup for trod@$version failed: $out"
+              exit 1
+            fi
             echo "trod@$version is not on npm (yet)"
           elif curl --fail --silent --output /dev/null "https://registry.modelcontextprotocol.io/v0/servers/$(jq -rn --arg n "$name" '$n|@uri')/versions/$version"; then
             echo "$name $version is already in the MCP Registry"

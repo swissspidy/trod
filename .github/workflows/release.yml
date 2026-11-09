@@ -46,12 +46,23 @@ jobs:
       - run: pnpm install --frozen-lockfile --ignore-scripts
       # Before changesets/action, which leaves the checkout on its version branch with the pending changesets
       # applied: the check has to read main's manifest, not the next version.
-      - name: Does npm lack this version of trod?
+      # The publish job tags v<version> right after staging, so a tag without the version on npm means it is staged
+      # and waiting for approval: later pushes to main must not stage it again (npm would refuse the duplicate).
+      - name: Does npm lack this version of trod, and is it not staged yet?
         id: release
         run: |
           version="$(node -p 'require("./plugin/package.json").version')"
           release=false
-          if [ "$version" != "0.0.0" ] && ! npm view "trod@$version" version >/dev/null 2>&1; then
+          if [ "$version" = "0.0.0" ]; then
+            echo "0.0.0 is the placeholder before the first release"
+          elif out="$(npm view "trod@$version" version 2>&1)" && [ -n "$out" ]; then
+            echo "trod@$version is on npm"
+          elif [ -n "$out" ] && ! grep -q E404 <<<"$out"; then
+            echo "::error::npm lookup for trod@$version failed: $out"
+            exit 1
+          elif git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null; then
+            echo "trod@$version is staged (v$version is tagged) and waits for approval on npmjs.com"
+          else
             echo "trod@$version is not on npm"
             release=true
           fi
@@ -59,7 +70,8 @@ jobs:
       - name: Create or update the "Version packages" pull request
         uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
         with:
-          # No publish script: publishing is the publish job's, below.
+          # No publish script: publishing is the publish job's, below. The pull request is opened with GITHUB_TOKEN,
+          # which starts no workflows, so CI does not run on it; the pack job runs the same checks before publishing.
           version-script: pnpm run version-packages
           commit-message: "Version packages"
           pr-title: "Version packages"
@@ -153,8 +165,8 @@ jobs:
             echo "Staged trod@$version: approve it under Staged Packages on npmjs.com, or with \`npm stage approve ${stage_id:-<stage-id>}\`. The MCP Registry workflow lists it once it is on npm." >> "$GITHUB_STEP_SUMMARY"
           fi
           tag="v$version"
-          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
-            echo "$tag is already tagged"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "the $tag release already exists"
             exit 0
           fi
           # The version's section of plugin/CHANGELOG.md, or GitHub's generated notes.
