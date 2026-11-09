@@ -382,3 +382,47 @@ describe('the evidence ledger', () => {
     expect(checkLedgerHistory(before, [{ ...before[0], confirmed: 1 }, before[1]], true)).toEqual([]);
   });
 });
+
+describe('the learner session', () => {
+  const saved = { bin: process.env.TROD_CLAUDE_BIN, cc: process.env.CLAUDECODE };
+  afterEach(() => {
+    for (const [k, v] of [['TROD_CLAUDE_BIN', saved.bin], ['CLAUDECODE', saved.cc]] as const) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  });
+
+  it('starts without the nested-session marker, so it runs from inside a Claude Code session', async () => {
+    const dir = tmp();
+    const sessions = path.join(dir, 's');
+    mkdirSync(sessions);
+    transcript(sessions, 'one', 'Task: one');
+    const project = path.join(dir, 'p');
+    mkdirSync(project);
+    const fake = path.join(dir, 'fake');
+    // Fails like a real nested claude would if CLAUDECODE is still set.
+    writeFileSync(fake, `#!/bin/sh\n[ -n "$CLAUDECODE" ] && { echo nested >&2; exit 1; }\nmkdir -p .trod && echo '- a rule' > .trod/notes.md\nprintf '{"rules":[{"id":"a","confirmed":1,"contradicted":0,"status":"new"}]}' > .trod/notes.evidence.json\necho '{"type":"result","subtype":"success","num_turns":1}'\n`);
+    chmodSync(fake, 0o755);
+    process.env.TROD_CLAUDE_BIN = fake;
+    process.env.CLAUDECODE = '1';
+    const lines: string[] = [];
+    expect(await main(['learn', '--dir', project, '--from', sessions], (s) => lines.push(s))).toBe(0);
+  });
+
+  it('marks sessions as learned once the ledger counted them, even when a note check fails', async () => {
+    const dir = tmp();
+    const sessions = path.join(dir, 's');
+    mkdirSync(sessions);
+    transcript(sessions, 'one', 'Task: one');
+    const project = path.join(dir, 'p');
+    mkdirSync(project);
+    const fake = path.join(dir, 'fake');
+    // A check that names a tool that does not exist fails.
+    writeFileSync(fake, `#!/bin/sh\nmkdir -p .trod && echo '- a rule' > .trod/notes.md\nprintf '[{"claim":"x","tool":"missing_tool","expect":{"contains":"y"}}]' > .trod/notes.checks.json\nprintf '{"rules":[{"id":"a","confirmed":1,"contradicted":0,"status":"new"}]}' > .trod/notes.evidence.json\necho '{"type":"result","subtype":"success","num_turns":1}'\n`);
+    chmodSync(fake, 0o755);
+    process.env.TROD_CLAUDE_BIN = fake;
+    const lines: string[] = [];
+    expect(await main(['learn', '--dir', project, '--from', sessions], (s) => lines.push(s))).toBe(1);
+    expect(JSON.parse(readFileSync(path.join(project, '.trod', 'state', 'learn.json'), 'utf8')).sessions).toEqual(['one']);
+  });
+});

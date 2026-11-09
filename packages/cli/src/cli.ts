@@ -235,8 +235,9 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
           out('learn: sessions not marked as learned (the evidence ledger needs fixing); the next run retries them');
           return 1;
         }
-        // Only a run that worked marks its sessions as learned; a failed one is retried next time.
-        if (code === 0) writeLearnState(paths.projectDir, picked.map((d) => d.id));
+        // The learner finished and its ledger counted these sessions: mark them as learned even when a note check
+        // failed afterwards (that is reported through the exit code), or a retry would count them a second time.
+        if (res.exitCode === 0) writeLearnState(paths.projectDir, picked.map((d) => d.id));
         return code;
       } finally {
         release();

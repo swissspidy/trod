@@ -15986,6 +15986,7 @@ async function forge(opts) {
   const practiceLog = path6.join(scratch, "practice.jsonl");
   if (opts.practice) writePracticeBins(path6.join(scratch, "bin"), practiceLog, opts.practice);
   const env = { ...baseEnv, TROD_ALLOW_EXEC: "1", TROD_PROJECT_DIR: opts.projectDir, ...opts.practice ? { PATH: `${path6.join(scratch, "bin")}${path6.delimiter}${baseEnv.PATH ?? ""}` } : {} };
+  delete env.CLAUDECODE;
   const mcpConfig = path6.join(scratch, "mcp.json");
   writeFileSync3(mcpConfig, JSON.stringify({ mcpServers: { trod: { command: process.execPath, args: [opts.server ?? defaultServerPath()] } } }));
   const prompt = `${opts.prompt ?? FORGE_PROMPT}
@@ -16645,7 +16646,7 @@ async function main(argv, out = console.log) {
           out("learn: sessions not marked as learned (the evidence ledger needs fixing); the next run retries them");
           return 1;
         }
-        if (code === 0) writeLearnState(paths.projectDir, picked.map((d) => d.id));
+        if (res.exitCode === 0) writeLearnState(paths.projectDir, picked.map((d) => d.id));
         return code;
       } finally {
         release();
