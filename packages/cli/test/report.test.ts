@@ -97,6 +97,18 @@ describe('sessionMetrics', () => {
     expect(d.errors).toBe(1);
     expect(d.text).toContain('ERROR: MCP tool call requires approval');
     expect(d.text).toContain('RESULT: P007: 3');
+    // A failed call whose output is not written yet (a running session) still counts, once.
+    const running = write(path.join(tmp(), 'rollout-run.jsonl'), [
+      { timestamp: '2026-11-01T10:00:00Z', type: 'session_meta', payload: { id: 'r', cwd: '/w' } },
+      { timestamp: '2026-11-01T10:00:01Z', type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'Go.' }] } },
+      { timestamp: '2026-11-01T10:00:02Z', type: 'response_item', payload: { type: 'function_call', name: 'trod_run', call_id: 'x', arguments: '{}' } },
+      { timestamp: '2026-11-01T10:00:03Z', type: 'event_msg', payload: { type: 'item_completed', item: { type: 'McpToolCall', id: 'x', status: 'failed', error: { message: 'denied' } } } },
+      // An exec result as text blocks, with a failing exit code and no MCP event.
+      { timestamp: '2026-11-01T10:00:04Z', type: 'response_item', payload: { type: 'function_call', name: 'exec_command', call_id: 'y', arguments: '{"cmd":"false"}' } },
+      { timestamp: '2026-11-01T10:00:05Z', type: 'response_item', payload: { type: 'function_call_output', call_id: 'y', output: [{ type: 'input_text', text: 'Process exited with code 1\nOutput:' }] } },
+    ]);
+    expect(sessionMetrics(running)).toMatchObject({ toolCalls: 2, toolErrors: 2 });
+    expect(digestTranscript(running)!.errors).toBe(2);
   });
 
   it('marks trod forge and learn sessions, which the report leaves out', () => {

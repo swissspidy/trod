@@ -140,7 +140,7 @@ Verified rules about this project's environment, kept by trod in \`.trod/notes.m
 \`trod verify\`; this copy is refreshed when they link the notes). Follow them; when they list a page in
 \`.trod/wiki/\` for your kind of task, read that page.
 
-${notes.trim()}
+${notes.trim().replaceAll(CODEX_NOTES_MARKER, '<!-- trod notes (quoted) -->').replaceAll(CODEX_NOTES_END, '<!-- /trod notes (quoted) -->')}
 ${CODEX_NOTES_END}
 `;
 }
@@ -165,7 +165,7 @@ export function linkCodexNotes(paths: TrodPaths): 'written' | 'exists' | 'skippe
     const end = start >= 0 ? current.indexOf(CODEX_NOTES_END, start) : -1;
     let next: string;
     if (start >= 0 && end > start) next = current.slice(0, start) + block.trimEnd() + current.slice(end + CODEX_NOTES_END.length);
-    else if (start >= 0) next = current.slice(0, start) + block; // a block without its end: everything after it was ours
+    else if (start >= 0) return { error: `${name} has "${CODEX_NOTES_MARKER}" without "${CODEX_NOTES_END}": remove the old trod block, then link the notes again` };
     else next = current ? `${current}${current.endsWith('\n') ? '' : '\n'}\n${block}` : block;
     if (next === current) return 'exists';
     writeFileSync(file, next);

@@ -114,7 +114,7 @@ Antigravity itself.
 subfolder, a tool written mid-session is called as a tool of its own, and `trod learn` learns from the sessions):
 
 ```sh
-npx trod init --codex --allow-exec   # .codex/config.toml, .agents/skills/, .gitignore entries
+npx trod init --codex --allow-exec   # .codex/config.toml, .agents/skills/, .gitignore entries (--auto-approve for codex exec)
 ```
 
 `trod init --codex` adds a marked block to `.codex/config.toml` (the rest of the file is kept): the server through
@@ -127,7 +127,11 @@ trod walks up from there to the nearest folder with `.trod/` (stopping at the gi
 --codex` (for notes already linked into `CLAUDE.md`) keep a copy of `.trod/notes.md` in a marked block of `AGENTS.md`
 (or `AGENTS.override.md`), in projects with a `.codex/` folder or an `AGENTS.md`: Codex cannot import a file, and in a
 real run gpt-5-mini never followed a pointer to it. Run `trod notes --link` after editing the notes by hand to refresh
-the copy. `trod learn` reads Codex's sessions too (`$CODEX_HOME/sessions`, default `~/.codex/sessions`, those
+the copy. `codex exec` runs with approval policy "never", which refuses every MCP call that needs approval: `--auto-approve` (a
+separate opt-in) sets `default_tools_approval_mode = "approve"` for trod, so Codex runs every trod tool without asking,
+`trod_eval`'s arbitrary code included. Tool code, `trod_eval` included, runs outside Codex's sandbox, so with
+execution on `trod_eval` can write files that `workspace-write` would not allow. Rerunning `trod init --codex`
+rewrites the block (keeping variables you added under `[mcp_servers.trod.env]`). `trod learn` reads Codex's sessions too (`$CODEX_HOME/sessions`, default `~/.codex/sessions`, those
 that ran in the project or a folder inside it); `trod forge` and `trod learn` still run Claude Code as their engine.
 
 As a plugin for every project, `codex plugin marketplace add swissspidy/trod` and `codex plugin add trod@trod`

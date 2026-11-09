@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { codexFailedCalls, codexOutput, LEARN_RUN_MARKER } from './learn.ts';
+import { codexFailedCalls, codexOutput, codexUnmatchedFailures, LEARN_RUN_MARKER } from './learn.ts';
 
 /**
  * `trod report`: is trod helping? Compares this project's sessions from before the notes were linked with the ones
@@ -79,6 +79,7 @@ export function sessionMetrics(file: string): SessionMetrics | undefined {
       } else if (p.type === 'function_call' || p.type === 'custom_tool_call') m.toolCalls++;
       else if ((p.type === 'function_call_output' || p.type === 'custom_tool_call_output') && (codexOutput(p.output).error || (p.call_id !== undefined && failedMcp.has(p.call_id)))) m.toolErrors++;
     }
+    m.toolErrors += codexUnmatchedFailures(events, failedMcp).length;
   } else {
     for (const e of events) {
       // The marker counts in user text, also in a meta message (a skill's text), but not in a tool result (a session

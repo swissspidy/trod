@@ -12,14 +12,15 @@ import { ANTIGRAVITY_NOTES_RULE, codexNotesFile, linkAntigravityNotes, linkCodex
 const USAGE = `trod: self-morphing tools for Claude Code
 
 Usage:
-  trod init [--vendor] [--allow-exec] [--antigravity | --codex]
+  trod init [--vendor] [--allow-exec] [--antigravity | --codex [--auto-approve]]
                            Set this repository up for trod in every Claude Code session, local or cloud (also
                            sessions started from the mobile app): writes .mcp.json, .claude/settings.json and the
                            skill. --vendor copies the server into .trod/pkg instead of running it through npx;
                            --allow-exec lets tools run (TROD_ALLOW_EXEC=1; meant for ephemeral cloud containers).
                            --antigravity sets the repository up for Antigravity instead (.agents/mcp_config.json,
                            the skill, and a rule that loads the notes); --codex sets it up for Codex
-                           (.codex/config.toml, the skills in .agents/skills/, a notes block in AGENTS.md)
+                           (.codex/config.toml, the skills in .agents/skills/, a notes block in AGENTS.md);
+                           --auto-approve approves trod's tool calls in Codex (needed for codex exec)
   trod mcp                 Start the trod MCP server on stdio (for any MCP client)
   trod promote <name>      Move .trod/tools/<name> to .trod/library/<name> (commit the library)
   trod report [--from <path>...] [--json]
@@ -85,6 +86,7 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       'allow-exec': { type: 'boolean', default: false },
       antigravity: { type: 'boolean', default: false },
       codex: { type: 'boolean', default: false },
+      'auto-approve': { type: 'boolean', default: false },
       version: { type: 'boolean', short: 'v', default: false },
     },
   });
@@ -121,7 +123,7 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
     case 'init': {
       let res;
       try {
-        res = init({ projectDir: paths.projectDir, vendor: values.vendor, allowExec: values['allow-exec'], antigravity: values.antigravity, codex: values.codex });
+        res = init({ projectDir: paths.projectDir, vendor: values.vendor, allowExec: values['allow-exec'], antigravity: values.antigravity, codex: values.codex, autoApprove: values['auto-approve'] });
       } catch (err) {
         out((err as Error).message);
         return 1;

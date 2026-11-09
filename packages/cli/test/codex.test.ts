@@ -19,8 +19,10 @@ describe('trod init --codex', () => {
     expect(toml).toContain('[mcp_servers.trod]\ncommand = "npx"\n');
     expect(toml).toContain(`args = ["-y", "trod@${packageVersion(PLUGIN)}", "mcp"]`);
     expect(toml).toContain('[mcp_servers.trod.env]\nTROD_ALLOW_EXEC = "1"');
-    // With execution on, trod's calls are approved, or codex exec (approval policy never) refuses them all.
-    expect(toml).toContain('default_tools_approval_mode = "approve"');
+    // Approving every call is a separate opt-in, not part of --allow-exec.
+    expect(toml).not.toContain('default_tools_approval_mode');
+    init({ projectDir: dir, packageRoot: PLUGIN, codex: true, allowExec: true, autoApprove: true });
+    expect(read(dir, '.codex', 'config.toml')).toContain('default_tools_approval_mode = "approve"');
     expect(toml).toContain('[features]\nmcp_tool_list_changed = true');
     expect(read(dir, '.agents', 'skills', 'trod', 'SKILL.md')).toBe(read(PLUGIN, 'agents', 'skills', 'trod', 'SKILL.md'));
     expect(read(dir, '.agents', 'skills', 'trod-learn', 'SKILL.md')).toBe(read(PLUGIN, 'agents', 'skills', 'trod-learn', 'SKILL.md'));
@@ -82,6 +84,17 @@ describe('trod init --codex', () => {
     expect(updated).not.toContain('- a rule\n');
     expect(updated.endsWith('## After\n')).toBe(true);
     expect(updated.match(/<!-- trod notes -->/g)).toHaveLength(1);
+    // Marker text inside the notes cannot end the block early.
+    writeFileSync(path.join(dir, '.trod', 'notes.md'), '# Notes\n- write <!-- /trod notes --> literally\n');
+    expect(linkCodexNotes(trodPaths(dir))).toBe('written');
+    expect(linkCodexNotes(trodPaths(dir))).toBe('exists');
+    expect(read(dir, 'AGENTS.md').match(/<!-- \/trod notes -->/g)).toHaveLength(1);
+    expect(read(dir, 'AGENTS.md').endsWith('## After\n')).toBe(true);
+    // A start marker without its end is reported, never "repaired" by dropping what follows it.
+    writeFileSync(path.join(dir, 'AGENTS.md'), '# A\n<!-- trod notes -->\nold pointer\n\n## Mine\n');
+    const broken = linkCodexNotes(trodPaths(dir));
+    expect(typeof broken === 'object' && broken.error).toMatch(/without/);
+    expect(read(dir, 'AGENTS.md')).toContain('## Mine');
   });
 });
 

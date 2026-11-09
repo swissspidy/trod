@@ -24,6 +24,8 @@ export interface InitOptions {
   antigravity?: boolean;
   /** Set the repository up for Codex (.codex/config.toml, .agents/skills/, AGENTS.md) instead of Claude Code. */
   codex?: boolean;
+  /** Codex only: approve trod's tool calls without asking (needed for `codex exec`, whose approval policy is never). */
+  autoApprove?: boolean;
 }
 
 export interface InitResult {
@@ -186,13 +188,13 @@ const TOML_END = '# <<< trod';
  * finds the project from there) and, unless the file already has a [features] table, the feature that makes tools
  * written mid-session appear in Codex's tool list.
  */
-export function codexConfigBlock(spec: string, opts: { allowExec?: boolean; env?: Record<string, string>; featuresTable: boolean }): string {
+export function codexConfigBlock(spec: string, opts: { allowExec?: boolean; autoApprove?: boolean; env?: Record<string, string>; featuresTable: boolean }): string {
   const q = (v: string) => JSON.stringify(v);
   const env = { ...opts.env, ...(opts.allowExec ? { TROD_ALLOW_EXEC: '1' } : {}) };
   const lines = [TOML_BEGIN, '[mcp_servers.trod]', 'command = "npx"', `args = ["-y", ${q(spec)}, "mcp"]`, 'startup_timeout_sec = 60', 'tool_timeout_sec = 600'];
-  // With execution on, the user chose to run trod tools: approve their calls, or `codex exec` (approval policy never)
-  // refuses every one ("MCP tool call requires approval").
-  if (opts.allowExec) lines.push('default_tools_approval_mode = "approve"');
+  // A separate opt-in: without it `codex exec` (approval policy never) refuses every trod call ("MCP tool call requires
+  // approval"), with it no call is asked about, trod_eval's arbitrary code included.
+  if (opts.autoApprove) lines.push('default_tools_approval_mode = "approve"');
   if (Object.keys(env).length) lines.push('', '[mcp_servers.trod.env]', ...Object.entries(env).map(([k, v]) => `${k} = ${q(v)}`));
   if (!opts.featuresTable) lines.push('', '# Tools written mid-session appear in the tool list (trod_run calls them either way).', '[features]', 'mcp_tool_list_changed = true');
   lines.push(TOML_END);
@@ -229,7 +231,7 @@ function initCodex(opts: InitOptions, root: string, spec: string, res: InitResul
     }
   }
   const featuresTable = /^\s*\[\s*("?)features\1\s*\]/m.test(outside);
-  const block = codexConfigBlock(spec, { allowExec: opts.allowExec, env: previousEnv, featuresTable });
+  const block = codexConfigBlock(spec, { allowExec: opts.allowExec, autoApprove: opts.autoApprove, env: previousEnv, featuresTable });
   const next = begin >= 0 && end > begin ? current.slice(0, begin) + block.trimEnd() + current.slice(end + TOML_END.length) : `${current}${current && !current.endsWith('\n') ? '\n' : ''}${current ? '\n' : ''}${block}`;
   writeIfChanged(file, next, res, dir);
   if (featuresTable && !/^\s*mcp_tool_list_changed\s*=\s*true/m.test(outside)) res.notes.push(`${path.relative(dir, file)} has its own [features] table: add \`mcp_tool_list_changed = true\` to it so tools written mid-session appear in Codex's tool list.`);
@@ -247,6 +249,8 @@ function initCodex(opts: InitOptions, root: string, spec: string, res: InitResul
   res.notes.push('Run Codex from the repository root or a folder inside it; trod finds the project by walking up to the nearest .trod/ folder.');
   if (opts.allowExec) res.notes.push('TROD_ALLOW_EXEC=1 is set in .codex/config.toml: tool code runs outside Codex\'s sandbox. Codex still applies its approval settings to MCP tool calls.');
   else res.notes.push('Tools are registered but not executed until TROD_ALLOW_EXEC=1 is set (re-run with --allow-exec).');
+  if (opts.autoApprove) res.notes.push('default_tools_approval_mode = "approve" is set for trod: Codex runs every trod tool, trod_eval\'s arbitrary code included, without asking.');
+  else res.notes.push('codex exec (approval policy never) refuses trod\'s tool calls until you approve them: rerun with --auto-approve to approve them all.');
   res.notes.push('trod forge and trod learn still run Claude Code (the `claude` CLI) as their engine; trod learn also reads your Codex sessions.');
   return res;
 }

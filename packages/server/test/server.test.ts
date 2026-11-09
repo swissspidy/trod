@@ -199,6 +199,11 @@ describe('trod_eval and library cards', () => {
     const own = await call('trod_eval', { code: "const fs = await import('node:fs'); const path = require('node:path'); return typeof fs.existsSync + ' ' + path.sep;" });
     expect(own.isError).toBe(false);
     expect(own.text).toBe(`function ${path.sep}`);
+    // require resolves packages from the project.
+    mkdirSync(path.join(paths.projectDir, 'node_modules', 'local-pkg'), { recursive: true });
+    writeFileSync(path.join(paths.projectDir, 'node_modules', 'local-pkg', 'index.js'), "module.exports = 'from the project';");
+    const pkg = await call('trod_eval', { code: "return require('local-pkg');" });
+    expect(pkg.text).toBe('from the project');
     const unknown = await call('trod_run', { tool: 'nope', input: {} });
     expect(unknown.text).toMatch(/unknown tool "nope"\. Tools are files in .*<name>\.mjs .*live: .*double_it/);
   });
