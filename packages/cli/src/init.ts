@@ -110,20 +110,8 @@ export function init(opts: InitOptions): InitResult {
   mcp.mcpServers = servers;
   writeIfChanged(mcpFile, JSON.stringify(mcp, null, 2) + '\n', res, dir);
 
-  // .claude/settings.json: approve project MCP servers (cloud sessions cannot answer the prompt) and add the hook.
-  const settingsFile = path.join(dir, '.claude', 'settings.json');
-  const settings = readJson(settingsFile);
-  settings.enableAllProjectMcpServers = true;
-  type HookGroup = { matcher?: string; hooks: { type: string; command: string; timeout?: number }[] };
-  const hooks = (settings.hooks ?? {}) as Record<string, HookGroup[]>;
-  // Drop only earlier trod hooks (keeping any other hooks in their groups), then add the current one.
-  // Only the commands trod installs: `npx -y trod[@v] hook`, or `node "<...>/trod" hook` (plugin, repo or vendored).
-  const isTrodHook = (h: { command: string }) => /^(npx -y trod(@\S+)? hook|node "[^"]*\/bin\/trod" hook)$/.test(h.command.trim());
-  const post = (hooks.PostToolUse ?? []).map((g) => ({ ...g, hooks: g.hooks.filter((h) => !isTrodHook(h)) })).filter((g) => g.hooks.length > 0);
-  post.push({ matcher: 'Write|Edit|MultiEdit', hooks: [{ type: 'command', command: hookCommand, timeout: 60 }] });
-  hooks.PostToolUse = post;
-  settings.hooks = hooks;
-  writeIfChanged(settingsFile, JSON.stringify(settings, null, 2) + '\n', res, dir);
+  // .claude/settings.json: approve project MCP servers (cloud sessions cannot answer the prompt) and add the hooks.
+  installClaudeHooks(dir, hookCommand, res, { approveMcp: true });
 
   // The skills: plugins bring them locally, but cloud sessions only see project skills. The plugin's `learn` skill
   // (/trod:learn) becomes the project skill `trod-learn`.
@@ -169,6 +157,37 @@ function initAntigravity(opts: InitOptions, root: string, spec: string, res: Ini
   if (opts.allowExec) res.notes.push('TROD_ALLOW_EXEC=1 is set in .agents/mcp_config.json: tool code runs outside the terminal sandbox. Antigravity still asks before each MCP tool call unless you allow it.');
   else res.notes.push('Tools are registered but not executed until TROD_ALLOW_EXEC=1 is set (re-run with --allow-exec).');
   return res;
+}
+
+type HookGroup = { matcher?: string; hooks: { type: string; command?: string; timeout?: number }[] };
+/** Only the commands trod installs: `npx -y trod[@v] hook`, or `node "<...>/trod" hook` (plugin, repo or vendored). */
+const isTrodHook = (h: { type?: string; command?: unknown }) => h.type === 'command' && typeof h.command === 'string' && /^(npx -y trod(@\S+)? hook|node "[^"]*\/bin\/trod" hook)$/.test(h.command.trim());
+
+/** The trod hook command already in .claude/settings.json, if any. */
+export function installedHookCommand(dir: string): string | undefined {
+  const hooks = (readJson(path.join(dir, '.claude', 'settings.json')).hooks ?? {}) as Record<string, HookGroup[]>;
+  for (const groups of Object.values(hooks)) for (const g of groups) for (const h of g.hooks ?? []) if (isTrodHook(h)) return h.command as string;
+  return undefined;
+}
+
+/**
+ * trod's hooks in .claude/settings.json, replacing earlier trod hooks and keeping everything else: PostToolUse validates
+ * tools as they are written; SessionStart and UserPromptSubmit deliver notes when .trod/config.json asks for hooks
+ * delivery (and do nothing otherwise).
+ */
+export function installClaudeHooks(dir: string, hookCommand: string, res: InitResult, opts: { approveMcp?: boolean } = {}): void {
+  const settingsFile = path.join(dir, '.claude', 'settings.json');
+  const settings = readJson(settingsFile);
+  if (opts.approveMcp) settings.enableAllProjectMcpServers = true;
+  const hooks = (settings.hooks ?? {}) as Record<string, HookGroup[]>;
+  const wanted: [string, string | undefined][] = [['PostToolUse', 'Write|Edit|MultiEdit'], ['SessionStart', undefined], ['UserPromptSubmit', undefined]];
+  for (const [event, matcher] of wanted) {
+    const kept = (hooks[event] ?? []).map((g) => ({ ...g, hooks: g.hooks.filter((h) => !isTrodHook(h)) })).filter((g) => g.hooks.length > 0);
+    kept.push({ ...(matcher ? { matcher } : {}), hooks: [{ type: 'command', command: hookCommand, timeout: event === 'PostToolUse' ? 60 : 15 }] });
+    hooks[event] = kept;
+  }
+  settings.hooks = hooks;
+  writeIfChanged(settingsFile, JSON.stringify(settings, null, 2) + '\n', res, dir);
 }
 
 /** The skills Antigravity and Codex both read from .agents/skills/. */

@@ -39,6 +39,8 @@ export interface NotesReport {
   chars: number;
   tooLong: boolean;
   linked: boolean;
+  /** How linked notes reach Claude Code sessions: trod's hooks, or the CLAUDE.md import. */
+  delivery: 'hooks' | 'import';
   checks: NoteCheckResult[];
   /** Problems with notes.checks.json itself (unparseable, malformed entries). */
   errors: string[];
@@ -82,8 +84,37 @@ export function readChecks(file: string): { checks: NoteCheck[]; errors: string[
   return { checks, errors };
 }
 
-/** True if CLAUDE.md imports the notes. */
+/** .trod/config.json: how notes reach Claude Code sessions. Committed with the notes. */
+export interface TrodConfig {
+  /** "import" (default): CLAUDE.md imports .trod/notes.md. "hooks": trod's hooks inject the notes and matching wiki pages. */
+  delivery?: 'import' | 'hooks';
+  /** With hooks: the share of sessions that get no notes at all (a holdout for `trod report`), 0..0.5. Default 0.1. */
+  holdout?: number;
+}
+export const CONFIG_FILE = 'config.json';
+
+export function readTrodConfig(paths: TrodPaths): TrodConfig {
+  try {
+    const raw = JSON.parse(readFileSync(path.join(paths.trodDir, CONFIG_FILE), 'utf8')) as TrodConfig;
+    return raw && typeof raw === 'object' ? raw : {};
+  } catch {
+    return {};
+  }
+}
+
+export function writeTrodConfig(paths: TrodPaths, config: TrodConfig): void {
+  mkdirSync(paths.trodDir, { recursive: true });
+  writeFileSync(path.join(paths.trodDir, CONFIG_FILE), `${JSON.stringify(config, null, 2)}\n`);
+}
+
+/** Notes go out through trod's hooks rather than the CLAUDE.md import. */
+export function hooksDelivery(paths: TrodPaths): boolean {
+  return readTrodConfig(paths).delivery === 'hooks';
+}
+
+/** True if Claude Code sessions get the notes: CLAUDE.md imports them, or trod's hooks deliver them. */
 export function notesLinked(paths: TrodPaths): boolean {
+  if (hooksDelivery(paths)) return true;
   const { claudeMd } = notesPaths(paths);
   return existsSync(claudeMd) && readFileSync(claudeMd, 'utf8').split('\n').some((l) => l.trim() === NOTES_IMPORT);
 }
@@ -177,6 +208,7 @@ export function linkCodexNotes(paths: TrodPaths): 'written' | 'exists' | 'skippe
 
 /** Adds the `@.trod/notes.md` import to CLAUDE.md (creating it if needed). Returns false if it was already there. */
 export function linkNotes(paths: TrodPaths): boolean {
+  // With hooks delivery the hooks inject the notes; an import as well would load them twice and defeat the holdout.
   if (notesLinked(paths)) return false;
   const { claudeMd } = notesPaths(paths);
   const block = `\n## Project notes (trod)\n\nVerified notes about this project's environment, kept by trod (\`trod forge\`, \`trod verify\`):\n\n${NOTES_IMPORT}\n`;
@@ -221,5 +253,5 @@ export async function verifyNotes(paths: TrodPaths, opts: { execAllowed: boolean
     const failure = res.ok ? checkExpectation(c.expect, res.text, res.value) : `threw: ${res.error ?? res.text.slice(0, 300)}`;
     results.push({ claim: c.claim, tool: c.tool, ok: !failure, ...(failure ? { error: failure } : {}) });
   }
-  return { exists, chars, tooLong: chars > NOTES_MAX_CHARS, linked: notesLinked(paths), checks: results, errors };
+  return { exists, chars, tooLong: chars > NOTES_MAX_CHARS, linked: notesLinked(paths), delivery: hooksDelivery(paths) ? 'hooks' : 'import', checks: results, errors };
 }
