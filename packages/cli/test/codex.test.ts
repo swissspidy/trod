@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { linkCodexNotes, resolveProjectDir, trodPaths } from '@trod/server';
@@ -61,6 +61,9 @@ describe('trod init --codex', () => {
     mkdirSync(path.join(dir, '.trod'));
     writeFileSync(path.join(dir, '.trod', 'notes.md'), '# Notes\n- a rule\n');
     writeFileSync(path.join(dir, 'AGENTS.md'), '# Agents\n\nUse pnpm.');
+    // Not linked into CLAUDE.md yet (unverified): init leaves them alone.
+    expect(init({ projectDir: dir, packageRoot: PLUGIN, codex: true }).written).not.toContain('AGENTS.md');
+    writeFileSync(path.join(dir, 'CLAUDE.md'), '@.trod/notes.md\n');
     const res = init({ projectDir: dir, packageRoot: PLUGIN, codex: true });
     expect(res.written).toContain('AGENTS.md');
     const agents = read(dir, 'AGENTS.md');
@@ -137,6 +140,21 @@ describe('the project directory', () => {
     mkdirSync(path.join(codex, '.codex'));
     mkdirSync(path.join(codex, 'src'));
     expect(resolveProjectDir({}, path.join(codex, 'src'))).toBe(codex);
+    // ~/.codex is Codex's own folder: a workspace in the home folder without markers stays where it is.
+    const home = tmp();
+    mkdirSync(path.join(home, '.codex'));
+    mkdirSync(path.join(home, 'work'));
+    const saved = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE };
+    process.env.HOME = home;
+    process.env.USERPROFILE = home;
+    try {
+      expect(resolveProjectDir({}, path.join(home, 'work'))).toBe(path.join(home, 'work'));
+    } finally {
+      for (const [k, v] of Object.entries(saved)) {
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      }
+    }
     expect(resolveProjectDir({ TROD_PROJECT_DIR: '/x' }, repo)).toBe(path.resolve('/x'));
   });
 });
@@ -178,6 +196,19 @@ describe('learning from Codex sessions', () => {
     expect(d.text).not.toContain('environment_context');
     expect(d.text).not.toContain('Use pnpm');
     expect(d.text).not.toContain('You are Codex');
+  });
+
+  it('matches a symlinked project with the real path Codex recorded', () => {
+    const sessions = tmp();
+    const real = path.join(tmp(), 'app');
+    mkdirSync(real);
+    const link = path.join(tmp(), 'link');
+    symlinkSync(real, link);
+    const file = rollout(sessions, 'r', real, 'a');
+    expect(codexTranscripts(link, sessions)).toEqual([file]);
+    // A session recorded in a symlinked subfolder, under the path as written.
+    const viaLink = rollout(sessions, 'l', path.join(link, 'sub'), 'b');
+    expect(codexTranscripts(link, sessions).sort()).toEqual([file, viaLink].sort());
   });
 
   it('finds the sessions that ran in the project or a folder inside it', () => {

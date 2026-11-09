@@ -50,6 +50,27 @@ describe('sessionMetrics', () => {
     expect(sessionMetrics(file)).toMatchObject({ client: 'codex', turns: 1, toolCalls: 1, toolErrors: 1, followUps: 0, inputTokens: 500, outputTokens: 40, durationMin: 6 });
   });
 
+  it('spots the learn marker in a meta message or a Codex skill wrapper, without counting them as prompts', () => {
+    const meta = write(path.join(tmp(), 'meta.jsonl'), [
+      { type: 'user', timestamp: '2026-11-01T10:00:00Z', message: { role: 'user', content: 'Learn from recent sessions.' } },
+      { type: 'user', isMeta: true, timestamp: '2026-11-01T10:00:01Z', message: { role: 'user', content: [{ type: 'text', text: 'trod-learn-run-7c1e5a (skill text)' }] } },
+      { type: 'assistant', timestamp: '2026-11-01T10:00:02Z', message: { id: 'a', content: [{ type: 'text', text: 'ok' }] } },
+    ]);
+    expect(sessionMetrics(meta)).toMatchObject({ trodRun: true, followUps: 0 });
+    const codex = write(path.join(tmp(), 'rollout-s.jsonl'), [
+      { timestamp: '2026-11-01T10:00:00Z', type: 'session_meta', payload: { id: 's', cwd: '/w' } },
+      { timestamp: '2026-11-01T10:00:01Z', type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: '<skills_instructions>trod-learn-run-7c1e5a</skills_instructions>' }] } },
+      { timestamp: '2026-11-01T10:00:02Z', type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'Learn.' }] } },
+    ]);
+    expect(sessionMetrics(codex)).toMatchObject({ trodRun: true, followUps: 0 });
+    // A session that only read the skill file (the marker in a tool result) is an ordinary session.
+    const read = write(path.join(tmp(), 'read.jsonl'), [
+      { type: 'user', timestamp: '2026-11-01T10:00:00Z', message: { role: 'user', content: 'What does the learn skill do?' } },
+      { type: 'user', timestamp: '2026-11-01T10:00:01Z', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't', content: 'trod-learn-run-7c1e5a (this marker …)' }] } },
+    ]);
+    expect(sessionMetrics(read)!.trodRun).toBe(false);
+  });
+
   it('takes the last usage of a split message and counts a multi-block prompt once', () => {
     const file = write(path.join(tmp(), 'u.jsonl'), [
       { type: 'user', timestamp: '2026-11-01T10:00:00Z', message: { role: 'user', content: [{ type: 'text', text: 'Part one.' }, { type: 'text', text: 'Part two.' }] } },
