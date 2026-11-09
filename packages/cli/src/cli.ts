@@ -248,7 +248,7 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
         const delivery = sessionDelivery(paths);
         for (const d of picked) {
           const had = delivery.get(d.id);
-          if (had) d.text = d.text.replace(/^(# Session [^\n]*\n)/, `$1\nNotes: ${had.holdout ? 'HOLDOUT (this session ran without notes or wiki pages)' : `loaded${had.pages.length ? `; wiki pages added: ${had.pages.join(', ')}` : ''}`}\n`);
+          if (had) d.text = d.text.replace(/^(# Session [^\n]*\n)/, `$1\nNotes: ${had.holdout ? 'HOLDOUT (this session ran without notes or wiki pages)' : `${had.notes ? 'loaded' : 'none delivered (no notes yet)'}${had.pages.length ? `; wiki pages added: ${had.pages.join(', ')}` : ''}`}\n`);
         }
         const dir = mkdtempSync(path.join(tmpdir(), 'trod-learn-'));
         const counts = writeDigests(path.join(dir, 'sessions'), picked);
@@ -401,7 +401,8 @@ async function setDelivery(paths: TrodPaths, delivery: string, holdout: string |
   }
   // Either way the notes reach every session: only verified notes are delivered, as with `trod notes --link`.
   const notes = await verifyNotes(paths, { execAllowed: true });
-  if (notes.exists && (notes.checks.some((c) => !c.ok) || notes.errors.length > 0)) {
+  const failing = notes.exists && (notes.checks.some((c) => !c.ok) || notes.errors.length > 0);
+  if (failing && delivery === 'hooks') {
     printNotes(notes, out);
     out('trod notes: delivery not changed, some checks fail (fix or remove those claims and their checks first)');
     return 1;
@@ -439,6 +440,12 @@ async function setDelivery(paths: TrodPaths, delivery: string, holdout: string |
   }
   const { delivery: _, ...rest } = config;
   writeTrodConfig(paths, rest);
+  if (failing) {
+    // The way out of hooks delivery for unverified notes: the hooks stop, and nothing links the notes until they pass.
+    printNotes(notes, out);
+    out('hooks delivery is off; the notes are not linked into CLAUDE.md while checks fail (fix them, then trod notes --link)');
+    return 1;
+  }
   if (linkNotes(paths)) out(`linked .trod/notes.md into CLAUDE.md (${NOTES_IMPORT})`);
   out('notes reach Claude Code sessions through the CLAUDE.md import again (the hooks stay installed and do nothing).');
   return 0;

@@ -189,7 +189,7 @@ export async function forge(opts: ForgeOptions): Promise<ForgeResult> {
     // Practice notes count as verified only if the forge passed the practice check at least once.
     if (practice && practice.passed === 0) notes.errors.push('the forge never passed the practice check (trod-try), so nothing in these notes was seen to work');
     const failed = notes.checks.some((c) => !c.ok) || notes.errors.length > 0;
-    if (failed && notes.linked) out(notes.delivery === 'hooks' ? '  WARNING: trod\'s hooks deliver .trod/notes.md to sessions, so they still get these unverified notes: fix the failing claims or switch delivery off (trod notes --delivery import, then remove the import)' : `  WARNING: CLAUDE.md already imports .trod/notes.md (${NOTES_IMPORT}), so sessions still load these unverified notes: fix the failing claims or remove the import`);
+    if (failed && notes.linked) out(notes.delivery === 'hooks' ? '  WARNING: trod\'s hooks deliver .trod/notes.md to sessions, so they still get these unverified notes: fix the failing claims or turn hooks delivery off (trod notes --delivery import)' : `  WARNING: CLAUDE.md already imports .trod/notes.md (${NOTES_IMPORT}), so sessions still load these unverified notes: fix the failing claims or remove the import`);
     else if (failed) out('  notes NOT linked into CLAUDE.md: fix or remove the failing claims and their checks, then run `trod notes --link`');
     else if (exitCode !== 0) out(`  notes NOT linked into CLAUDE.md: the session did not finish cleanly (${exitCode === null ? 'killed, e.g. by --timeout' : `exit code ${exitCode}`}), so they may be incomplete; review them, then run \`trod notes --link\``);
     else if (opts.linkNotes !== false) {
