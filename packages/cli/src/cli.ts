@@ -1,13 +1,14 @@
-import { existsSync, mkdtempSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { defaultServerPath, forge, type ForgeResult } from './forge.ts';
 import { acquireLearnLock, checkLedgerHistory, digestTranscript, findTranscripts, LEARN_PROMPT, LEDGER_FILE, readLearnState, readLedger, readOutcomes, summarizeLedger, transcriptDir, codexSessionsDir, codexTranscripts, writeDigests, writeLearnState, type SessionDigest } from './learn.ts';
 import { tmpdir } from 'node:os';
-import { defaultPackageRoot, init, packageVersion } from './init.ts';
-import { buildReport, formatReport, notesSince, sessionMetrics, type SessionMetrics } from './report.ts';
+import { defaultPackageRoot, init, installClaudeHooks, installedHookCommand, packageVersion } from './init.ts';
+import { buildHoldoutReport, buildReport, formatReport, notesSince, sessionMetrics, type SessionMetrics } from './report.ts';
+import { notesHook, sessionDelivery } from './delivery.ts';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
-import { ANTIGRAVITY_NOTES_RULE, codexNotesFile, linkAntigravityNotes, linkCodexNotes, computeStats, formatStats, linkNotes, listToolEntries, loadToolEntry, NOTES_IMPORT, NOTES_MAX_CHARS, promoteTool, readLogs, resolveProjectDir, runToolExamples, trodPaths, verifyNotes, type NotesReport } from '@trod/server';
+import { ANTIGRAVITY_NOTES_RULE, codexNotesFile, linkAntigravityNotes, linkCodexNotes, computeStats, formatStats, linkNotes, listToolEntries, loadToolEntry, NOTES_IMPORT, NOTES_MAX_CHARS, promoteTool, readLogs, resolveProjectDir, runToolExamples, trodPaths, verifyNotes, notesPaths, readTrodConfig, writeTrodConfig, type NotesReport, type TrodPaths } from '@trod/server';
 
 const USAGE = `trod: self-morphing tools for Claude Code
 
@@ -34,6 +35,11 @@ Usage:
   trod verify [--json]     Re-run every library tool's examples and every note check against the current
                            environment; exit 1 if any tool or note is stale (run it in CI or on a schedule)
   trod notes [--link]      Show .trod/notes.md's status and run its checks; --link adds @.trod/notes.md to CLAUDE.md
+  trod notes --delivery hooks|import [--holdout <share>]
+                           How Claude Code sessions get the notes. hooks: trod's hooks inject .trod/notes.md at session
+                           start and add a .trod/wiki/ page when a prompt matches its "when:" words; a random share of
+                           sessions (--holdout, default 0.1) gets no notes, so trod report can compare. import: the
+                           CLAUDE.md import (default)
   trod forge --brief <text|@file> [--model <id>] [--no-link] [--practice <cmd> [--reset <cmd>]]
                            Run a dedicated tool-building session (headless Claude Code), promote every tool whose
                            examples pass to .trod/library, check the notes it wrote and link them into CLAUDE.md.
@@ -74,6 +80,8 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       budget: { type: 'string' },
       stream: { type: 'string' },
       link: { type: 'boolean', default: false },
+      delivery: { type: 'string' },
+      holdout: { type: 'string' },
       'no-link': { type: 'boolean', default: false },
       practice: { type: 'string' },
       reset: { type: 'string' },
@@ -149,7 +157,9 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       // The sessions trod learn reads: Claude Code's transcripts of this project and Codex's sessions in it.
       const sources = values.from?.length ? values.from.map((f) => path.resolve(f)) : [transcriptDir(paths.projectDir), ...codexTranscripts(paths.projectDir)];
       const sessions = findTranscripts(sources).map((f) => sessionMetrics(f)).filter((m): m is SessionMetrics => m !== undefined);
-      const report = buildReport(sessions, notesSince(paths.projectDir));
+      // Hooks delivery logs a random holdout: compare it with the rest. Otherwise, before vs after the notes were linked.
+      const delivery = sessionDelivery(paths);
+      const report = [...delivery.values()].some((d) => d.holdout) ? buildHoldoutReport(sessions, delivery) : buildReport(sessions, notesSince(paths.projectDir));
       const ledger = readLedger(paths.projectDir);
       if (values.json) out(JSON.stringify({ ...report, evidence: ledger.exists ? ledger.rules : undefined }, null, 2));
       else out(formatReport(report, ledger.exists && ledger.rules.length ? summarizeLedger(ledger.rules) : undefined));
@@ -232,6 +242,12 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
           out(skipped ? `learn: nothing new since the last run (${state.lastRun ?? 'unknown'}; ${skipped} session(s) already learned from). --all learns from them again.` : `learn: nothing to learn from yet (no sessions of this project in ${values.from?.length ? sources.join(', ') : `${transcriptDir(paths.projectDir)} or ${codexSessionsDir()}`})`);
           return 0;
         }
+        // With hooks delivery, say what each session had: the holdout ran without notes, a natural control group.
+        const delivery = sessionDelivery(paths);
+        for (const d of picked) {
+          const had = delivery.get(d.id);
+          if (had) d.text = d.text.replace(/^(# Session [^\n]*\n)/, `$1\nNotes: ${had.holdout ? 'HOLDOUT (this session ran without notes or wiki pages)' : `loaded${had.pages.length ? `; wiki pages added: ${had.pages.join(', ')}` : ''}`}\n`);
+        }
         const dir = mkdtempSync(path.join(tmpdir(), 'trod-learn-'));
         const counts = writeDigests(path.join(dir, 'sessions'), picked);
         out(`learning from ${picked.length} session(s) (${counts.pass} passed, ${counts.fail} failed, ${counts.unknown} unknown)${files.length > picked.length && picked.length === limit ? `, the ${limit} most recent` : ''}`);
@@ -288,6 +304,7 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       return stale.length || staleNotes.length || notes.errors.length ? 1 : 0;
     }
     case 'notes': {
+      if (values.delivery !== undefined) return setDelivery(paths, values.delivery, values.holdout, out);
       let notes = await verifyNotes(paths, { execAllowed: true });
       const failed = notes.checks.some((c) => !c.ok) || notes.errors.length > 0;
       if (values.link) {
@@ -313,7 +330,28 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       return failed || (values.link && !notes.exists) ? 1 : 0;
     }
     case 'hook': {
-      const msg = await hookMessage(await readStdin());
+      // One command for every hook event trod installs.
+      const raw = await readStdin();
+      let payload: { hook_event_name?: string; session_id?: string; prompt?: string; cwd?: string } = {};
+      try {
+        payload = JSON.parse(raw);
+      } catch {
+        // not JSON: nothing to do
+      }
+      const event = payload.hook_event_name ?? 'PostToolUse';
+      if (event === 'SessionStart' || event === 'UserPromptSubmit') {
+        const hookPaths = values.dir ? paths : trodPaths(resolveProjectDir(process.env, payload.cwd ?? process.cwd()));
+        let context: string | undefined;
+        try {
+          context = notesHook(hookPaths, payload);
+        } catch (err) {
+          // A hook must never break the session: report and carry on.
+          process.stderr.write(`trod hook: ${(err as Error).message}\n`);
+        }
+        if (context) out(JSON.stringify({ hookSpecificOutput: { hookEventName: event, additionalContext: context } }));
+        return 0;
+      }
+      const msg = await hookMessage(raw);
       if (msg) out(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: msg } }));
       return 0;
     }
@@ -342,6 +380,47 @@ function forgeExit(command: 'forge' | 'learn', res: ForgeResult, json: boolean, 
   const notesFailed = !!res.notes && (res.notes.checks.some((c) => !c.ok) || res.notes.errors.length > 0);
   const notesVerified = !!res.notes && !notesFailed && (command === 'learn' || res.notes.checks.length > 0 || (res.practice?.passed ?? 0) > 0);
   return (res.promoted.length || notesVerified) && !notesFailed && res.exitCode === 0 ? 0 : 1;
+}
+
+/**
+ * `trod notes --delivery hooks|import [--holdout <share>]`: switch how Claude Code sessions get the notes. Hooks drop the
+ * CLAUDE.md import (trod's SessionStart hook injects the notes instead, except in the holdout) and install the hooks.
+ */
+function setDelivery(paths: TrodPaths, delivery: string, holdout: string | undefined, out: (s: string) => void): number {
+  if (delivery !== 'hooks' && delivery !== 'import') {
+    out('trod notes: --delivery must be hooks or import');
+    return 1;
+  }
+  const config = readTrodConfig(paths);
+  const share = holdout === undefined ? (config.holdout ?? 0.1) : Number(holdout);
+  if (!(share >= 0 && share <= 0.5)) {
+    out('trod notes: --holdout must be a share between 0 and 0.5');
+    return 1;
+  }
+  const { claudeMd } = notesPaths(paths);
+  if (delivery === 'hooks') {
+    writeTrodConfig(paths, { ...config, delivery: 'hooks', holdout: share });
+    if (existsSync(claudeMd)) {
+      // Remove the import (and the heading trod wrote above it): the hooks deliver the notes now.
+      const text = readFileSync(claudeMd, 'utf8');
+      const next = text.replace(/\n?## Project notes \(trod\)\n\nVerified notes about this project's environment, kept by trod[^\n]*\n\n@\.trod\/notes\.md\n?/, '\n').replace(/^@\.trod\/notes\.md\n?/m, '');
+      if (next !== text) {
+        writeFileSync(claudeMd, next.replace(/\n{3,}/g, '\n\n'));
+        out(`removed ${NOTES_IMPORT} from CLAUDE.md`);
+      }
+    }
+    const res = { written: [] as string[], unchanged: [] as string[], notes: [] as string[] };
+    const version = packageVersion(defaultPackageRoot());
+    installClaudeHooks(paths.projectDir, installedHookCommand(paths.projectDir) ?? `npx -y ${version ? `trod@${version}` : 'trod'} hook`, res);
+    for (const f of res.written) out(`wrote     ${f}`);
+    out(`notes now reach Claude Code sessions through trod's hooks; ${Math.round(share * 100)}% of sessions are a holdout without notes (trod report compares the two). Commit .trod/config.json and .claude/settings.json.`);
+    return 0;
+  }
+  const { delivery: _, ...rest } = config;
+  writeTrodConfig(paths, rest);
+  if (linkNotes(paths)) out(`linked .trod/notes.md into CLAUDE.md (${NOTES_IMPORT})`);
+  out('notes reach Claude Code sessions through the CLAUDE.md import again (the hooks stay installed and do nothing).');
+  return 0;
 }
 
 async function readStdin(): Promise<string> {

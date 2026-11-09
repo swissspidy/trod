@@ -217,6 +217,27 @@ reports the evidence line and the changes without committing. Its prompt carries
 and `trod learn` never learns from sessions whose prompts contain it (hidden skill messages included), so scheduled
 runs do not feed on themselves.
 
+## Hooks delivery: only the rules that apply, and a holdout
+
+By default `CLAUDE.md` imports `.trod/notes.md`, so every session loads all of it. `trod notes --delivery hooks
+[--holdout 0.1]` switches Claude Code sessions to trod's hooks instead (`.trod/config.json`, committed):
+
+- **SessionStart** injects `.trod/notes.md`, except in a random share of sessions, the holdout (10% by default, by a
+  stable hash of the session id), which gets no notes at all.
+- **UserPromptSubmit** adds a `.trod/wiki/` page when the prompt contains one of the words in its front matter
+  (`---` / `when: invoice, billing run` / `---`, which `trod learn` now writes), once per session. Pages can grow without
+  growing every session's context; pages without `when:` are still reachable through the index in the notes.
+- Every decision goes to `.trod/logs/notes.jsonl`: which sessions were in the holdout and which pages fired. `trod
+  report` then compares holdout sessions with the rest, a randomized comparison instead of before and after, and
+  `trod learn` marks each digest with what the session had, so the learner can weigh a rule against sessions that ran
+  without it.
+
+The switch removes the `@.trod/notes.md` import from `CLAUDE.md` (forge and learn no longer add it) and installs the
+three hooks in `.claude/settings.json`; `trod init` and the plugin install them too, and they do nothing until the
+project chooses hooks delivery. `trod notes --delivery import` switches back. Checked with Claude Code and Haiku: the
+model answered from the injected notes and the page its prompt matched, without a tool call. Codex and Antigravity keep
+their copy and rule (they have no equivalent hooks for this yet).
+
 ## Is it helping?
 
 `trod report` compares this project's sessions (the Claude Code and Codex transcripts `trod learn` reads) from

@@ -39,6 +39,8 @@ cron, or an Antigravity Automation): each run
 learns only from new sessions, checks every existing rule against them, and leaves a diff to review
 ([keep learning](docs/reference.md#keep-learning)). `npx trod report` shows how sessions changed since the notes
 were linked: turns, failed tool calls, follow-up prompts, tokens ([is it helping?](docs/reference.md#is-it-helping)).
+`npx trod notes --delivery hooks` makes that comparison randomized: trod's hooks load the notes (and only the wiki
+pages a prompt calls for), and leave them out of 10% of sessions ([hooks delivery](docs/reference.md#hooks-delivery-only-the-rules-that-apply-and-a-holdout)).
 
 To study something new instead, write `env.md` (a few lines on the API, tooling or workflow) and forge:
 
