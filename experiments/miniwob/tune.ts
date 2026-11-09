@@ -11,7 +11,7 @@
  *   node experiments/miniwob/tune.ts --start results-12/learned --types a,b --iterations 3 --as-user agent --out results/runs/mw-tune
  */
 import { spawn, spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { digestTranscript } from '../../packages/cli/src/learn.ts';
