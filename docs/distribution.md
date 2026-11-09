@@ -27,7 +27,7 @@ How trod reaches users, what is ready, and what needs the repository owner.
 
 ## Why it is worth distributing
 
-The evidence across eleven rounds (see the README) supports one product claim and rules out another:
+The evidence across twelve rounds (see the README) supports one product claim and rules out another:
 
 - **Supported:** knowledge forged once and reused pays off where an environment holds knowledge a model cannot
   guess and that recurs across tasks. Forged notes took Haiku from 52% to 89% (ScienceWorld) and from 68% to 90%

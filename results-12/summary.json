@@ -1,0 +1,35 @@
+[
+  {
+    "condition": "round3-sessions",
+    "label": "Round 3 sessions (dev seeds 508-511, round 2 notes loaded)",
+    "runs": 120,
+    "solved": 103,
+    "solvedRate": 0.858,
+    "fullCredit": 95,
+    "meanReward": 0.824,
+    "meanTokens": 113647,
+    "meanCostUsd": 0.00303,
+    "meanTurns": 5.5,
+    "totalCostUsd": 0.364
+  },
+  {
+    "condition": "learned-round3",
+    "label": "Haiku + notes after round 3 (with the evidence ledger)",
+    "runs": 150,
+    "solved": 137,
+    "solvedRate": 0.913,
+    "fullCredit": 122,
+    "meanReward": 0.864,
+    "meanTokens": 126006,
+    "meanCostUsd": 0.00331,
+    "meanTurns": 5.9,
+    "totalCostUsd": 0.496
+  },
+  {
+    "condition": "learner",
+    "label": "trod learn round 3 (Opus, sandboxed)",
+    "costUsd": 1.67,
+    "turns": 23,
+    "durationMs": 233279
+  }
+]
