@@ -1,0 +1,70 @@
+name: MCP Registry
+
+# Lists trod in the MCP Registry (registry.modelcontextprotocol.io) once npm has the version in plugin/server.json.
+# The Release workflow only stages a version on npm; it goes public when a maintainer approves it, which no event
+# reports, so this checks every six hours (or run it by hand after approving). The registry checks mcpName in the
+# npm package and authenticates this workflow through GitHub OIDC: no secret.
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish to the MCP Registry
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write # MCP Registry login (github-oidc)
+    steps:
+      # For plugin/server.json only: nothing from the checkout is installed or run.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Is this version on npm but not in the registry?
+        id: needed
+        run: |
+          name="$(jq -r .name plugin/server.json)"
+          version="$(jq -r .version plugin/server.json)"
+          needed=false
+          if ! npm view "trod@$version" version >/dev/null 2>&1; then
+            echo "trod@$version is not on npm (yet)"
+          elif curl --fail --silent --output /dev/null "https://registry.modelcontextprotocol.io/v0/servers/$(jq -rn --arg n "$name" '$n|@uri')/versions/$version"; then
+            echo "$name $version is already in the MCP Registry"
+          else
+            needed=true
+          fi
+          echo "needed=$needed" >> "$GITHUB_OUTPUT"
+      - name: Install cosign
+        if: steps.needed.outputs.needed == 'true'
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - name: Download and verify mcp-publisher
+        if: steps.needed.outputs.needed == 'true'
+        env:
+          MCP_PUBLISHER_VERSION: v1.8.1
+        run: |
+          set -euo pipefail
+          archive="mcp-publisher_linux_amd64.tar.gz"
+          base_url="https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}"
+          curl --fail --location --silent --show-error --output "$archive" "$base_url/$archive"
+          curl --fail --location --silent --show-error --output "$archive.sigstore.json" "$base_url/$archive.sigstore.json"
+          cosign verify-blob \
+            --bundle "$archive.sigstore.json" \
+            --certificate-identity "https://github.com/modelcontextprotocol/registry/.github/workflows/release.yml@refs/tags/${MCP_PUBLISHER_VERSION}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            "$archive"
+          tar xzf "$archive" mcp-publisher
+          rm -f "$archive" "$archive.sigstore.json"
+      - name: Publish
+        if: steps.needed.outputs.needed == 'true'
+        working-directory: plugin
+        run: |
+          ../mcp-publisher login github-oidc
+          ../mcp-publisher publish

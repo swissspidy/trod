@@ -1,7 +1,9 @@
 {
   "name": "trod",
-  "version": "0.5.0",
+  "version": "0.0.0",
   "description": "Self-morphing tools: files in .trod/tools become live MCP tools mid-session.",
-  "author": { "name": "Pascal Birchler" },
+  "author": {
+    "name": "Pascal Birchler"
+  },
   "license": "MIT"
 }

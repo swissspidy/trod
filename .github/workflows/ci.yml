@@ -39,3 +39,6 @@ jobs:
             exit 1
           fi
       - run: pnpm test
+      - name: Versions agree
+        run: node scripts/sync-version.mjs --check
+      - run: pnpm run lint:publish

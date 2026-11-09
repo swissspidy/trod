@@ -113,3 +113,14 @@ describe('the Antigravity plugin at the repository root', () => {
     expect(claude).toContain('trod-learn-run-7c1e5a');
   });
 });
+
+describe('the version', () => {
+  it('is the same in the npm package, both plugin manifests, the MCP Registry entry and the server', () => {
+    const version = packageVersion(PLUGIN);
+    expect(json(path.join(PLUGIN, '.claude-plugin', 'plugin.json')).version).toBe(version);
+    expect(json(path.join(ROOT, '.antigravity-plugin', 'plugin.json')).version).toBe(version);
+    const registry = json(path.join(PLUGIN, 'server.json'));
+    expect([registry.version, registry.packages[0].version]).toEqual([version, version]);
+    expect(readFileSync(path.join(ROOT, 'packages', 'server', 'src', 'server.ts'), 'utf8')).toContain(`export const VERSION = '${version}';`);
+  });
+});

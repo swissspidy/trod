@@ -94,7 +94,7 @@ Tool code runs outside Claude Code's permission prompts, so execution is off unl
 - [Reference](docs/reference.md): tool format, every install route (plugin, `trod init`, cloud environments, other
   MCP clients), CLI, configuration, releasing.
 - [Experiments](experiments/) and results: [round 1](results/README.md) … [round 12](results-12/README.md);
-  decisions in [docs/adr](docs/adr/); [distribution](docs/distribution.md); [changelog](CHANGELOG.md).
+  decisions in [docs/adr](docs/adr/); [distribution](docs/distribution.md); [changelog](plugin/CHANGELOG.md).
 
 ```sh
 pnpm install && pnpm check    # typecheck, lint, tests

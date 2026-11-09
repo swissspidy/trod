@@ -12,7 +12,7 @@ import { Registry, describeForClient, type RegistryChange } from './registry.ts'
 import type { LoadedTool, TrodPaths } from './types.ts';
 import { validateInput } from './validate.ts';
 
-export const VERSION = '0.5.0';
+export const VERSION = '0.0.0';
 
 export interface TrodServerOptions {
   paths: TrodPaths;

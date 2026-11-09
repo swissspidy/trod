@@ -1,37 +1,90 @@
 name: Release
 
-# Publishes the trod package (plugin/: the bundled server, CLI, skill and hook) to npm when a v* tag is pushed.
-# Needs the NPM_TOKEN secret (an npm granular access token with publish rights and 2FA bypass). Provenance links the package to this workflow.
 on:
   push:
-    tags: ['v*']
+    branches: [main]
 
-permissions:
-  contents: read
+permissions: {}
+
+# Queue rather than cancel: interrupting a run halfway through publishing would leave the version staged on npm
+# without its tag and GitHub release.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+# Three jobs, so that the job that can publish (id-token: write) installs and runs nothing from the dependency tree
+# (.changeset/README.md):
+# 1. version: Changesets opens or updates the "Version packages" PR. When plugin/package.json holds a version npm
+#    does not have yet (that PR was merged), this push is a release.
+# 2. pack (a release only): installs, checks, builds and packs plugin/.
+# 3. publish (a release only): stages the tarball on npm, then tags v<version> and creates the GitHub release.
+#    A staged version goes public only once a maintainer approves it with 2FA, on npmjs.com (Staged Packages) or
+#    with `npm stage approve <stage-id>`. mcp-registry.yml lists it in the MCP Registry once it is on npm.
 
 jobs:
-  publish:
-    name: Publish to npm
+  version:
+    name: Version packages
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment: npm
+    permissions:
+      contents: write # push the version branch
+      pull-requests: write # open and update the "Version packages" PR
+    outputs:
+      release: ${{ steps.release.outputs.release }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - run: corepack enable
+      # No install scripts next to the token this job holds. The version script rebuilds the bundles, which
+      # esbuild does from its platform package without a postinstall step.
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      # Before changesets/action, which leaves the checkout on its version branch with the pending changesets
+      # applied: the check has to read main's manifest, not the next version.
+      - name: Does npm lack this version of trod?
+        id: release
+        run: |
+          version="$(node -p 'require("./plugin/package.json").version')"
+          release=false
+          if [ "$version" != "0.0.0" ] && ! npm view "trod@$version" version >/dev/null 2>&1; then
+            echo "trod@$version is not on npm"
+            release=true
+          fi
+          echo "release=$release" >> "$GITHUB_OUTPUT"
+      - name: Create or update the "Version packages" pull request
+        uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+        with:
+          # No publish script: publishing is the publish job's, below.
+          version-script: pnpm run version-packages
+          commit-message: "Version packages"
+          pr-title: "Version packages"
+
+  pack:
+    name: Build and pack
+    needs: version
+    if: needs.version.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
-      id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # No cache: a release builds from a clean install.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
-          registry-url: https://registry.npmjs.org
-          # A release must not restore a cache that another workflow could have written.
+          node-version-file: .node-version
           package-manager-cache: false
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
-      - run: pnpm lint
+      - run: pnpm check
+      - run: node scripts/sync-version.mjs --check
       - run: pnpm build
       - name: Bundles are up to date
         run: |
@@ -39,49 +92,72 @@ jobs:
             echo "::error::plugin/ bundles are stale. Run pnpm build and commit them."
             exit 1
           fi
-      - run: pnpm test
-      - name: Tag matches the package version
-        env:
-          TAG: ${{ github.ref_name }}
+      - run: pnpm run lint:publish
+      - name: Pack
         run: |
-          version="$(node -p "require('./plugin/package.json').version")"
-          if [ "v$version" != "$TAG" ]; then
-            echo "::error::tag $TAG does not match plugin/package.json version $version"
-            exit 1
-          fi
-      - name: Publish
-        working-directory: plugin
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        # A rerun (e.g. after a failed registry step) skips a version npm already has.
+          mkdir release
+          (cd plugin && pnpm pack --pack-destination "$GITHUB_WORKSPACE/release")
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: package
+          path: release/*.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Stage on npm
+    needs: pack
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # The trod package's trusted publisher names this workflow file, and only needs to allow staged publishes.
+    permissions:
+      contents: write # the version's tag and GitHub release
+      id-token: write # npm trusted publishing and provenance
+    steps:
+      # For plugin/CHANGELOG.md only: nothing from the checkout is installed or run.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: package
+          path: release
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - name: Check npm's version
         run: |
-          version="$(node -p "require('./package.json').version")"
+          # Staged publishing needs npm 11.15.0 or later.
+          npm_version="$(npm --version)"
+          node -e '
+            const [a, b] = process.argv[1].split(".").map(Number);
+            if (a < 11 || (a === 11 && b < 15)) throw new Error(`npm ${process.argv[1]} cannot stage publishes (11.15.0 or later)`);
+          ' "$npm_version"
+      # The tarball: no install, no lifecycle scripts. Provenance comes from publishConfig.provenance. A version
+      # already on npm is skipped, and an existing tag too, so a run that failed partway can be re-run. The stage
+      # ID goes in the job summary, for approving.
+      - name: Stage, tag and create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tarball="$(ls release/*.tgz)"
+          version="$(tar -xOzf "$tarball" package/package.json | node -p 'JSON.parse(require("fs").readFileSync(0)).version')"
           if npm view "trod@$version" version >/dev/null 2>&1; then
-            echo "trod@$version is already on npm; skipping publish"
+            echo "trod@$version is already on npm"
           else
-            npm publish --provenance --access public
+            npm stage publish "./$tarball" > stage.log
+            cat stage.log
+            stage_id="$(sed -n 's/.*(staged with id \(.*\))$/\1/p' stage.log)"
+            echo "Staged trod@$version: approve it under Staged Packages on npmjs.com, or with \`npm stage approve ${stage_id:-<stage-id>}\`. The MCP Registry workflow lists it once it is on npm." >> "$GITHUB_STEP_SUMMARY"
           fi
-      # The MCP Registry (registry.modelcontextprotocol.io) lists the npm package; it checks mcpName in package.json.
-      - name: Install cosign
-        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
-      - name: Download and verify mcp-publisher
-        env:
-          MCP_PUBLISHER_VERSION: v1.8.1
-        run: |
-          set -euo pipefail
-          archive="mcp-publisher_linux_amd64.tar.gz"
-          base_url="https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}"
-          curl --fail --location --silent --show-error --output "$archive" "$base_url/$archive"
-          curl --fail --location --silent --show-error --output "$archive.sigstore.json" "$base_url/$archive.sigstore.json"
-          cosign verify-blob \
-            --bundle "$archive.sigstore.json" \
-            --certificate-identity "https://github.com/modelcontextprotocol/registry/.github/workflows/release.yml@refs/tags/${MCP_PUBLISHER_VERSION}" \
-            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-            "$archive"
-          tar xzf "$archive" mcp-publisher
-          rm -f "$archive" "$archive.sigstore.json"
-      - name: Publish to the MCP Registry
-        working-directory: plugin
-        run: |
-          ../mcp-publisher login github-oidc
-          ../mcp-publisher publish
+          tag="v$version"
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+            echo "$tag is already tagged"
+            exit 0
+          fi
+          # The version's section of plugin/CHANGELOG.md, or GitHub's generated notes.
+          awk -v v="$version" '$0 == "## " v { on = 1; next } on && /^## / { exit } on' plugin/CHANGELOG.md > notes.md || true
+          if [ -s notes.md ]; then notes=(--notes-file notes.md); else notes=(--generate-notes); fi
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "trod $version" "${notes[@]}"
