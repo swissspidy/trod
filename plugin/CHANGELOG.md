@@ -4,7 +4,7 @@
 
 Development milestones before the first npm release; their changes ship in 0.1.0.
 
-### 0.5.0
+### Milestone "0.5.0"
 
 - Scheduled learning: `trod learn` is incremental (`.trod/state/learn.json`, self-ignoring; nothing new means no
   session and exit 0; one run per project at a time; `--all` relearns and recounts) and keeps an evidence ledger,
@@ -35,12 +35,12 @@ Development milestones before the first npm release; their changes ship in 0.1.0
 - Packaged for npm as `trod` (`npx trod init`) and for the MCP Registry as `io.github.swissspidy/trod`; both go live
   with the first tagged release (see [docs/distribution.md](docs/distribution.md)).
 
-### 0.4.0
+### Milestone "0.4.0"
 
 - Verified notes (ADR 0004): `trod forge` writes `.trod/notes.md` with checks in `.trod/notes.checks.json`;
   `trod notes [--link]` and `trod verify` re-run the checks; only verified notes are linked into `CLAUDE.md`.
 
-### 0.3.0 and earlier
+### Earlier milestones ("0.3.0" and before)
 
 - `trod forge`, library cards and code mode (`trod_eval`) (ADR 0003); single-file tools, `trod_run`, the validation
   hook (ADR 0002); the genesis server (ADR 0001). See the experiment rounds in the README for what each change did.
