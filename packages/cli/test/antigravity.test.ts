@@ -21,6 +21,7 @@ describe('trod init --antigravity', () => {
     });
     expect(readFileSync(path.join(dir, '.agents', 'skills', 'trod', 'SKILL.md'), 'utf8')).toBe(readFileSync(path.join(PLUGIN, 'antigravity', 'skills', 'trod', 'SKILL.md'), 'utf8'));
     expect(readFileSync(path.join(dir, '.gitignore'), 'utf8')).toContain('.trod/tools/');
+    expect(readFileSync(path.join(dir, '.agents', 'skills', 'trod-learn', 'SKILL.md'), 'utf8')).toBe(readFileSync(path.join(PLUGIN, 'antigravity', 'skills', 'trod-learn', 'SKILL.md'), 'utf8'));
     expect(existsSync(path.join(dir, '.mcp.json'))).toBe(false);
     expect(existsSync(path.join(dir, '.claude'))).toBe(false);
     expect(res.notes.join(' ')).toContain('asks before each MCP tool call');
@@ -98,9 +99,17 @@ describe('the Antigravity plugin at the repository root', () => {
     expect(existsSync(path.join(ROOT, 'plugin', 'server', 'trod-server.mjs'))).toBe(true);
   });
 
-  it('ships the same skill as trod init --antigravity, named after its folder', () => {
-    const skill = readFileSync(path.join(ROOT, 'skills', 'trod', 'SKILL.md'), 'utf8');
-    expect(skill).toBe(readFileSync(path.join(PLUGIN, 'antigravity', 'skills', 'trod', 'SKILL.md'), 'utf8'));
-    expect(skill).toMatch(/^---\nname: trod\ndescription: .+\n---\n/);
+  it('ships the same skills as trod init --antigravity, each named after its folder', () => {
+    for (const name of ['trod', 'trod-learn']) {
+      const skill = readFileSync(path.join(ROOT, 'skills', name, 'SKILL.md'), 'utf8');
+      expect(skill).toBe(readFileSync(path.join(PLUGIN, 'antigravity', 'skills', name, 'SKILL.md'), 'utf8'));
+      expect(skill).toMatch(new RegExp(`^---\\nname: ${name}\\ndescription: .+\\n---\\n`));
+    }
+  });
+
+  it('keeps the scheduled-learning skill identical to the Claude Code one, apart from its name', () => {
+    const claude = readFileSync(path.join(PLUGIN, 'skills', 'learn', 'SKILL.md'), 'utf8');
+    expect(readFileSync(path.join(PLUGIN, 'antigravity', 'skills', 'trod-learn', 'SKILL.md'), 'utf8')).toBe(claude.replace('name: learn', 'name: trod-learn'));
+    expect(claude).toContain('trod-learn-run-7c1e5a');
   });
 });

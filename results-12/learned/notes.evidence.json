@@ -1,0 +1,326 @@
+{
+ "rules": [
+  {
+   "id": "final-action-required",
+   "where": "notes.md",
+   "confirmed": 103,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "never-stop-best-guess",
+   "where": "notes.md",
+   "confirmed": 5,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "verify-before-final",
+   "where": "notes.md",
+   "confirmed": 20,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "observe-after-hover-stale",
+   "where": "notes.md",
+   "confirmed": 3,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "click-takes-id-clickxy-coords",
+   "where": "notes.md",
+   "confirmed": 10,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "playwright-key-names",
+   "where": "notes.md",
+   "confirmed": 2,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "heredoc-batch",
+   "where": "notes.md",
+   "confirmed": 15,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "type-clears-field",
+   "where": "notes.md",
+   "confirmed": 8,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "hover-to-scroll-offscreen",
+   "where": "notes.md",
+   "confirmed": 9,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "icons-need-screenshot-clickxy",
+   "where": "notes.md",
+   "confirmed": 11,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "time-sensitive-one-bash-call",
+   "where": "notes.md",
+   "confirmed": 6,
+   "contradicted": 2,
+   "status": "kept"
+  },
+  {
+   "id": "budget-60-actions",
+   "where": "notes.md",
+   "confirmed": 3,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "target-crashed-done",
+   "where": "notes.md",
+   "confirmed": 0,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "autocomplete-pick-suggestion-submit",
+   "where": "wiki/forms.md",
+   "confirmed": 4,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "radio-textbox-submit",
+   "where": "wiki/forms.md",
+   "confirmed": 4,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "change-case-convert-first",
+   "where": "wiki/forms.md",
+   "confirmed": 4,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "copy-paste-type-value",
+   "where": "wiki/forms.md",
+   "confirmed": 8,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "date-press-per-digit",
+   "where": "wiki/forms.md",
+   "confirmed": 4,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "count-use-element-list-click-answer",
+   "where": "wiki/visual-count.md",
+   "confirmed": 8,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "blocks-zoom-count",
+   "where": "wiki/visual-count.md",
+   "confirmed": 4,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "social-hover-post-into-view",
+   "where": "wiki/social-media.md",
+   "confirmed": 8,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "shapes-drag-to-container-submit",
+   "where": "wiki/drag.md",
+   "confirmed": 4,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "list-drag-down-past-target",
+   "where": "wiki/drag.md",
+   "confirmed": 4,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "grid-plain-drag-only-straight-up",
+   "where": "wiki/drag.md",
+   "confirmed": 2,
+   "contradicted": 2,
+   "status": "fixed"
+  },
+  {
+   "id": "grid-diagonal-move-dragxy-overshoot",
+   "where": "wiki/drag.md",
+   "confirmed": 2,
+   "contradicted": 0,
+   "status": "new"
+  },
+  {
+   "id": "circle-diagonal-stroke-path-check",
+   "where": "wiki/drag.md",
+   "confirmed": 4,
+   "contradicted": 0,
+   "status": "new"
+  },
+  {
+   "id": "circle-submit-leftover-stroke",
+   "where": "wiki/drag.md",
+   "confirmed": 2,
+   "contradicted": 2,
+   "status": "fixed"
+  },
+  {
+   "id": "button-one-overlap-check",
+   "where": "wiki/menus-buttons.md",
+   "confirmed": 12,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "wait-n-seconds-one-call",
+   "where": "wiki/menus-buttons.md",
+   "confirmed": 4,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "nested-menu-hover-observe-leaf",
+   "where": "wiki/menus-buttons.md",
+   "confirmed": 3,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "menu-icon-open-playback",
+   "where": "wiki/menus-buttons.md",
+   "confirmed": 4,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "synonyms-include-literal-repeat",
+   "where": "wiki/menus-buttons.md",
+   "confirmed": 2,
+   "contradicted": 1,
+   "status": "kept"
+  },
+  {
+   "id": "synonyms-one-per-target",
+   "where": "wiki/menus-buttons.md",
+   "confirmed": 3,
+   "contradicted": 1,
+   "status": "new"
+  },
+  {
+   "id": "right-angle-offset-at-new-point",
+   "where": "wiki/canvas-games.md",
+   "confirmed": 3,
+   "contradicted": 1,
+   "status": "kept"
+  },
+  {
+   "id": "tictactoe-win-before-block",
+   "where": "wiki/canvas-games.md",
+   "confirmed": 4,
+   "contradicted": 0,
+   "status": "new"
+  },
+  {
+   "id": "tictactoe-centre-opposite-corner-fork",
+   "where": "wiki/canvas-games.md",
+   "confirmed": 3,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "hot-area-click-80-150",
+   "where": "wiki/canvas-games.md",
+   "confirmed": 1,
+   "contradicted": 3,
+   "status": "fixed"
+  },
+  {
+   "id": "hot-area-harmless-click-screenshot-cue",
+   "where": "wiki/canvas-games.md",
+   "confirmed": 0,
+   "contradicted": 4,
+   "status": "dropped"
+  },
+  {
+   "id": "hover-shape-chase-loop",
+   "where": "wiki/canvas-games.md",
+   "confirmed": 0,
+   "contradicted": 3,
+   "status": "dropped"
+  },
+  {
+   "id": "hover-shape-cap-budget",
+   "where": "wiki/canvas-games.md",
+   "confirmed": 0,
+   "contradicted": 0,
+   "status": "new"
+  },
+  {
+   "id": "email-check-whole-list-any-task",
+   "where": "wiki/apps.md",
+   "confirmed": 1,
+   "contradicted": 0,
+   "status": "fixed"
+  },
+  {
+   "id": "email-icons-clickxy",
+   "where": "wiki/apps.md",
+   "confirmed": 3,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "calendar-drag-slots",
+   "where": "wiki/apps.md",
+   "confirmed": 4,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "food-badges-add-order",
+   "where": "wiki/apps.md",
+   "confirmed": 4,
+   "contradicted": 0,
+   "status": "kept"
+  },
+  {
+   "id": "stock-poll-buy-one-loop",
+   "where": "wiki/apps.md",
+   "confirmed": 2,
+   "contradicted": 2,
+   "status": "kept"
+  },
+  {
+   "id": "stock-undefined-buy-anyway",
+   "where": "wiki/apps.md",
+   "confirmed": 0,
+   "contradicted": 0,
+   "status": "kept"
+  }
+ ]
+}

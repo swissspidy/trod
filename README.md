@@ -9,7 +9,7 @@ cost per run ([site](https://swissspidy.github.io/trod/), [all experiments](http
 
 | Haiku 5.5, solved | alone | with forged notes |
 |---|---|---|
-| [MiniWoB++](results-9/README.md), 30 hardest web task types | 68% | **90%** (88% [learned from past sessions](results-11/README.md) alone) |
+| [MiniWoB++](results-9/README.md), 30 hardest web task types | 68% | **90%** (91% after three rounds of [learning from past sessions](results-12/README.md)) |
 | [ScienceWorld](results-8/README.md), 30 science task types | 52% | **89%** |
 | [AppWorld](results-6/README.md), everyday app chores | 87.5% | **95%** (`trod forge`'s own notes: 87–90%) |
 | [BIRD](results-7/README.md) text-to-SQL (each question needs its own fact) | 61% | 63% |
@@ -32,9 +32,12 @@ npx trod learn                    # distil notes from Claude Code's transcripts 
 `npx trod init --allow-exec`, meant for ephemeral cloud containers; see the note below.)
 
 `trod learn` compares sessions that failed with ones that worked and writes rules (plus a page per kind of task when
-there are many). On MiniWoB++ it took Haiku from 68% to 81–83% from 120 old sessions, and to 88% after one more
-round of sessions and learning ([round 11](results-11/README.md)). Run it again from time to time and review the
-diff like any other change.
+there are many). On MiniWoB++ it took Haiku from 68% to 81–83% from 120 old sessions, to 88% after one more
+round of sessions and learning, and to 91% after a third ([rounds 11](results-11/README.md) and [12](results-12/README.md)). Run it on a schedule where your sessions
+happen (a Claude Code Desktop scheduled task with `/trod:learn` from the plugin or `/trod-learn` after `trod init`,
+cron, or an Antigravity Automation): each run
+learns only from new sessions, checks every existing rule against them, and leaves a diff to review
+([keep learning](docs/reference.md#keep-learning)).
 
 To study something new instead, write `env.md` (a few lines on the API, tooling or workflow) and forge:
 
@@ -44,7 +47,7 @@ npx trod verify                   # in CI: re-check every tool and note against 
 ```
 
 Commit and push what `init`, `learn` and `forge` wrote (`.mcp.json`, `.claude/`, `.gitignore`, `.trod/library`,
-`.trod/notes.md`, `.trod/notes.checks.json`, `.trod/wiki/`, the `CLAUDE.md` import) so every later session, cloud
+`.trod/notes.md`, `.trod/notes.checks.json`, `.trod/notes.evidence.json`, `.trod/wiki/`, the `CLAUDE.md` import) so every later session, cloud
 ones included, loads it.
 
 Or install the Claude Code plugin: `claude plugin marketplace add swissspidy/trod`, then
@@ -84,13 +87,13 @@ Tool code runs outside Claude Code's permission prompts, so execution is off unl
   transcripts, notes, wikis and a small injected layer, organized by offline "dreaming". trod is a shippable instance
   of the same lessons: a small injected layer of validated rules, written by an offline forge.
 - **Research (Voyager, ExpeL, Agent Workflow Memory):** the same idea of learning reusable skills from experience,
-  packaged here for Claude Code with eleven rounds of published, paired evaluations.
+  packaged here for Claude Code with twelve rounds of published, paired evaluations.
 
 ## More
 
 - [Reference](docs/reference.md): tool format, every install route (plugin, `trod init`, cloud environments, other
   MCP clients), CLI, configuration, releasing.
-- [Experiments](experiments/) and results: [round 1](results/README.md) … [round 11](results-11/README.md);
+- [Experiments](experiments/) and results: [round 1](results/README.md) … [round 12](results-12/README.md);
   decisions in [docs/adr](docs/adr/); [distribution](docs/distribution.md); [changelog](CHANGELOG.md).
 
 ```sh
