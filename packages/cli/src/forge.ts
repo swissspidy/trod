@@ -124,7 +124,10 @@ export async function forge(opts: ForgeOptions): Promise<ForgeResult> {
   const baseEnv = opts.env ?? process.env;
   const practiceLog = path.join(scratch, 'practice.jsonl');
   if (opts.practice) writePracticeBins(path.join(scratch, 'bin'), practiceLog, opts.practice);
-  const env = { ...baseEnv, TROD_ALLOW_EXEC: '1', TROD_PROJECT_DIR: opts.projectDir, ...(opts.practice ? { PATH: `${path.join(scratch, 'bin')}${path.delimiter}${baseEnv.PATH ?? ''}` } : {}) };
+  const env: NodeJS.ProcessEnv = { ...baseEnv, TROD_ALLOW_EXEC: '1', TROD_PROJECT_DIR: opts.projectDir, ...(opts.practice ? { PATH: `${path.join(scratch, 'bin')}${path.delimiter}${baseEnv.PATH ?? ''}` } : {}) };
+  // Run from inside a Claude Code session (e.g. the learn skill in a scheduled task), the child inherits
+  // CLAUDECODE=1 and refuses to start as a nested session. The forge is a separate headless session, so clear it.
+  delete env.CLAUDECODE;
   const mcpConfig = path.join(scratch, 'mcp.json');
   writeFileSync(mcpConfig, JSON.stringify({ mcpServers: { trod: { command: process.execPath, args: [opts.server ?? defaultServerPath()] } } }));
   const prompt = `${opts.prompt ?? FORGE_PROMPT}\n\n## The environment\n\n${opts.brief}${opts.practice ? `\n\n${PRACTICE_PROMPT(!!opts.practice.reset)}` : ''}`;

@@ -9,6 +9,7 @@
   recorded. The `learn` skill (`/trod:learn`,
   `trod-learn`) runs it for a Claude Code Desktop scheduled task, cron or an Antigravity Automation and reports the
   diff without committing.
+  The learner session starts without Claude Code's nested-session marker, so the skill works from inside a session.
 - Antigravity: the repository root is an Antigravity plugin (`agy plugin install https://github.com/swissspidy/trod`),
   and `trod init --antigravity` sets a repository up (`.agents/mcp_config.json`, an Antigravity skill); execution
   stays off until you opt in (`--allow-exec` per repository, or `TROD_ALLOW_EXEC=1` for your machine). Notes reach
