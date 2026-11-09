@@ -50,7 +50,9 @@ const minutes = (a?: string, b?: string) => (a && b ? Math.max(0, (Date.parse(b)
 export function sessionMetrics(file: string): SessionMetrics | undefined {
   const events = lines(file);
   if (!events.length) return undefined;
-  const id = path.basename(file, '.jsonl');
+  // The session id hooks log: Claude Code events carry it; the file name is the fallback (a copied or renamed transcript keeps its id).
+  const logged = events.find((e) => typeof e.sessionId === 'string')?.sessionId;
+  const id = typeof logged === 'string' ? logged : path.basename(file, '.jsonl');
   const m: SessionMetrics = { id, client: events[0].type === 'session_meta' ? 'codex' : 'claude', turns: 0, toolCalls: 0, toolErrors: 0, followUps: 0, outputTokens: 0, inputTokens: 0, trodRun: false };
   const stamps = events.map((e) => e.timestamp).filter((t): t is string => typeof t === 'string');
   m.start = stamps[0];
@@ -198,14 +200,15 @@ export function buildReport(all: SessionMetrics[], since: { claude?: string; cod
  * With hooks delivery, trod's SessionStart hook put a random share of sessions in a holdout without notes: compare those
  * with the rest. `before` is the holdout, `after` the sessions with notes; sessions without a logged decision are left out.
  */
-export function buildHoldoutReport(all: SessionMetrics[], delivery: Map<string, { holdout: boolean }>): Report {
+export function buildHoldoutReport(all: SessionMetrics[], delivery: Map<string, { holdout: boolean; notes?: boolean }>): Report {
   const sessions = all.filter((s) => !s.trodRun);
   const holdout: SessionMetrics[] = [];
   const treated: SessionMetrics[] = [];
   let ungrouped = 0;
   for (const s of sessions) {
     const d = delivery.get(s.id);
-    if (!d) ungrouped++;
+    // A session outside the holdout that got no notes (the project had none yet) is in neither group.
+    if (!d || (!d.holdout && d.notes === false)) ungrouped++;
     else (d.holdout ? holdout : treated).push(s);
   }
   return { mode: 'holdout', since: {}, before: summarize(holdout), after: summarize(treated), ungrouped, excludedTrodRuns: all.length - sessions.length };

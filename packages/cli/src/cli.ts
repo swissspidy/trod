@@ -158,8 +158,10 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       const sources = values.from?.length ? values.from.map((f) => path.resolve(f)) : [transcriptDir(paths.projectDir), ...codexTranscripts(paths.projectDir)];
       const sessions = findTranscripts(sources).map((f) => sessionMetrics(f)).filter((m): m is SessionMetrics => m !== undefined);
       // Hooks delivery logs a random holdout: compare it with the rest. Otherwise, before vs after the notes were linked.
+      // Only the chosen sessions decide the mode: holdouts outside a --from selection do not count.
       const delivery = sessionDelivery(paths);
-      const report = [...delivery.values()].some((d) => d.holdout) ? buildHoldoutReport(sessions, delivery) : buildReport(sessions, notesSince(paths.projectDir));
+      const logged = sessions.filter((s) => delivery.has(s.id));
+      const report = logged.length && logged.some((s) => delivery.get(s.id)?.holdout) ? buildHoldoutReport(sessions, delivery) : buildReport(sessions, notesSince(paths.projectDir));
       const ledger = readLedger(paths.projectDir);
       if (values.json) out(JSON.stringify({ ...report, evidence: ledger.exists ? ledger.rules : undefined }, null, 2));
       else out(formatReport(report, ledger.exists && ledger.rules.length ? summarizeLedger(ledger.rules) : undefined));
@@ -304,7 +306,7 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       return stale.length || staleNotes.length || notes.errors.length ? 1 : 0;
     }
     case 'notes': {
-      if (values.delivery !== undefined) return setDelivery(paths, values.delivery, values.holdout, out);
+      if (values.delivery !== undefined) return await setDelivery(paths, values.delivery, values.holdout, out);
       let notes = await verifyNotes(paths, { execAllowed: true });
       const failed = notes.checks.some((c) => !c.ok) || notes.errors.length > 0;
       if (values.link) {
@@ -386,7 +388,7 @@ function forgeExit(command: 'forge' | 'learn', res: ForgeResult, json: boolean, 
  * `trod notes --delivery hooks|import [--holdout <share>]`: switch how Claude Code sessions get the notes. Hooks drop the
  * CLAUDE.md import (trod's SessionStart hook injects the notes instead, except in the holdout) and install the hooks.
  */
-function setDelivery(paths: TrodPaths, delivery: string, holdout: string | undefined, out: (s: string) => void): number {
+async function setDelivery(paths: TrodPaths, delivery: string, holdout: string | undefined, out: (s: string) => void): Promise<number> {
   if (delivery !== 'hooks' && delivery !== 'import') {
     out('trod notes: --delivery must be hooks or import');
     return 1;
@@ -397,22 +399,41 @@ function setDelivery(paths: TrodPaths, delivery: string, holdout: string | undef
     out('trod notes: --holdout must be a share between 0 and 0.5');
     return 1;
   }
+  // Either way the notes reach every session: only verified notes are delivered, as with `trod notes --link`.
+  const notes = await verifyNotes(paths, { execAllowed: true });
+  if (notes.exists && (notes.checks.some((c) => !c.ok) || notes.errors.length > 0)) {
+    printNotes(notes, out);
+    out('trod notes: delivery not changed, some checks fail (fix or remove those claims and their checks first)');
+    return 1;
+  }
   const { claudeMd } = notesPaths(paths);
   if (delivery === 'hooks') {
+    const hookCommand = deliveryHookCommand(paths.projectDir);
+    if ('error' in hookCommand) {
+      out(`trod notes: ${hookCommand.error}`);
+      return 1;
+    }
+    // Hooks first: if they cannot be installed, the config and the CLAUDE.md import stay as they were.
+    const res = { written: [] as string[], unchanged: [] as string[], notes: [] as string[] };
+    try {
+      installClaudeHooks(paths.projectDir, hookCommand.command, res);
+    } catch (e) {
+      out(`trod notes: could not install the hooks in .claude/settings.json (${(e as Error).message}); delivery not changed`);
+      return 1;
+    }
+    for (const f of res.written) out(`wrote     ${f}`);
     writeTrodConfig(paths, { ...config, delivery: 'hooks', holdout: share });
     if (existsSync(claudeMd)) {
       // Remove the import (and the heading trod wrote above it): the hooks deliver the notes now.
       const text = readFileSync(claudeMd, 'utf8');
-      const next = text.replace(/\n?## Project notes \(trod\)\n\nVerified notes about this project's environment, kept by trod[^\n]*\n\n@\.trod\/notes\.md\n?/, '\n').replace(/^@\.trod\/notes\.md\n?/m, '');
+      const next = text
+        .replace(/\n?## Project notes \(trod\)\n\nVerified notes about this project's environment, kept by trod[^\n]*\n\n[ \t]*@\.trod\/notes\.md[ \t]*\n?/, '\n')
+        .replace(/^[ \t]*@\.trod\/notes\.md[ \t]*(\r?\n|$)/gm, '');
       if (next !== text) {
         writeFileSync(claudeMd, next.replace(/\n{3,}/g, '\n\n'));
         out(`removed ${NOTES_IMPORT} from CLAUDE.md`);
       }
     }
-    const res = { written: [] as string[], unchanged: [] as string[], notes: [] as string[] };
-    const version = packageVersion(defaultPackageRoot());
-    installClaudeHooks(paths.projectDir, installedHookCommand(paths.projectDir) ?? `npx -y ${version ? `trod@${version}` : 'trod'} hook`, res);
-    for (const f of res.written) out(`wrote     ${f}`);
     out(`notes now reach Claude Code sessions through trod's hooks; ${Math.round(share * 100)}% of sessions are a holdout without notes (trod report compares the two). Commit .trod/config.json and .claude/settings.json.`);
     return 0;
   }
@@ -421,6 +442,24 @@ function setDelivery(paths: TrodPaths, delivery: string, holdout: string | undef
   if (linkNotes(paths)) out(`linked .trod/notes.md into CLAUDE.md (${NOTES_IMPORT})`);
   out('notes reach Claude Code sessions through the CLAUDE.md import again (the hooks stay installed and do nothing).');
   return 0;
+}
+
+/**
+ * The hook command for hooks delivery. An installed hook from an older trod would not know SessionStart and
+ * UserPromptSubmit, and the notes would silently stop reaching sessions: a pinned npx version is moved to this one,
+ * and an outdated vendored copy must be updated first.
+ */
+export function deliveryHookCommand(dir: string): { command: string } | { error: string } {
+  const version = packageVersion(defaultPackageRoot());
+  const current = `npx -y ${version ? `trod@${version}` : 'trod'} hook`;
+  const installed = installedHookCommand(dir);
+  if (!installed) return { command: current };
+  if (/^npx -y trod(@\S+)? hook$/.test(installed.trim())) return { command: installed.trim() === 'npx -y trod hook' ? installed.trim() : current };
+  if (installed.includes('.trod/pkg/bin/trod')) {
+    const vendored = packageVersion(path.join(dir, '.trod', 'pkg'));
+    if (version && vendored !== version) return { error: `the vendored trod in .trod/pkg is ${vendored ?? 'unknown'}, older than ${version}: re-run \`trod init --vendor\` first, so its hook handles notes delivery` };
+  }
+  return { command: installed };
 }
 
 async function readStdin(): Promise<string> {
@@ -461,7 +500,7 @@ export async function hookMessage(raw: string, env: NodeJS.ProcessEnv = process.
 
 function printNotes(notes: NotesReport, out: (s: string) => void): void {
   const passed = notes.checks.filter((c) => c.ok).length;
-  out(`notes: ${notes.exists ? `${notes.chars} chars` : 'missing'}${notes.tooLong ? ` (over ${NOTES_MAX_CHARS}: they are in every session's context, trim them)` : ''}, ${passed}/${notes.checks.length} check(s) passed, ${notes.linked ? 'linked from CLAUDE.md' : `not linked (trod notes --link adds ${NOTES_IMPORT} to CLAUDE.md)`}`);
+  out(`notes: ${notes.exists ? `${notes.chars} chars` : 'missing'}${notes.tooLong ? ` (over ${NOTES_MAX_CHARS}: they are in every session's context, trim them)` : ''}, ${passed}/${notes.checks.length} check(s) passed, ${notes.linked ? (notes.delivery === 'hooks' ? 'delivered by trod\'s hooks' : 'linked from CLAUDE.md') : `not linked (trod notes --link adds ${NOTES_IMPORT} to CLAUDE.md)`}`);
   for (const c of notes.checks.filter((c) => !c.ok)) out(`  STALE  "${c.claim}" (${c.tool}): ${c.error}`);
   for (const e of notes.errors) out(`  ${e}`);
 }

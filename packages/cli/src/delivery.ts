@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmdirSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { notesPaths, readTrodConfig, type TrodPaths } from '@trod/server';
 
@@ -66,8 +66,9 @@ export function inHoldout(session: string, share: number): boolean {
 interface SessionState {
   holdout: boolean;
   pages: string[];
-  /** When SessionStart last ran: the plugin's hook and the project's can both fire, and the notes go in once. */
+  /** When SessionStart last ran, and why: the plugin's hook and the project's can both fire, and the notes go in once. */
   started?: string;
+  source?: string;
 }
 
 const stateFile = (paths: TrodPaths, session: string) => path.join(paths.trodDir, 'state', 'sessions', `${session.replace(/[^a-zA-Z0-9_-]/g, '_')}.json`);
@@ -89,9 +90,47 @@ function writeState(paths: TrodPaths, session: string, state: SessionState): voi
   writeFileSync(file, JSON.stringify(state));
 }
 
+/** Logging must never cost a session its notes: a failed write is reported on stderr and delivery goes on. */
 function log(paths: TrodPaths, event: NotesEvent): void {
-  mkdirSync(paths.logsDir, { recursive: true });
-  appendFileSync(path.join(paths.logsDir, NOTES_LOG), `${JSON.stringify(event)}\n`);
+  try {
+    mkdirSync(paths.logsDir, { recursive: true });
+    appendFileSync(path.join(paths.logsDir, NOTES_LOG), `${JSON.stringify(event)}\n`);
+  } catch (e) {
+    process.stderr.write(`trod: could not write ${NOTES_LOG}: ${(e as Error).message}\n`);
+  }
+}
+
+/**
+ * The plugin's hook and the project's can fire at the same moment for one session. A lock directory (mkdir is atomic)
+ * keeps the read-decide-write of the session state to one process at a time; a lock older than 5 s is stale.
+ */
+function withSessionLock<T>(paths: TrodPaths, session: string, fn: () => T): T {
+  const lock = `${stateFile(paths, session)}.lock`;
+  mkdirSync(path.dirname(lock), { recursive: true });
+  const deadline = Date.now() + 3000;
+  for (;;) {
+    try {
+      mkdirSync(lock);
+      break;
+    } catch {
+      try {
+        if (Date.now() - statSync(lock).mtimeMs > 5000) rmdirSync(lock);
+      } catch {
+        // gone already
+      }
+      if (Date.now() > deadline) return fn(); // never block a session on a stuck lock
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);
+    }
+  }
+  try {
+    return fn();
+  } finally {
+    try {
+      rmdirSync(lock);
+    } catch {
+      // removed as stale by another process
+    }
+  }
 }
 
 export function readNotesLog(paths: TrodPaths): NotesEvent[] {
@@ -120,35 +159,50 @@ export function notesHook(paths: TrodPaths, payload: { hook_event_name?: string;
   if (config.delivery !== 'hooks') return undefined;
   const session = payload.session_id;
   if (!session) return undefined;
+  return withSessionLock(paths, session, () => deliver(paths, config.holdout ?? 0.1, session, payload, now));
+}
+
+function deliver(paths: TrodPaths, share: number, session: string, payload: { hook_event_name?: string; prompt?: string; source?: string }, now: Date): string | undefined {
   const ts = now.toISOString();
+  const start = payload.hook_event_name === 'SessionStart';
   let state = readState(paths, session);
-  if (payload.hook_event_name === 'SessionStart' && state?.started && now.getTime() - Date.parse(state.started) < 10_000) return undefined;
-  if (payload.hook_event_name === 'SessionStart' || !state) {
-    // A resumed or compacted session keeps its side; its context lost the notes, so they are added again.
-    const holdout = state?.holdout ?? inHoldout(session, config.holdout ?? 0.1);
+  // The same start reported twice (plugin and project hooks) within seconds: once is enough. A resume, clear or compact
+  // (source) is a new context and always gets the notes.
+  const repeat = start && state?.started && now.getTime() - Date.parse(state.started) < 10_000 && (payload.source ?? 'startup') === (state.source ?? 'startup');
+  if (repeat) return undefined;
+  const blocks: string[] = [];
+  if (start || !state) {
+    // A resumed or compacted session keeps its side; its context lost the notes and pages, so they are added again.
+    const holdout = state?.holdout ?? inHoldout(session, share);
     const notesFile = notesPaths(paths).notes;
     const notes = !holdout && existsSync(notesFile) ? readFileSync(notesFile, 'utf8').trim() : '';
     const fresh = !state;
-    state = payload.hook_event_name === 'SessionStart' ? { holdout, pages: [], started: ts } : { holdout, pages: state?.pages ?? [] };
+    state = { holdout, pages: [], started: start ? ts : undefined, source: start ? (payload.source ?? 'startup') : undefined };
     writeState(paths, session, state);
     if (fresh) log(paths, { type: 'session', ts, session, holdout, notes: !!notes });
-    if (payload.hook_event_name === 'SessionStart') return notes ? `trod: verified notes about this project (.trod/notes.md):\n\n${notes}` : undefined;
+    // SessionStart did not run (an older client, or the hook was added mid-session): the first prompt carries the notes.
+    if (notes) blocks.push(`trod: verified notes about this project (.trod/notes.md):\n\n${notes}`);
+    if (start) return blocks[0];
   }
-  if (payload.hook_event_name !== 'UserPromptSubmit' || state.holdout || !payload.prompt) return undefined;
-  const hits = matchPages(readWikiPages(paths), payload.prompt).filter((h) => !state.pages.includes(h.page.name));
-  if (!hits.length) return undefined;
-  for (const h of hits) log(paths, { type: 'page', ts, session, page: h.page.name, trigger: h.keyword });
-  writeState(paths, session, { ...state, pages: [...state.pages, ...hits.map((h) => h.page.name)] });
-  return hits.map((h) => pageBlock(h.page)).join('\n\n---\n\n');
+  if (payload.hook_event_name === 'UserPromptSubmit' && !state.holdout && payload.prompt) {
+    const seen = state.pages;
+    const hits = matchPages(readWikiPages(paths), payload.prompt).filter((h) => !seen.includes(h.page.name));
+    if (hits.length) {
+      for (const h of hits) log(paths, { type: 'page', ts, session, page: h.page.name, trigger: h.keyword });
+      writeState(paths, session, { ...state, pages: [...seen, ...hits.map((h) => h.page.name)] });
+      blocks.push(...hits.map((h) => pageBlock(h.page)));
+    }
+  }
+  return blocks.length ? blocks.join('\n\n---\n\n') : undefined;
 }
 
-/** What each logged session had: holdout or not, and the pages added. */
-export function sessionDelivery(paths: TrodPaths): Map<string, { holdout: boolean; pages: string[] }> {
-  const out = new Map<string, { holdout: boolean; pages: string[] }>();
+/** What each logged session had: holdout or not, whether notes were delivered (a project without notes delivers none), and the pages added. */
+export function sessionDelivery(paths: TrodPaths): Map<string, { holdout: boolean; notes: boolean; pages: string[] }> {
+  const out = new Map<string, { holdout: boolean; notes: boolean; pages: string[] }>();
   for (const e of readNotesLog(paths)) {
-    if (e.type === 'session') out.set(e.session, { holdout: e.holdout, pages: out.get(e.session)?.pages ?? [] });
+    if (e.type === 'session') out.set(e.session, { holdout: e.holdout, notes: e.notes, pages: out.get(e.session)?.pages ?? [] });
     else if (e.type === 'page') {
-      const s = out.get(e.session) ?? { holdout: false, pages: [] };
+      const s = out.get(e.session) ?? { holdout: false, notes: false, pages: [] };
       if (!s.pages.includes(e.page)) s.pages.push(e.page);
       out.set(e.session, s);
     }

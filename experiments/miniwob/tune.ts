@@ -36,10 +36,20 @@ if (!apiKey) throw new Error('Set ANTHROPIC_API_KEY or TEST_API_KEY');
 const OUT = path.resolve(values.out!);
 const ROOT = path.resolve(import.meta.dirname, '..', '..');
 const BIN = path.join(import.meta.dirname, 'bin');
-const TRAIN_PER = Number(values['train-per-type']);
-const VAL_PER = Number(values['val-per-type']);
+/** A positive whole number, or stop before any work (a bad --iterations would otherwise "finish" without tuning). */
+function count(name: string): number {
+  const n = Number(values[name as keyof typeof values]);
+  if (!Number.isInteger(n) || n < 1) throw new Error(`--${name} must be a positive whole number, got ${values[name as keyof typeof values]}`);
+  return n;
+}
+const ITERATIONS = count('iterations');
+const TRAIN_PER = count('train-per-type');
+const VAL_PER = count('val-per-type');
+count('parallel');
 const VAL_OFFSET = 60; // dev seeds 560+: validation, the same for parent and candidate in every iteration
 const trainOffset = (iteration: number) => 12 + iteration * TRAIN_PER; // dev seeds 512+, fresh each iteration
+// The proposer sees training episodes: they must never reach the validation seeds.
+if (trainOffset(ITERATIONS) + TRAIN_PER > VAL_OFFSET) throw new Error(`--iterations ${ITERATIONS} × --train-per-type ${TRAIN_PER} would reach the validation seeds (dev ${VAL_OFFSET}+): use fewer`);
 
 interface Run { type: string; seed: number; pass: boolean; score: number; stream?: string }
 interface State {
@@ -162,11 +172,18 @@ async function propose(type: string, iteration: number, page: string, notes: str
     const e = sandboxEnv(home, work);
     const [cmd, cargs] = user ? ['runuser', ['-u', user, '--', 'env', '-i', ...Object.entries(e).map(([k, v]) => `${k}=${v}`), 'claude', ...args]] : ['claude', args];
     stream = await new Promise<string>((resolve, reject) => {
-      const child = spawn(cmd as string, cargs as string[], { cwd: work, env: user ? undefined : e, stdio: ['ignore', 'pipe', 'pipe'] });
+      // Its own process group, so a timeout ends the whole tree (runuser, claude and whatever it started).
+      const child = spawn(cmd as string, cargs as string[], { cwd: work, env: user ? undefined : e, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
       let text = '';
       child.stdout.on('data', (c: Buffer) => (text += c));
       child.stderr.on('data', (c: Buffer) => (text += c));
-      const timer = setTimeout(() => child.kill('SIGKILL'), 2400_000);
+      const timer = setTimeout(() => {
+        try {
+          process.kill(-child.pid!, 'SIGKILL');
+        } catch {
+          child.kill('SIGKILL');
+        }
+      }, 2400_000);
       child.on('error', (err) => {
         clearTimeout(timer);
         reject(err);
@@ -194,12 +211,19 @@ function withPages(base: string, dir: string, pages: Record<string, string>): st
   makeHarness(dir, base);
   const notesFile = path.join(dir, '.trod', 'notes.md');
   let notes = readFileSync(notesFile, 'utf8');
+  mkdirSync(path.join(dir, '.trod', 'wiki'), { recursive: true });
   for (const [type, text] of Object.entries(pages)) {
     writeFileSync(path.join(dir, '.trod', 'wiki', `${type}.md`), text.trim() + '\n');
     const like = text.match(/^Tasks like:\s*(.+)$/m)?.[1]?.trim() ?? `"${text.trim().split('\n')[0].replace(/^#+\s*/, '').slice(0, 120)}"`;
     const line = `- Tasks like ${like}: read \`.trod/wiki/${type}.md\` first; it overrides the general pages.`;
     if (!notes.includes(INDEX_HEADER)) notes = `${notes.trimEnd()}\n\n${INDEX_HEADER}\n\nBefore acting, check this list too: if your task matches a line, read that page and follow it.\n`;
-    if (!notes.includes(`.trod/wiki/${type}.md`)) notes = `${notes.trimEnd()}\n${line}\n`;
+    // A rewritten page may match different task text: its index line is replaced, not kept.
+    const lines = notes.split('\n');
+    const at = lines.findIndex((l) => l.startsWith('- Tasks like ') && l.includes(`\`.trod/wiki/${type}.md\``));
+    if (at >= 0) {
+      lines[at] = line;
+      notes = lines.join('\n');
+    } else notes = `${notes.trimEnd()}\n${line}\n`;
   }
   writeFileSync(notesFile, notes);
   return dir;
@@ -217,7 +241,7 @@ let state: State = existsSync(statePath) ? JSON.parse(readFileSync(statePath, 'u
 const save = () => writeFileSync(statePath, JSON.stringify(state, null, 2));
 save();
 
-for (let it = state.iteration + 1; it <= Number(values.iterations); it++) {
+for (let it = state.iteration + 1; it <= ITERATIONS; it++) {
   log(`iteration ${it}: train pass on ${types.length} type(s), dev seeds ${SEEDS.dev + trainOffset(it)}+`);
   const train = await runBatch(state.harness, types, trainOffset(it), TRAIN_PER, path.join(OUT, `train-${it}`));
   const imperfect = types.filter((t) => !perfect(train.filter((r) => r.type === t)));
@@ -251,9 +275,14 @@ for (let it = state.iteration + 1; it <= Number(values.iterations); it++) {
   const candVal = await runBatch(candidate, changed, VAL_OFFSET, VAL_PER, path.join(OUT, `val-candidate-${it}`));
   const accepted: Record<string, string> = {};
   for (const t of imperfect) {
-    const p = summarize(parentVal.filter((r) => r.type === t));
-    const c = changed.includes(t) ? summarize(candVal.filter((r) => r.type === t)) : undefined;
-    const ok = !!c && (c.solved > p.solved || (c.solved === p.solved && c.reward > p.reward + 0.05));
+    const pRuns = parentVal.filter((r) => r.type === t);
+    const cRuns = candVal.filter((r) => r.type === t);
+    const p = summarize(pRuns);
+    const c = changed.includes(t) ? summarize(cRuns) : undefined;
+    // Compare like with like: an episode lost to an infrastructure failure on either side means no decision (kept as is).
+    const complete = pRuns.length === VAL_PER && cRuns.length === VAL_PER;
+    if (c && !complete) log(`  ${t}: validation incomplete (parent ${pRuns.length}/${VAL_PER}, candidate ${cRuns.length}/${VAL_PER} episodes), not accepted`);
+    const ok = !!c && complete && (c.solved > p.solved || (c.solved === p.solved && c.reward > p.reward + 0.05));
     if (ok) accepted[t] = proposals[t].page!;
     state.history.push({ iteration: it, type: t, parent: p, candidate: c, accepted: ok, proposerCost: proposals[t]?.costUsd ?? 0 });
     state.costUsd += proposals[t]?.costUsd ?? 0;

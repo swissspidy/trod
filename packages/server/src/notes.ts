@@ -39,6 +39,8 @@ export interface NotesReport {
   chars: number;
   tooLong: boolean;
   linked: boolean;
+  /** How linked notes reach Claude Code sessions: trod's hooks, or the CLAUDE.md import. */
+  delivery: 'hooks' | 'import';
   checks: NoteCheckResult[];
   /** Problems with notes.checks.json itself (unparseable, malformed entries). */
   errors: string[];
@@ -251,5 +253,5 @@ export async function verifyNotes(paths: TrodPaths, opts: { execAllowed: boolean
     const failure = res.ok ? checkExpectation(c.expect, res.text, res.value) : `threw: ${res.error ?? res.text.slice(0, 300)}`;
     results.push({ claim: c.claim, tool: c.tool, ok: !failure, ...(failure ? { error: failure } : {}) });
   }
-  return { exists, chars, tooLong: chars > NOTES_MAX_CHARS, linked: notesLinked(paths), checks: results, errors };
+  return { exists, chars, tooLong: chars > NOTES_MAX_CHARS, linked: notesLinked(paths), delivery: hooksDelivery(paths) ? 'hooks' : 'import', checks: results, errors };
 }

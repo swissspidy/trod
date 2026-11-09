@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { linkNotes, notesLinked, trodPaths } from '@trod/server';
@@ -69,7 +69,11 @@ describe('notes delivered by hooks', () => {
     // A resumed or compacted session gets the notes again (its context lost them), and its pages once more.
     expect(notesHook(paths, { hook_event_name: 'SessionStart', session_id: s, source: 'compact' }, new Date(t0.getTime() + 60_000))).toContain('Use pnpm');
     expect(readNotesLog(paths).map((e) => e.type)).toEqual(['session', 'page']);
-    expect(sessionDelivery(paths).get(s)).toEqual({ holdout: false, pages: ['billing'] });
+    expect(sessionDelivery(paths).get(s)).toEqual({ holdout: false, notes: true, pages: ['billing'] });
+    // The new context lost the page too: a matching prompt brings it back.
+    expect(notesHook(paths, { hook_event_name: 'UserPromptSubmit', session_id: s, prompt: 'invoice' }, new Date(t0.getTime() + 61_000))).toContain('- Amounts are in cents.');
+    // A compaction seconds after the start is a new context, not a duplicate hook.
+    expect(notesHook(paths, { hook_event_name: 'SessionStart', session_id: s, source: 'clear' }, new Date(t0.getTime() + 62_000))).toContain('Use pnpm');
     // The per-session state stays out of git.
     expect(readFileSync(path.join(paths.trodDir, 'state', '.gitignore'), 'utf8')).toBe('*\n');
   });
@@ -79,14 +83,26 @@ describe('notes delivered by hooks', () => {
     const s = sessionOn(true, 0.5);
     expect(notesHook(paths, { hook_event_name: 'SessionStart', session_id: s })).toBeUndefined();
     expect(notesHook(paths, { hook_event_name: 'UserPromptSubmit', session_id: s, prompt: 'invoice' })).toBeUndefined();
-    expect(sessionDelivery(paths).get(s)).toEqual({ holdout: true, pages: [] });
+    expect(sessionDelivery(paths).get(s)).toEqual({ holdout: true, notes: false, pages: [] });
   });
 
   it('decides on the first prompt when SessionStart did not run', () => {
     const paths = project();
     const s = sessionOn(false, 0.1);
-    expect(notesHook(paths, { hook_event_name: 'UserPromptSubmit', session_id: s, prompt: 'billing run please' })).toContain('cents');
-    expect(sessionDelivery(paths).get(s)?.holdout).toBe(false);
+    const first = notesHook(paths, { hook_event_name: 'UserPromptSubmit', session_id: s, prompt: 'billing run please' });
+    // No SessionStart: the first prompt carries the notes as well as the page.
+    expect(first).toContain('- Use pnpm, never npm.');
+    expect(first).toContain('cents');
+    expect(sessionDelivery(paths).get(s)).toEqual({ holdout: false, notes: true, pages: ['billing'] });
+    expect(notesHook(paths, { hook_event_name: 'UserPromptSubmit', session_id: s, prompt: 'next one' })).toBeUndefined();
+  });
+
+  it('delivers the notes even when the log cannot be written', () => {
+    const paths = project();
+    mkdirSync(paths.trodDir, { recursive: true });
+    writeFileSync(paths.logsDir, 'not a directory');
+    const s = sessionOn(false, 0.1);
+    expect(notesHook(paths, { hook_event_name: 'SessionStart', session_id: s })).toContain('Use pnpm');
   });
 });
 
@@ -95,7 +111,7 @@ describe('trod notes --delivery', () => {
     const dir = tmp();
     mkdirSync(path.join(dir, '.trod'));
     writeFileSync(path.join(dir, '.trod', 'notes.md'), '# Notes\n- a rule\n');
-    writeFileSync(path.join(dir, 'CLAUDE.md'), '# Project\n\nUse tabs.\n');
+    writeFileSync(path.join(dir, 'CLAUDE.md'), '# Project\n\nUse tabs.\n\n  @.trod/notes.md  \n');
     linkNotes(trodPaths(dir));
     expect(readFileSync(path.join(dir, 'CLAUDE.md'), 'utf8')).toContain('@.trod/notes.md');
     const lines: string[] = [];
@@ -118,6 +134,24 @@ describe('trod notes --delivery', () => {
     expect(await main(['notes', '--dir', dir, '--delivery', 'hooks', '--holdout', '0.9'], (s) => lines.push(s))).toBe(1);
   });
 
+  it('refuses to deliver notes whose checks fail, and moves a pinned older hook to this version', async () => {
+    const dir = tmp();
+    mkdirSync(path.join(dir, '.trod'));
+    writeFileSync(path.join(dir, '.trod', 'notes.md'), '# Notes\n- a rule\n');
+    writeFileSync(path.join(dir, '.trod', 'notes.checks.json'), JSON.stringify([{ claim: 'false', run: 'node -e "process.exit(1)"' }]));
+    const lines: string[] = [];
+    expect(await main(['notes', '--dir', dir, '--delivery', 'hooks'], (s) => lines.push(s))).toBe(1);
+    expect(existsSync(path.join(dir, '.trod', 'config.json'))).toBe(false);
+    rmSync(path.join(dir, '.trod', 'notes.checks.json'));
+    mkdirSync(path.join(dir, '.claude'));
+    writeFileSync(path.join(dir, '.claude', 'settings.json'), JSON.stringify({ hooks: { PostToolUse: [{ matcher: 'Write', hooks: [{ type: 'command', command: 'npx -y trod@0.0.1 hook' }, { type: 'prompt' }] }] } }));
+    expect(await main(['notes', '--dir', dir, '--delivery', 'hooks'], (s) => lines.push(s))).toBe(0);
+    const hooks = JSON.parse(readFileSync(path.join(dir, '.claude', 'settings.json'), 'utf8')).hooks;
+    expect(hooks.SessionStart[0].hooks[0].command).not.toContain('trod@0.0.1');
+    // A hook without a command is someone else's: kept.
+    expect(hooks.PostToolUse[0].hooks).toEqual([{ type: 'prompt' }]);
+  });
+
   it('trod init installs all three hooks (they do nothing until hooks delivery is chosen)', async () => {
     const dir = tmp();
     expect(await main(['init', '--dir', dir], () => {})).toBe(0);
@@ -136,5 +170,32 @@ describe('trod report with a holdout', () => {
     const text = formatReport(r);
     expect(text).toMatch(/no notes\s+with notes/);
     expect(text).toContain('Randomized');
+    // A session outside the holdout that got no notes (none existed yet) is in neither group.
+    expect(buildHoldoutReport([m('t3', 1)], new Map([['t3', { holdout: false, notes: false }]]))).toMatchObject({ ungrouped: 1, after: { sessions: 0 } });
+  });
+
+  it('trod report picks the holdout comparison from the hook log and the transcripts', async () => {
+    const paths = project(0.5);
+    const h = sessionOn(true, 0.5);
+    const t = sessionOn(false, 0.5);
+    notesHook(paths, { hook_event_name: 'SessionStart', session_id: h });
+    notesHook(paths, { hook_event_name: 'SessionStart', session_id: t });
+    const from = path.join(paths.projectDir, 'transcripts');
+    mkdirSync(from);
+    const transcript = (id: string, file: string) =>
+      writeFileSync(
+        path.join(from, file),
+        [
+          { type: 'user', sessionId: id, timestamp: '2026-11-09T10:00:00Z', message: { role: 'user', content: 'fix the invoice' } },
+          { type: 'assistant', sessionId: id, timestamp: '2026-11-09T10:00:05Z', message: { role: 'assistant', content: [{ type: 'text', text: 'done' }], usage: { output_tokens: 10, input_tokens: 100 } } },
+        ]
+          .map((e) => JSON.stringify(e))
+          .join('\n') + '\n',
+      );
+    transcript(h, `${h}.jsonl`);
+    transcript(t, 'renamed-copy.jsonl'); // the id comes from the events, not the file name
+    const lines: string[] = [];
+    expect(await main(['report', '--dir', paths.projectDir, '--from', from, '--json'], (s) => lines.push(s))).toBe(0);
+    expect(JSON.parse(lines.join('\n'))).toMatchObject({ mode: 'holdout', before: { sessions: 1 }, after: { sessions: 1 }, ungrouped: 0 });
   });
 });

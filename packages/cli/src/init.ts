@@ -159,14 +159,14 @@ function initAntigravity(opts: InitOptions, root: string, spec: string, res: Ini
   return res;
 }
 
-type HookGroup = { matcher?: string; hooks: { type: string; command: string; timeout?: number }[] };
+type HookGroup = { matcher?: string; hooks: { type: string; command?: string; timeout?: number }[] };
 /** Only the commands trod installs: `npx -y trod[@v] hook`, or `node "<...>/trod" hook` (plugin, repo or vendored). */
-const isTrodHook = (h: { command: string }) => /^(npx -y trod(@\S+)? hook|node "[^"]*\/bin\/trod" hook)$/.test(h.command.trim());
+const isTrodHook = (h: { type?: string; command?: unknown }) => h.type === 'command' && typeof h.command === 'string' && /^(npx -y trod(@\S+)? hook|node "[^"]*\/bin\/trod" hook)$/.test(h.command.trim());
 
 /** The trod hook command already in .claude/settings.json, if any. */
 export function installedHookCommand(dir: string): string | undefined {
   const hooks = (readJson(path.join(dir, '.claude', 'settings.json')).hooks ?? {}) as Record<string, HookGroup[]>;
-  for (const groups of Object.values(hooks)) for (const g of groups) for (const h of g.hooks ?? []) if (isTrodHook(h)) return h.command;
+  for (const groups of Object.values(hooks)) for (const g of groups) for (const h of g.hooks ?? []) if (isTrodHook(h)) return h.command as string;
   return undefined;
 }
 

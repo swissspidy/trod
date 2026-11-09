@@ -232,6 +232,11 @@ By default `CLAUDE.md` imports `.trod/notes.md`, so every session loads all of i
   `trod learn` marks each digest with what the session had, so the learner can weigh a rule against sessions that ran
   without it.
 
+If SessionStart did not run for a session, its first prompt carries the notes. A resume, clear or compaction is a new
+context and gets the notes again. The switch is refused while any notes check fails, as `--link` is, and the hooks are
+installed before anything else changes. A pinned `npx -y trod@<version> hook` from an older trod moves to the current
+version. A vendored copy in `.trod/pkg` must be updated with `trod init --vendor` first.
+
 The switch removes the `@.trod/notes.md` import from `CLAUDE.md` (forge and learn no longer add it) and installs the
 three hooks in `.claude/settings.json`; `trod init` and the plugin install them too, and they do nothing until the
 project chooses hooks delivery. `trod notes --delivery import` switches back. Checked with Claude Code and Haiku: the
