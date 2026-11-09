@@ -3,6 +3,7 @@ import { defaultServerPath, forge, type ForgeResult } from './forge.ts';
 import { acquireLearnLock, checkLedgerHistory, digestTranscript, findTranscripts, LEARN_PROMPT, LEDGER_FILE, readLearnState, readLedger, readOutcomes, summarizeLedger, transcriptDir, codexSessionsDir, codexTranscripts, writeDigests, writeLearnState, type SessionDigest } from './learn.ts';
 import { tmpdir } from 'node:os';
 import { defaultPackageRoot, init, packageVersion } from './init.ts';
+import { buildReport, formatReport, notesSince, sessionMetrics, type SessionMetrics } from './report.ts';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
@@ -21,6 +22,10 @@ Usage:
                            (.codex/config.toml, the skills in .agents/skills/, a notes block in AGENTS.md)
   trod mcp                 Start the trod MCP server on stdio (for any MCP client)
   trod promote <name>      Move .trod/tools/<name> to .trod/library/<name> (commit the library)
+  trod report [--from <path>...] [--json]
+                           Is trod helping? Compares this project's sessions (Claude Code and Codex transcripts)
+                           from before the notes were linked with those after: turns, tool calls, failed calls,
+                           follow-up prompts, tokens, duration; plus the evidence ledger's summary
   trod stats [--json]      Summarize tool usage across .trod/logs/*.jsonl
   trod check               Validate every tool folder (static checks, no execution)
   trod list                List session and library tools
@@ -135,6 +140,16 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       const res = await promoteTool(paths, name);
       out(`promoted ${name} -> ${path.relative(paths.projectDir, res.to)}${res.replaced ? ' (replaced the previous library version)' : ''}${res.examplesPassed ? `, ${res.examplesPassed} example(s) passed` : ''}`);
       out('Commit .trod/library/ so later sessions load it.');
+      return 0;
+    }
+    case 'report': {
+      // The sessions trod learn reads: Claude Code's transcripts of this project and Codex's sessions in it.
+      const sources = values.from?.length ? values.from.map((f) => path.resolve(f)) : [transcriptDir(paths.projectDir), ...codexTranscripts(paths.projectDir)];
+      const sessions = findTranscripts(sources).map((f) => sessionMetrics(f)).filter((m): m is SessionMetrics => m !== undefined);
+      const report = buildReport(sessions, notesSince(paths.projectDir));
+      const ledger = readLedger(paths.projectDir);
+      if (values.json) out(JSON.stringify({ ...report, evidence: ledger.exists ? ledger.rules : undefined }, null, 2));
+      else out(formatReport(report, ledger.exists && ledger.rules.length ? summarizeLedger(ledger.rules) : undefined));
       return 0;
     }
     case 'stats': {

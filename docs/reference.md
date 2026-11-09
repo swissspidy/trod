@@ -211,6 +211,21 @@ reports the evidence line and the changes without committing. Its prompt carries
 and `trod learn` never learns from sessions whose prompts contain it (hidden skill messages included), so scheduled
 runs do not feed on themselves.
 
+## Is it helping?
+
+`trod report` compares this project's sessions (the Claude Code and Codex transcripts `trod learn` reads) from
+before the notes were linked with the ones after: median turns, tool calls, follow-up prompts (often corrections),
+tokens and duration, and the share of tool calls that failed, plus the evidence ledger's summary. The split is the
+first commit that added the `@.trod/notes.md` import to `CLAUDE.md` (Claude Code) or the trod block to `AGENTS.md`
+(Codex); trod's own forge and learn sessions are left out. `--json` for the numbers, `--from <path>` for other
+transcripts.
+
+It needs no grader, which makes it usable anywhere, but it is not a controlled experiment: the tasks before and after
+differ, and a quieter week looks like an improvement. In the experiments every round that helped also showed up as
+fewer tokens and turns (MiniWoB++ −33% tokens, ScienceWorld −39%), so a clear drop is a good sign and a rise is
+worth a look at the notes. Claude Code does not record in a transcript which memory files a session loaded, so
+sessions are split by date, not by whether they actually saw the notes.
+
 ## Configuration
 
 | Variable | Default | |

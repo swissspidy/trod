@@ -37,7 +37,8 @@ round of sessions and learning, and to 91% after a third ([rounds 11](results-11
 happen (a Claude Code Desktop scheduled task with `/trod:learn` from the plugin or `/trod-learn` after `trod init`,
 cron, or an Antigravity Automation): each run
 learns only from new sessions, checks every existing rule against them, and leaves a diff to review
-([keep learning](docs/reference.md#keep-learning)).
+([keep learning](docs/reference.md#keep-learning)). `npx trod report` shows how sessions changed since the notes
+were linked: turns, failed tool calls, follow-up prompts, tokens ([is it helping?](docs/reference.md#is-it-helping)).
 
 To study something new instead, write `env.md` (a few lines on the API, tooling or workflow) and forge:
 

@@ -175,7 +175,7 @@ const CODEX_WRAPPER = /^(<[a-z_]+>|# AGENTS\.md instructions)/;
 type CodexItem = { type?: string; role?: string; content?: { type?: string; text?: string }[]; name?: string; arguments?: string; input?: string; call_id?: string; output?: unknown };
 
 /** A Codex tool result: a string, or { output, metadata: { exit_code } } (sometimes JSON-encoded). */
-function codexOutput(output: unknown): { text: string; error: boolean } {
+export function codexOutput(output: unknown): { text: string; error: boolean } {
   let value = output;
   if (typeof value === 'string' && value.trimStart().startsWith('{')) {
     try {
