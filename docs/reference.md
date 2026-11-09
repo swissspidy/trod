@@ -185,7 +185,7 @@ The CLI is `npx trod <command>`, or bundled at `plugin/bin/trod` in this reposit
 
 ## Keep learning
 
-Notes improve with every round of sessions ([rounds 11](../results-11/README.md) and [12](../results-12/README.md): 68% → 83% → 88% → 91%), so `trod learn`
+Notes improve with every round of sessions ([rounds 11](../results-11/README.md) and [12](../results-12/README.md): 68% → 83% → 88% → 91%; validated tuning in [round 13](../results-13/README.md) reached 94%, and [round 14](../results-14/README.md) 95%), so `trod learn`
 is made to run on a schedule:
 
 - **Incremental.** It learns only from sessions since its last run (`.trod/state/learn.json`: local session ids, in a

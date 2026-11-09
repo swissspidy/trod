@@ -248,7 +248,7 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
         const delivery = sessionDelivery(paths);
         for (const d of picked) {
           const had = delivery.get(d.id);
-          if (had) d.text = d.text.replace(/^(# Session [^\n]*\n)/, `$1\nNotes: ${had.holdout ? 'HOLDOUT (this session ran without notes or wiki pages)' : `loaded${had.pages.length ? `; wiki pages added: ${had.pages.join(', ')}` : ''}`}\n`);
+          if (had) d.text = d.text.replace(/^(# Session [^\n]*\n)/, `$1\nNotes: ${had.holdout ? 'HOLDOUT (this session ran without notes or wiki pages)' : `${had.notes ? '.trod/notes.md loaded' : '.trod/notes.md not delivered (none yet)'}${had.pages.length ? `; wiki pages added: ${had.pages.join(', ')}` : ''}`}\n`);
         }
         const dir = mkdtempSync(path.join(tmpdir(), 'trod-learn-'));
         const counts = writeDigests(path.join(dir, 'sessions'), picked);
@@ -401,7 +401,8 @@ async function setDelivery(paths: TrodPaths, delivery: string, holdout: string |
   }
   // Either way the notes reach every session: only verified notes are delivered, as with `trod notes --link`.
   const notes = await verifyNotes(paths, { execAllowed: true });
-  if (notes.exists && (notes.checks.some((c) => !c.ok) || notes.errors.length > 0)) {
+  const failing = notes.exists && (notes.checks.some((c) => !c.ok) || notes.errors.length > 0);
+  if (failing && delivery === 'hooks') {
     printNotes(notes, out);
     out('trod notes: delivery not changed, some checks fail (fix or remove those claims and their checks first)');
     return 1;
@@ -423,25 +424,35 @@ async function setDelivery(paths: TrodPaths, delivery: string, holdout: string |
     }
     for (const f of res.written) out(`wrote     ${f}`);
     writeTrodConfig(paths, { ...config, delivery: 'hooks', holdout: share });
-    if (existsSync(claudeMd)) {
-      // Remove the import (and the heading trod wrote above it): the hooks deliver the notes now.
-      const text = readFileSync(claudeMd, 'utf8');
-      const next = text
-        .replace(/\n?## Project notes \(trod\)\n\nVerified notes about this project's environment, kept by trod[^\n]*\n\n[ \t]*@\.trod\/notes\.md[ \t]*\n?/, '\n')
-        .replace(/^[ \t]*@\.trod\/notes\.md[ \t]*(\r?\n|$)/gm, '');
-      if (next !== text) {
-        writeFileSync(claudeMd, next.replace(/\n{3,}/g, '\n\n'));
-        out(`removed ${NOTES_IMPORT} from CLAUDE.md`);
-      }
-    }
+    // The hooks deliver the notes now: drop the import.
+    if (removeNotesImport(claudeMd)) out(`removed ${NOTES_IMPORT} from CLAUDE.md`);
     out(`notes now reach Claude Code sessions through trod's hooks; ${Math.round(share * 100)}% of sessions are a holdout without notes (trod report compares the two). Commit .trod/config.json and .claude/settings.json.`);
     return 0;
   }
   const { delivery: _, ...rest } = config;
   writeTrodConfig(paths, rest);
+  if (failing) {
+    // The way out of hooks delivery for unverified notes: the hooks stop, and nothing links the notes until they pass.
+    if (removeNotesImport(claudeMd)) out(`removed ${NOTES_IMPORT} from CLAUDE.md`);
+    printNotes(notes, out);
+    out('hooks delivery is off; the notes are not linked into CLAUDE.md while checks fail (fix them, then trod notes --link)');
+    return 1;
+  }
   if (linkNotes(paths)) out(`linked .trod/notes.md into CLAUDE.md (${NOTES_IMPORT})`);
   out('notes reach Claude Code sessions through the CLAUDE.md import again (the hooks stay installed and do nothing).');
   return 0;
+}
+
+/** Removes trod's notes import (and the heading trod wrote above it) from CLAUDE.md; true if anything changed. */
+function removeNotesImport(claudeMd: string): boolean {
+  if (!existsSync(claudeMd)) return false;
+  const text = readFileSync(claudeMd, 'utf8');
+  const next = text
+    .replace(/\n?## Project notes \(trod\)\n\nVerified notes about this project's environment, kept by trod[^\n]*\n\n[ \t]*@\.trod\/notes\.md[ \t]*\n?/, '\n')
+    .replace(/^[ \t]*@\.trod\/notes\.md[ \t]*(\r?\n|$)/gm, '');
+  if (next === text) return false;
+  writeFileSync(claudeMd, next.replace(/\n{3,}/g, '\n\n'));
+  return true;
 }
 
 /**

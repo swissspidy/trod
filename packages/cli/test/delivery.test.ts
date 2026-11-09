@@ -142,6 +142,13 @@ describe('trod notes --delivery', () => {
     const lines: string[] = [];
     expect(await main(['notes', '--dir', dir, '--delivery', 'hooks'], (s) => lines.push(s))).toBe(1);
     expect(existsSync(path.join(dir, '.trod', 'config.json'))).toBe(false);
+    // The way out: with failing checks, --delivery import still turns hooks delivery off, and links nothing.
+    writeFileSync(path.join(dir, '.trod', 'config.json'), JSON.stringify({ delivery: 'hooks', holdout: 0.1 }));
+    writeFileSync(path.join(dir, 'CLAUDE.md'), '# P\n\n@.trod/notes.md\n'); // a leftover import would still load them
+    expect(await main(['notes', '--dir', dir, '--delivery', 'import'], (s) => lines.push(s))).toBe(1);
+    expect(JSON.parse(readFileSync(path.join(dir, '.trod', 'config.json'), 'utf8'))).toEqual({ holdout: 0.1 });
+    expect(readFileSync(path.join(dir, 'CLAUDE.md'), 'utf8')).not.toContain('@.trod/notes.md');
+    rmSync(path.join(dir, 'CLAUDE.md'));
     rmSync(path.join(dir, '.trod', 'notes.checks.json'));
     mkdirSync(path.join(dir, '.claude'));
     writeFileSync(path.join(dir, '.claude', 'settings.json'), JSON.stringify({ hooks: { PostToolUse: [{ matcher: 'Write', hooks: [{ type: 'command', command: 'npx -y trod@0.0.1 hook' }, { type: 'prompt' }] }] } }));

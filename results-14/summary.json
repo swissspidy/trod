@@ -1,0 +1,36 @@
+{
+  "seeds0to4": {
+    "runs": 150,
+    "solved": 143,
+    "fullCredit": 143,
+    "scoreableRuns": 145,
+    "scoreableSolved": 143
+  },
+  "seeds5to9": {
+    "runs": 150,
+    "solved": 140,
+    "fullCredit": 139,
+    "scoreableRuns": 145,
+    "scoreableSolved": 140
+  },
+  "seeds0to9": {
+    "runs": 300,
+    "solved": 283,
+    "fullCredit": 282,
+    "scoreableRuns": 290,
+    "scoreableSolved": 283
+  },
+  "ticTacToeBestPossibleWinRate": 0.847,
+  "rightAngleScores": [
+    0.9998,
+    1,
+    0.9999,
+    0.9996,
+    1,
+    1.0,
+    0.9999,
+    0.9999,
+    0.9961,
+    1
+  ]
+}
