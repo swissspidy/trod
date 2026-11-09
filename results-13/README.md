@@ -43,8 +43,8 @@ plus 11 task pages listed under "Task-specific pages (tuned)" in `notes.md`.
 | drag-shapes | 5 / 5 | 4 / 4 | no |
 | tic-tac-toe | 5 / 5 | 4 / 4 | yes |
 
-The gains are where the tuned pages are, and they are large: hot-cold, stock-market and draw-circle were round 12's
-weakest types. Each loss is one run on a type where round 12 was perfect; with one run per seed, that is within noise.
+Most gains are on types with tuned pages, and they are large: hot-cold, stock-market and draw-circle were round 12's
+weakest types. social-media-some (4 → 5) has no tuned page. Each loss is one run on a type where round 12 was perfect; with one run per seed, that is within noise.
 
 ## What stands between this and 100%
 
@@ -69,6 +69,13 @@ weakest types. Each loss is one run on a type where round 12 was perfect; with o
   were not run here.
 
 Files: `summary.json` (totals, every keep/reject decision with its validation scores), `runs.jsonl` (the 150 test
-runs), `harness/` (the tuned notes and pages). Reproduce: `node experiments/miniwob/tune.ts --start results-12/learned
---types "$(cat experiments/miniwob/results/headroom-types.txt)" --iterations 3`, then run the test suite with
-`MW_LEARNED` pointing at the final `harness-3` folder.
+runs), `harness/` (the tuned notes and pages). Reproduce, with a new `--out` folder (the tuner resumes from `state.json` in an existing one):
+
+```
+node experiments/miniwob/tune.ts --start results-12/learned --types "$(cat experiments/miniwob/results/headroom-types.txt)" \
+  --iterations 3 --out results/runs/my-tune
+MW_LEARNED=$PWD/results/runs/my-tune/harness-3 MW_TASKS="$(cat experiments/miniwob/results/headroom-types.txt)" MW_PER_TASK=5 \
+  node experiments/runner/run.ts --suite miniwob:test --arms baseline --seeds 1 --model claude-haiku-5-5 --out results/runs/my-test
+```
+
+Or test the snapshot here directly: `mkdir -p p/.trod && cp -r results-13/harness/* p/.trod/`, then `MW_LEARNED=$PWD/p`.

@@ -6,7 +6,7 @@ Tasks like: "Playing as '<X>', win a game of tic-tac-toe."
 - Run this in ONE Bash call, copied exactly. It reads the board, clicks the move with the best win chance, and repeats until the episode ends:
 ```
 python3 - <<'EOF2'
-import subprocess as S,time
+import subprocess as S,time,os,tempfile
 from PIL import Image
 from functools import lru_cache as C
 P=[(x,y) for y in(83,127,171) for x in(33,78,122)]
@@ -37,11 +37,14 @@ def O(b):
  r=sum(X(u(b,i,'O')) for i in E(b))/len(E(b));s=sm(b)
  return .55*r+.45*(X(u(b,s,'O')) if s is not None else r)
 m=lambda *a:S.run(['mw',*a],capture_output=True,text=True).stdout
-while 'ended' not in m('screenshot','/tmp/b.png'):
- g=Image.open('/tmp/b.png').convert('L').getpixel
+T=os.path.join(tempfile.gettempdir(),f'ttt-{os.getpid()}.png')  # one file per solver: parallel episodes share /tmp
+while 'ended' not in m('screenshot',T):
+ g=Image.open(T).convert('L').getpixel
  b=''.join('X' if g(p)<150 else 'O' if g((p[0]+17,p[1]))<150 else '.' for p in P)
  if not E(b):break
- i=max(E(b),key=lambda i:O(u(b,i,'X')));print(b,i,m('clickxy',*map(str,P[i])));time.sleep(.3)
+ i=max(E(b),key=lambda i:O(u(b,i,'X')));r=m('clickxy',*map(str,P[i]));print(b,i,r)
+ if 'ended' in r:break
+ time.sleep(.3)
 EOF2
 ```
 - Last output must contain "The episode has ended." If it crashed, fix the typo and run it again (it resumes from the current board). Then reply DONE.

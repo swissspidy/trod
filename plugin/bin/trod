@@ -17257,7 +17257,7 @@ async function main(argv, out = console.log) {
         for (const d of picked) {
           const had = delivery.get(d.id);
           if (had) d.text = d.text.replace(/^(# Session [^\n]*\n)/, `$1
-Notes: ${had.holdout ? "HOLDOUT (this session ran without notes or wiki pages)" : `${had.notes ? "loaded" : "none delivered (no notes yet)"}${had.pages.length ? `; wiki pages added: ${had.pages.join(", ")}` : ""}`}
+Notes: ${had.holdout ? "HOLDOUT (this session ran without notes or wiki pages)" : `${had.notes ? ".trod/notes.md loaded" : ".trod/notes.md not delivered (none yet)"}${had.pages.length ? `; wiki pages added: ${had.pages.join(", ")}` : ""}`}
 `);
         }
         const dir = mkdtempSync2(path11.join(tmpdir2(), "trod-learn-"));
@@ -17413,20 +17413,14 @@ async function setDelivery(paths, delivery, holdout, out) {
     }
     for (const f of res.written) out(`wrote     ${f}`);
     writeTrodConfig(paths, { ...config2, delivery: "hooks", holdout: share });
-    if (existsSync10(claudeMd)) {
-      const text = readFileSync10(claudeMd, "utf8");
-      const next = text.replace(/\n?## Project notes \(trod\)\n\nVerified notes about this project's environment, kept by trod[^\n]*\n\n[ \t]*@\.trod\/notes\.md[ \t]*\n?/, "\n").replace(/^[ \t]*@\.trod\/notes\.md[ \t]*(\r?\n|$)/gm, "");
-      if (next !== text) {
-        writeFileSync7(claudeMd, next.replace(/\n{3,}/g, "\n\n"));
-        out(`removed ${NOTES_IMPORT} from CLAUDE.md`);
-      }
-    }
+    if (removeNotesImport(claudeMd)) out(`removed ${NOTES_IMPORT} from CLAUDE.md`);
     out(`notes now reach Claude Code sessions through trod's hooks; ${Math.round(share * 100)}% of sessions are a holdout without notes (trod report compares the two). Commit .trod/config.json and .claude/settings.json.`);
     return 0;
   }
   const { delivery: _, ...rest } = config2;
   writeTrodConfig(paths, rest);
   if (failing) {
+    if (removeNotesImport(claudeMd)) out(`removed ${NOTES_IMPORT} from CLAUDE.md`);
     printNotes(notes, out);
     out("hooks delivery is off; the notes are not linked into CLAUDE.md while checks fail (fix them, then trod notes --link)");
     return 1;
@@ -17434,6 +17428,14 @@ async function setDelivery(paths, delivery, holdout, out) {
   if (linkNotes(paths)) out(`linked .trod/notes.md into CLAUDE.md (${NOTES_IMPORT})`);
   out("notes reach Claude Code sessions through the CLAUDE.md import again (the hooks stay installed and do nothing).");
   return 0;
+}
+function removeNotesImport(claudeMd) {
+  if (!existsSync10(claudeMd)) return false;
+  const text = readFileSync10(claudeMd, "utf8");
+  const next = text.replace(/\n?## Project notes \(trod\)\n\nVerified notes about this project's environment, kept by trod[^\n]*\n\n[ \t]*@\.trod\/notes\.md[ \t]*\n?/, "\n").replace(/^[ \t]*@\.trod\/notes\.md[ \t]*(\r?\n|$)/gm, "");
+  if (next === text) return false;
+  writeFileSync7(claudeMd, next.replace(/\n{3,}/g, "\n\n"));
+  return true;
 }
 function deliveryHookCommand(dir) {
   const version2 = packageVersion(defaultPackageRoot());
