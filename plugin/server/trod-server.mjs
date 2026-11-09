@@ -17168,6 +17168,7 @@ import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as fsp from 'node:fs/promises';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 let raw = '';
 process.stdin.setEncoding('utf8');
 for await (const chunk of process.stdin) raw += chunk;
@@ -17198,8 +17199,10 @@ try {
     };
   }
   const AsyncFunction = (async () => {}).constructor;
-  const fn = new AsyncFunction('tools', 'fs', 'fsp', 'path', 'projectDir', code);
-  let value = await fn(tools, fs, fsp, path, projectDir);
+  // The code runs in a function of its own inside the one that receives the helpers, so it may declare its own
+  // fs, path or require (models often start with \`const fs = ...\`) without a SyntaxError.
+  const fn = new AsyncFunction('tools', 'fs', 'fsp', 'path', 'projectDir', 'require', 'return (async () => {\\n' + code + '\\n})();');
+  let value = await fn(tools, fs, fsp, path, projectDir, createRequire(path.join(projectDir, 'noop.js')));
   if (value === undefined) value = null;
   let json;
   try { json = JSON.stringify(value); } catch { json = JSON.stringify(String(value)); }
@@ -17627,7 +17630,8 @@ async function loadToolFile(file, source, opts) {
     meta2 = JSON.parse(stdout);
   } catch (err) {
     const e = err;
-    const msg = (e.stderr || e.message).trim().split("\n").find((l) => /Error/.test(l)) ?? (e.stderr || e.message).trim().split("\n")[0];
+    const lines = (e.stderr || e.message).trim().split("\n");
+    const msg = lines.find((l) => /^\s*([A-Z]\w*)?Error\b.*:/.test(l)) ?? lines.find((l) => /Error/.test(l)) ?? lines[0];
     tool.errors.push(`could not load ${path3.basename(file)}: ${msg}`);
     return tool;
   }
@@ -18081,7 +18085,7 @@ var TrodServer = class {
     if (!tool) {
       const invalid = [...this.registry.folders.values()].find((t) => t.folder === name && !t.ok);
       const text2 = invalid ? `trod: tool "${name}" is not registered because it failed validation:
-- ${invalid.errors.join("\n- ")}` : `trod: unknown tool "${name}". Call trod_status to see the registry.`;
+- ${invalid.errors.join("\n- ")}` : `trod: unknown tool "${name}". Tools are files in ${path5.join(this.paths.toolsDir, "<name>.mjs")} or folders ${path5.join(this.paths.toolsDir, "<name>")}/ with tool.json (project ${this.paths.projectDir}); live: ${[...this.registry.active.keys()].join(", ") || "none"}.`;
       return { isError: true, content: [{ type: "text", text: text2 }] };
     }
     const def = tool.def;
@@ -18199,7 +18203,7 @@ var TrodServer = class {
     const lines = [
       `trod ${VERSION}: ${this.registry.active.size} live tool(s), ${invalid.length} invalid. Execution ${this.execAllowed ? "enabled" : "DISABLED (set TROD_ALLOW_EXEC=1)"}.`,
       `project: ${this.paths.projectDir}${this.unplaced ? " (the home directory: the client named no workspace; set TROD_PROJECT_DIR for the trod server)" : ""}`,
-      `session tools: ${rel(this.paths.toolsDir)}/<name>/  library: ${rel(this.paths.libraryDir)}/<name>/`
+      `session tools: ${rel(this.paths.toolsDir)}/<name>.mjs (or <name>/ with tool.json)  library: ${rel(this.paths.libraryDir)}/<name>.mjs (or <name>/)`
     ];
     if (this.registry.active.size) {
       lines.push("", "live:");

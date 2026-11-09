@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { main } from '../src/cli.ts';
+import { digestTranscript } from '../src/learn.ts';
 import { buildReport, formatReport, notesSince, sessionMetrics, type SessionMetrics } from '../src/report.ts';
 
 const tmp = () => mkdtempSync(path.join(tmpdir(), 'trod-report-'));
@@ -78,6 +79,36 @@ describe('sessionMetrics', () => {
       { type: 'assistant', timestamp: '2026-11-01T10:00:02Z', message: { id: 'a', content: [{ type: 'text', text: 'y' }], usage: { input_tokens: 5, output_tokens: 30 } } },
     ]);
     expect(sessionMetrics(file)).toMatchObject({ turns: 1, followUps: 0, outputTokens: 30, inputTokens: 5 });
+  });
+
+  it('counts failed Codex MCP calls, which Codex records only in their item_completed event', () => {
+    const file = write(path.join(tmp(), 'rollout-mcp.jsonl'), [
+      { timestamp: '2026-11-01T10:00:00Z', type: 'session_meta', payload: { id: 'm', cwd: '/w' } },
+      { timestamp: '2026-11-01T10:00:01Z', type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'Look it up.' }] } },
+      { timestamp: '2026-11-01T10:00:02Z', type: 'response_item', payload: { type: 'function_call', name: 'trod_run', namespace: 'mcp__trod', call_id: 'c1', arguments: '{}' } },
+      { timestamp: '2026-11-01T10:00:03Z', type: 'event_msg', payload: { type: 'item_completed', item: { type: 'McpToolCall', id: 'c1', status: 'failed', error: { message: 'MCP tool call requires approval' } } } },
+      { timestamp: '2026-11-01T10:00:03Z', type: 'response_item', payload: { type: 'function_call_output', call_id: 'c1', output: [{ type: 'input_text', text: 'MCP tool call requires approval' }] } },
+      { timestamp: '2026-11-01T10:00:04Z', type: 'response_item', payload: { type: 'function_call', name: 'trod_run', namespace: 'mcp__trod', call_id: 'c2', arguments: '{}' } },
+      { timestamp: '2026-11-01T10:00:05Z', type: 'event_msg', payload: { type: 'item_completed', item: { type: 'McpToolCall', id: 'c2', status: 'completed', result: { isError: false } } } },
+      { timestamp: '2026-11-01T10:00:05Z', type: 'response_item', payload: { type: 'function_call_output', call_id: 'c2', output: [{ type: 'input_text', text: 'P007: 3' }] } },
+    ]);
+    expect(sessionMetrics(file)).toMatchObject({ toolCalls: 2, toolErrors: 1 });
+    const d = digestTranscript(file)!;
+    expect(d.errors).toBe(1);
+    expect(d.text).toContain('ERROR: MCP tool call requires approval');
+    expect(d.text).toContain('RESULT: P007: 3');
+    // A failed call whose output is not written yet (a running session) still counts, once.
+    const running = write(path.join(tmp(), 'rollout-run.jsonl'), [
+      { timestamp: '2026-11-01T10:00:00Z', type: 'session_meta', payload: { id: 'r', cwd: '/w' } },
+      { timestamp: '2026-11-01T10:00:01Z', type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'Go.' }] } },
+      { timestamp: '2026-11-01T10:00:02Z', type: 'response_item', payload: { type: 'function_call', name: 'trod_run', call_id: 'x', arguments: '{}' } },
+      { timestamp: '2026-11-01T10:00:03Z', type: 'event_msg', payload: { type: 'item_completed', item: { type: 'McpToolCall', id: 'x', status: 'failed', error: { message: 'denied' } } } },
+      // An exec result as text blocks, with a failing exit code and no MCP event.
+      { timestamp: '2026-11-01T10:00:04Z', type: 'response_item', payload: { type: 'function_call', name: 'exec_command', call_id: 'y', arguments: '{"cmd":"false"}' } },
+      { timestamp: '2026-11-01T10:00:05Z', type: 'response_item', payload: { type: 'function_call_output', call_id: 'y', output: [{ type: 'input_text', text: 'Process exited with code 1\nOutput:' }] } },
+    ]);
+    expect(sessionMetrics(running)).toMatchObject({ toolCalls: 2, toolErrors: 2 });
+    expect(digestTranscript(running)!.errors).toBe(2);
   });
 
   it('marks trod forge and learn sessions, which the report leaves out', () => {

@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { codexOutput, LEARN_RUN_MARKER } from './learn.ts';
+import { codexFailedCalls, codexOutput, codexUnmatchedFailures, LEARN_RUN_MARKER } from './learn.ts';
 
 /**
  * `trod report`: is trod helping? Compares this project's sessions from before the notes were linked with the ones
@@ -62,8 +62,9 @@ export function sessionMetrics(file: string): SessionMetrics | undefined {
   };
   const usage = new Map<string, { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number }>();
   if (m.client === 'codex') {
+    const failedMcp = codexFailedCalls(events);
     for (const e of events) {
-      const p = (e.payload ?? {}) as { type?: string; role?: string; content?: { type?: string; text?: string }[]; output?: unknown; info?: { total_token_usage?: { input_tokens?: number; output_tokens?: number } } };
+      const p = (e.payload ?? {}) as { type?: string; role?: string; call_id?: string; content?: { type?: string; text?: string }[]; output?: unknown; info?: { total_token_usage?: { input_tokens?: number; output_tokens?: number } } };
       if (e.type === 'event_msg' && p.type === 'token_count' && p.info?.total_token_usage) {
         m.inputTokens = p.info.total_token_usage.input_tokens ?? m.inputTokens;
         m.outputTokens = p.info.total_token_usage.output_tokens ?? m.outputTokens;
@@ -76,8 +77,9 @@ export function sessionMetrics(file: string): SessionMetrics | undefined {
         if (p.role === 'user' && text && !CODEX_WRAPPER.test(text)) prompt(text);
         else if (p.role === 'assistant') m.turns++;
       } else if (p.type === 'function_call' || p.type === 'custom_tool_call') m.toolCalls++;
-      else if ((p.type === 'function_call_output' || p.type === 'custom_tool_call_output') && codexOutput(p.output).error) m.toolErrors++;
+      else if ((p.type === 'function_call_output' || p.type === 'custom_tool_call_output') && (codexOutput(p.output).error || (p.call_id !== undefined && failedMcp.has(p.call_id)))) m.toolErrors++;
     }
+    m.toolErrors += codexUnmatchedFailures(events, failedMcp).length;
   } else {
     for (const e of events) {
       // The marker counts in user text, also in a meta message (a skill's text), but not in a tool result (a session

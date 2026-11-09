@@ -108,7 +108,9 @@ Verified notes about this project's environment, kept by trod (\`trod forge\`, \
  */
 export function linkAntigravityNotes(paths: TrodPaths): 'written' | 'exists' | 'skipped' | { error: string } {
   const rule = path.join(paths.projectDir, ANTIGRAVITY_NOTES_RULE);
-  if (!existsSync(path.join(paths.projectDir, '.agents'))) return 'skipped';
+  // .agents/skills/ alone is not Antigravity (trod init --codex writes it too): look for Antigravity's own files.
+  const agents = path.join(paths.projectDir, '.agents');
+  if (!existsSync(path.join(agents, 'mcp_config.json')) && !existsSync(path.join(agents, 'rules'))) return 'skipped';
   if (existsSync(rule)) return 'exists';
   try {
     mkdirSync(path.dirname(rule), { recursive: true });
@@ -119,35 +121,54 @@ export function linkAntigravityNotes(paths: TrodPaths): 'written' | 'exists' | '
   }
 }
 
-/** Codex reads AGENTS.md, which cannot import a file, so the block tells the agent to read the notes. */
+/**
+ * Codex reads AGENTS.md, which cannot import a file, and models do not reliably follow a pointer to another file
+ * (gpt-5-mini never opened .trod/notes.md when AGENTS.md told it to), so the block carries a copy of the notes.
+ */
 export const CODEX_NOTES_FILE = 'AGENTS.md';
 /** Codex reads AGENTS.override.md instead of AGENTS.md when both exist. */
 export function codexNotesFile(paths: TrodPaths): string {
   return existsSync(path.join(paths.projectDir, 'AGENTS.override.md')) ? 'AGENTS.override.md' : CODEX_NOTES_FILE;
 }
 export const CODEX_NOTES_MARKER = '<!-- trod notes -->';
-const CODEX_NOTES_BLOCK = `${CODEX_NOTES_MARKER}
+export const CODEX_NOTES_END = '<!-- /trod notes -->';
+function codexNotesBlock(notes: string): string {
+  return `${CODEX_NOTES_MARKER}
 ## Project notes (trod)
 
-Before you start a task, read \`.trod/notes.md\`: verified rules about this project's environment, kept by trod
-(\`trod forge\`, \`trod learn\`, \`trod verify\`). Follow them; when its index lists a page in \`.trod/wiki/\` for
-your kind of task, read that page too.
+Verified rules about this project's environment, kept by trod in \`.trod/notes.md\` (\`trod forge\`, \`trod learn\`,
+\`trod verify\`; this copy is refreshed when they link the notes). Follow them; when they list a page in
+\`.trod/wiki/\` for your kind of task, read that page.
+
+${notes.trim().replaceAll(CODEX_NOTES_MARKER, '<!-- trod notes (quoted) -->').replaceAll(CODEX_NOTES_END, '<!-- /trod notes (quoted) -->')}
+${CODEX_NOTES_END}
 `;
+}
 
 /**
  * For projects that use Codex (a .codex/ folder, e.g. from `trod init --codex`, or an AGENTS.md or
  * AGENTS.override.md already there, as in projects that only use the Codex plugin): adds a block to the instruction
- * file Codex reads (AGENTS.override.md if it exists, else AGENTS.md) that points it at .trod/notes.md. 'skipped' when
- * there is neither. Errors come back as { error }.
+ * file Codex reads (AGENTS.override.md if it exists, else AGENTS.md) with a copy of .trod/notes.md, and refreshes
+ * that copy when the notes changed. 'exists' when it is up to date; 'skipped' when the project uses no Codex or has
+ * no notes. Errors come back as { error }.
  */
 export function linkCodexNotes(paths: TrodPaths): 'written' | 'exists' | 'skipped' | { error: string } {
   const name = codexNotesFile(paths);
   const file = path.join(paths.projectDir, name);
   if (!existsSync(path.join(paths.projectDir, '.codex')) && !existsSync(file)) return 'skipped';
+  const notesFile = notesPaths(paths).notes;
+  if (!existsSync(notesFile)) return 'skipped';
   try {
+    const block = codexNotesBlock(readFileSync(notesFile, 'utf8'));
     const current = existsSync(file) ? readFileSync(file, 'utf8') : '';
-    if (current.includes(CODEX_NOTES_MARKER)) return 'exists';
-    writeFileSync(file, current ? `${current}${current.endsWith('\n') ? '' : '\n'}\n${CODEX_NOTES_BLOCK}` : CODEX_NOTES_BLOCK);
+    const start = current.indexOf(CODEX_NOTES_MARKER);
+    const end = start >= 0 ? current.indexOf(CODEX_NOTES_END, start) : -1;
+    let next: string;
+    if (start >= 0 && end > start) next = current.slice(0, start) + block.trimEnd() + current.slice(end + CODEX_NOTES_END.length);
+    else if (start >= 0) return { error: `${name} has "${CODEX_NOTES_MARKER}" without "${CODEX_NOTES_END}": remove the old trod block, then link the notes again` };
+    else next = current ? `${current}${current.endsWith('\n') ? '' : '\n'}\n${block}` : block;
+    if (next === current) return 'exists';
+    writeFileSync(file, next);
     return 'written';
   } catch (err) {
     return { error: `could not update ${name}: ${(err as Error).message}` };

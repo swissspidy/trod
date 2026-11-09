@@ -70,11 +70,13 @@ describe('trod init --antigravity', () => {
 });
 
 describe('notes in Antigravity projects', () => {
-  it('writes the rule once in projects with .agents/, and skips projects without', () => {
+  it('writes the rule once in projects set up for Antigravity, and skips others (also Codex-only .agents/skills)', () => {
     const dir = repo();
     expect(linkAntigravityNotes(trodPaths(dir))).toBe('skipped');
     expect(existsSync(path.join(dir, '.agents'))).toBe(false);
-    mkdirSync(path.join(dir, '.agents'));
+    mkdirSync(path.join(dir, '.agents', 'skills'), { recursive: true }); // what trod init --codex writes
+    expect(linkAntigravityNotes(trodPaths(dir))).toBe('skipped');
+    writeFileSync(path.join(dir, '.agents', 'mcp_config.json'), '{}');
     expect(linkAntigravityNotes(trodPaths(dir))).toBe('written');
     expect(linkAntigravityNotes(trodPaths(dir))).toBe('exists');
   });

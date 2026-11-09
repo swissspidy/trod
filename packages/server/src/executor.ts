@@ -128,6 +128,7 @@ import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as fsp from 'node:fs/promises';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 let raw = '';
 process.stdin.setEncoding('utf8');
 for await (const chunk of process.stdin) raw += chunk;
@@ -158,8 +159,10 @@ try {
     };
   }
   const AsyncFunction = (async () => {}).constructor;
-  const fn = new AsyncFunction('tools', 'fs', 'fsp', 'path', 'projectDir', code);
-  let value = await fn(tools, fs, fsp, path, projectDir);
+  // The code runs in a function of its own inside the one that receives the helpers, so it may declare its own
+  // fs, path or require (models often start with \`const fs = ...\`) without a SyntaxError.
+  const fn = new AsyncFunction('tools', 'fs', 'fsp', 'path', 'projectDir', 'require', 'return (async () => {\\n' + code + '\\n})();');
+  let value = await fn(tools, fs, fsp, path, projectDir, createRequire(path.join(projectDir, 'noop.js')));
   if (value === undefined) value = null;
   let json;
   try { json = JSON.stringify(value); } catch { json = JSON.stringify(String(value)); }
