@@ -15994,7 +15994,7 @@ async function verifyNotes(paths, opts) {
     const failure2 = res.ok ? checkExpectation(c.expect, res.text, res.value) : `threw: ${res.error ?? res.text.slice(0, 300)}`;
     results.push({ claim: c.claim, tool: c.tool, ok: !failure2, ...failure2 ? { error: failure2 } : {} });
   }
-  return { exists, chars, tooLong: chars > NOTES_MAX_CHARS, linked: notesLinked(paths), checks: results, errors };
+  return { exists, chars, tooLong: chars > NOTES_MAX_CHARS, linked: notesLinked(paths), delivery: hooksDelivery(paths) ? "hooks" : "import", checks: results, errors };
 }
 
 // packages/cli/src/forge.ts
@@ -16125,7 +16125,7 @@ ${PRACTICE_PROMPT(!!opts.practice.reset)}` : ""}`;
     for (const e of notes.errors) out(`    ${e}`);
     if (practice && practice.passed === 0) notes.errors.push("the forge never passed the practice check (trod-try), so nothing in these notes was seen to work");
     const failed = notes.checks.some((c) => !c.ok) || notes.errors.length > 0;
-    if (failed && notes.linked) out(`  WARNING: CLAUDE.md already imports .trod/notes.md (${NOTES_IMPORT}), so sessions still load these unverified notes: fix the failing claims or remove the import`);
+    if (failed && notes.linked) out(notes.delivery === "hooks" ? "  WARNING: trod's hooks deliver .trod/notes.md to sessions, so they still get these unverified notes: fix the failing claims or switch delivery off (trod notes --delivery import, then remove the import)" : `  WARNING: CLAUDE.md already imports .trod/notes.md (${NOTES_IMPORT}), so sessions still load these unverified notes: fix the failing claims or remove the import`);
     else if (failed) out("  notes NOT linked into CLAUDE.md: fix or remove the failing claims and their checks, then run `trod notes --link`");
     else if (exitCode !== 0) out(`  notes NOT linked into CLAUDE.md: the session did not finish cleanly (${exitCode === null ? "killed, e.g. by --timeout" : `exit code ${exitCode}`}), so they may be incomplete; review them, then run \`trod notes --link\``);
     else if (opts.linkNotes !== false) {
@@ -16601,7 +16601,7 @@ function initAntigravity(opts, root, spec, res) {
   else res.notes.push("Tools are registered but not executed until TROD_ALLOW_EXEC=1 is set (re-run with --allow-exec).");
   return res;
 }
-var isTrodHook = (h) => /^(npx -y trod(@\S+)? hook|node "[^"]*\/bin\/trod" hook)$/.test(h.command.trim());
+var isTrodHook = (h) => h.type === "command" && typeof h.command === "string" && /^(npx -y trod(@\S+)? hook|node "[^"]*\/bin\/trod" hook)$/.test(h.command.trim());
 function installedHookCommand(dir) {
   const hooks = readJson(path8.join(dir, ".claude", "settings.json")).hooks ?? {};
   for (const groups of Object.values(hooks)) for (const g of groups) for (const h of g.hooks ?? []) if (isTrodHook(h)) return h.command;
@@ -16719,7 +16719,8 @@ var minutes = (a, b) => a && b ? Math.max(0, (Date.parse(b) - Date.parse(a)) / 6
 function sessionMetrics(file) {
   const events = lines(file);
   if (!events.length) return void 0;
-  const id = path9.basename(file, ".jsonl");
+  const logged = events.find((e) => typeof e.sessionId === "string")?.sessionId;
+  const id = typeof logged === "string" ? logged : path9.basename(file, ".jsonl");
   const m = { id, client: events[0].type === "session_meta" ? "codex" : "claude", turns: 0, toolCalls: 0, toolErrors: 0, followUps: 0, outputTokens: 0, inputTokens: 0, trodRun: false };
   const stamps = events.map((e) => e.timestamp).filter((t) => typeof t === "string");
   m.start = stamps[0];
@@ -16832,7 +16833,7 @@ function buildHoldoutReport(all, delivery) {
   let ungrouped = 0;
   for (const s of sessions) {
     const d = delivery.get(s.id);
-    if (!d) ungrouped++;
+    if (!d || !d.holdout && d.notes === false) ungrouped++;
     else (d.holdout ? holdout : treated).push(s);
   }
   return { mode: "holdout", since: {}, before: summarize(holdout), after: summarize(treated), ungrouped, excludedTrodRuns: all.length - sessions.length };
@@ -16877,7 +16878,7 @@ function formatReport(r, ledgerLine) {
 
 // packages/cli/src/delivery.ts
 import { createHash as createHash2 } from "node:crypto";
-import { appendFileSync as appendFileSync3, existsSync as existsSync9, mkdirSync as mkdirSync7, readdirSync as readdirSync5, readFileSync as readFileSync9, writeFileSync as writeFileSync6 } from "node:fs";
+import { appendFileSync as appendFileSync3, existsSync as existsSync9, mkdirSync as mkdirSync7, readdirSync as readdirSync5, readFileSync as readFileSync9, rmdirSync, statSync as statSync2, writeFileSync as writeFileSync6 } from "node:fs";
 import path10 from "node:path";
 var NOTES_LOG = "notes.jsonl";
 function readWikiPages(paths) {
@@ -16923,9 +16924,40 @@ function writeState(paths, session, state) {
   writeFileSync6(file, JSON.stringify(state));
 }
 function log(paths, event) {
-  mkdirSync7(paths.logsDir, { recursive: true });
-  appendFileSync3(path10.join(paths.logsDir, NOTES_LOG), `${JSON.stringify(event)}
+  try {
+    mkdirSync7(paths.logsDir, { recursive: true });
+    appendFileSync3(path10.join(paths.logsDir, NOTES_LOG), `${JSON.stringify(event)}
 `);
+  } catch (e) {
+    process.stderr.write(`trod: could not write ${NOTES_LOG}: ${e.message}
+`);
+  }
+}
+function withSessionLock(paths, session, fn) {
+  const lock = `${stateFile(paths, session)}.lock`;
+  mkdirSync7(path10.dirname(lock), { recursive: true });
+  const deadline = Date.now() + 3e3;
+  for (; ; ) {
+    try {
+      mkdirSync7(lock);
+      break;
+    } catch {
+      try {
+        if (Date.now() - statSync2(lock).mtimeMs > 5e3) rmdirSync(lock);
+      } catch {
+      }
+      if (Date.now() > deadline) return fn();
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20);
+    }
+  }
+  try {
+    return fn();
+  } finally {
+    try {
+      rmdirSync(lock);
+    } catch {
+    }
+  }
 }
 function readNotesLog(paths) {
   const file = path10.join(paths.logsDir, NOTES_LOG);
@@ -16948,34 +16980,45 @@ function notesHook(paths, payload, now = /* @__PURE__ */ new Date()) {
   if (config2.delivery !== "hooks") return void 0;
   const session = payload.session_id;
   if (!session) return void 0;
+  return withSessionLock(paths, session, () => deliver(paths, config2.holdout ?? 0.1, session, payload, now));
+}
+function deliver(paths, share, session, payload, now) {
   const ts = now.toISOString();
+  const start = payload.hook_event_name === "SessionStart";
   let state = readState(paths, session);
-  if (payload.hook_event_name === "SessionStart" && state?.started && now.getTime() - Date.parse(state.started) < 1e4) return void 0;
-  if (payload.hook_event_name === "SessionStart" || !state) {
-    const holdout = state?.holdout ?? inHoldout(session, config2.holdout ?? 0.1);
+  const repeat = start && state?.started && now.getTime() - Date.parse(state.started) < 1e4 && (payload.source ?? "startup") === (state.source ?? "startup");
+  if (repeat) return void 0;
+  const blocks = [];
+  if (start || !state) {
+    const holdout = state?.holdout ?? inHoldout(session, share);
     const notesFile = notesPaths(paths).notes;
     const notes = !holdout && existsSync9(notesFile) ? readFileSync9(notesFile, "utf8").trim() : "";
     const fresh = !state;
-    state = payload.hook_event_name === "SessionStart" ? { holdout, pages: [], started: ts } : { holdout, pages: state?.pages ?? [] };
+    state = { holdout, pages: [], started: start ? ts : void 0, source: start ? payload.source ?? "startup" : void 0 };
     writeState(paths, session, state);
     if (fresh) log(paths, { type: "session", ts, session, holdout, notes: !!notes });
-    if (payload.hook_event_name === "SessionStart") return notes ? `trod: verified notes about this project (.trod/notes.md):
+    if (notes) blocks.push(`trod: verified notes about this project (.trod/notes.md):
 
-${notes}` : void 0;
+${notes}`);
+    if (start) return blocks[0];
   }
-  if (payload.hook_event_name !== "UserPromptSubmit" || state.holdout || !payload.prompt) return void 0;
-  const hits = matchPages(readWikiPages(paths), payload.prompt).filter((h) => !state.pages.includes(h.page.name));
-  if (!hits.length) return void 0;
-  for (const h of hits) log(paths, { type: "page", ts, session, page: h.page.name, trigger: h.keyword });
-  writeState(paths, session, { ...state, pages: [...state.pages, ...hits.map((h) => h.page.name)] });
-  return hits.map((h) => pageBlock(h.page)).join("\n\n---\n\n");
+  if (payload.hook_event_name === "UserPromptSubmit" && !state.holdout && payload.prompt) {
+    const seen = state.pages;
+    const hits = matchPages(readWikiPages(paths), payload.prompt).filter((h) => !seen.includes(h.page.name));
+    if (hits.length) {
+      for (const h of hits) log(paths, { type: "page", ts, session, page: h.page.name, trigger: h.keyword });
+      writeState(paths, session, { ...state, pages: [...seen, ...hits.map((h) => h.page.name)] });
+      blocks.push(...hits.map((h) => pageBlock(h.page)));
+    }
+  }
+  return blocks.length ? blocks.join("\n\n---\n\n") : void 0;
 }
 function sessionDelivery(paths) {
   const out = /* @__PURE__ */ new Map();
   for (const e of readNotesLog(paths)) {
-    if (e.type === "session") out.set(e.session, { holdout: e.holdout, pages: out.get(e.session)?.pages ?? [] });
+    if (e.type === "session") out.set(e.session, { holdout: e.holdout, notes: e.notes, pages: out.get(e.session)?.pages ?? [] });
     else if (e.type === "page") {
-      const s = out.get(e.session) ?? { holdout: false, pages: [] };
+      const s = out.get(e.session) ?? { holdout: false, notes: false, pages: [] };
       if (!s.pages.includes(e.page)) s.pages.push(e.page);
       out.set(e.session, s);
     }
@@ -17131,7 +17174,8 @@ async function main(argv, out = console.log) {
       const sources = values.from?.length ? values.from.map((f) => path11.resolve(f)) : [transcriptDir(paths.projectDir), ...codexTranscripts(paths.projectDir)];
       const sessions = findTranscripts(sources).map((f) => sessionMetrics(f)).filter((m) => m !== void 0);
       const delivery = sessionDelivery(paths);
-      const report = [...delivery.values()].some((d) => d.holdout) ? buildHoldoutReport(sessions, delivery) : buildReport(sessions, notesSince(paths.projectDir));
+      const logged = sessions.filter((s) => delivery.has(s.id));
+      const report = logged.length && logged.some((s) => delivery.get(s.id)?.holdout) ? buildHoldoutReport(sessions, delivery) : buildReport(sessions, notesSince(paths.projectDir));
       const ledger = readLedger(paths.projectDir);
       if (values.json) out(JSON.stringify({ ...report, evidence: ledger.exists ? ledger.rules : void 0 }, null, 2));
       else out(formatReport(report, ledger.exists && ledger.rules.length ? summarizeLedger(ledger.rules) : void 0));
@@ -17266,7 +17310,7 @@ Notes: ${had.holdout ? "HOLDOUT (this session ran without notes or wiki pages)" 
       return stale.length || staleNotes.length || notes.errors.length ? 1 : 0;
     }
     case "notes": {
-      if (values.delivery !== void 0) return setDelivery(paths, values.delivery, values.holdout, out);
+      if (values.delivery !== void 0) return await setDelivery(paths, values.delivery, values.holdout, out);
       let notes = await verifyNotes(paths, { execAllowed: true });
       const failed = notes.checks.some((c) => !c.ok) || notes.errors.length > 0;
       if (values.link) {
@@ -17335,7 +17379,7 @@ function forgeExit(command, res, json, out) {
   const notesVerified = !!res.notes && !notesFailed && (command === "learn" || res.notes.checks.length > 0 || (res.practice?.passed ?? 0) > 0);
   return (res.promoted.length || notesVerified) && !notesFailed && res.exitCode === 0 ? 0 : 1;
 }
-function setDelivery(paths, delivery, holdout, out) {
+async function setDelivery(paths, delivery, holdout, out) {
   if (delivery !== "hooks" && delivery !== "import") {
     out("trod notes: --delivery must be hooks or import");
     return 1;
@@ -17346,21 +17390,36 @@ function setDelivery(paths, delivery, holdout, out) {
     out("trod notes: --holdout must be a share between 0 and 0.5");
     return 1;
   }
+  const notes = await verifyNotes(paths, { execAllowed: true });
+  if (notes.exists && (notes.checks.some((c) => !c.ok) || notes.errors.length > 0)) {
+    printNotes(notes, out);
+    out("trod notes: delivery not changed, some checks fail (fix or remove those claims and their checks first)");
+    return 1;
+  }
   const { claudeMd } = notesPaths(paths);
   if (delivery === "hooks") {
+    const hookCommand = deliveryHookCommand(paths.projectDir);
+    if ("error" in hookCommand) {
+      out(`trod notes: ${hookCommand.error}`);
+      return 1;
+    }
+    const res = { written: [], unchanged: [], notes: [] };
+    try {
+      installClaudeHooks(paths.projectDir, hookCommand.command, res);
+    } catch (e) {
+      out(`trod notes: could not install the hooks in .claude/settings.json (${e.message}); delivery not changed`);
+      return 1;
+    }
+    for (const f of res.written) out(`wrote     ${f}`);
     writeTrodConfig(paths, { ...config2, delivery: "hooks", holdout: share });
     if (existsSync10(claudeMd)) {
       const text = readFileSync10(claudeMd, "utf8");
-      const next = text.replace(/\n?## Project notes \(trod\)\n\nVerified notes about this project's environment, kept by trod[^\n]*\n\n@\.trod\/notes\.md\n?/, "\n").replace(/^@\.trod\/notes\.md\n?/m, "");
+      const next = text.replace(/\n?## Project notes \(trod\)\n\nVerified notes about this project's environment, kept by trod[^\n]*\n\n[ \t]*@\.trod\/notes\.md[ \t]*\n?/, "\n").replace(/^[ \t]*@\.trod\/notes\.md[ \t]*(\r?\n|$)/gm, "");
       if (next !== text) {
         writeFileSync7(claudeMd, next.replace(/\n{3,}/g, "\n\n"));
         out(`removed ${NOTES_IMPORT} from CLAUDE.md`);
       }
     }
-    const res = { written: [], unchanged: [], notes: [] };
-    const version2 = packageVersion(defaultPackageRoot());
-    installClaudeHooks(paths.projectDir, installedHookCommand(paths.projectDir) ?? `npx -y ${version2 ? `trod@${version2}` : "trod"} hook`, res);
-    for (const f of res.written) out(`wrote     ${f}`);
     out(`notes now reach Claude Code sessions through trod's hooks; ${Math.round(share * 100)}% of sessions are a holdout without notes (trod report compares the two). Commit .trod/config.json and .claude/settings.json.`);
     return 0;
   }
@@ -17369,6 +17428,18 @@ function setDelivery(paths, delivery, holdout, out) {
   if (linkNotes(paths)) out(`linked .trod/notes.md into CLAUDE.md (${NOTES_IMPORT})`);
   out("notes reach Claude Code sessions through the CLAUDE.md import again (the hooks stay installed and do nothing).");
   return 0;
+}
+function deliveryHookCommand(dir) {
+  const version2 = packageVersion(defaultPackageRoot());
+  const current = `npx -y ${version2 ? `trod@${version2}` : "trod"} hook`;
+  const installed = installedHookCommand(dir);
+  if (!installed) return { command: current };
+  if (/^npx -y trod(@\S+)? hook$/.test(installed.trim())) return { command: installed.trim() === "npx -y trod hook" ? installed.trim() : current };
+  if (installed.includes(".trod/pkg/bin/trod")) {
+    const vendored = packageVersion(path11.join(dir, ".trod", "pkg"));
+    if (version2 && vendored !== version2) return { error: `the vendored trod in .trod/pkg is ${vendored ?? "unknown"}, older than ${version2}: re-run \`trod init --vendor\` first, so its hook handles notes delivery` };
+  }
+  return { command: installed };
 }
 async function readStdin() {
   let raw = "";
@@ -17404,7 +17475,7 @@ Fix the file; trod re-validates on every change.`;
 }
 function printNotes(notes, out) {
   const passed = notes.checks.filter((c) => c.ok).length;
-  out(`notes: ${notes.exists ? `${notes.chars} chars` : "missing"}${notes.tooLong ? ` (over ${NOTES_MAX_CHARS}: they are in every session's context, trim them)` : ""}, ${passed}/${notes.checks.length} check(s) passed, ${notes.linked ? "linked from CLAUDE.md" : `not linked (trod notes --link adds ${NOTES_IMPORT} to CLAUDE.md)`}`);
+  out(`notes: ${notes.exists ? `${notes.chars} chars` : "missing"}${notes.tooLong ? ` (over ${NOTES_MAX_CHARS}: they are in every session's context, trim them)` : ""}, ${passed}/${notes.checks.length} check(s) passed, ${notes.linked ? notes.delivery === "hooks" ? "delivered by trod's hooks" : "linked from CLAUDE.md" : `not linked (trod notes --link adds ${NOTES_IMPORT} to CLAUDE.md)`}`);
   for (const c of notes.checks.filter((c2) => !c2.ok)) out(`  STALE  "${c.claim}" (${c.tool}): ${c.error}`);
   for (const e of notes.errors) out(`  ${e}`);
 }
