@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Copies the version of the published package (plugin/package.json, which Changesets bumps) into every other place
-// that names it: the server's VERSION, the Claude Code and Antigravity plugin manifests and the MCP Registry entry.
+// that names it: the server's VERSION, the Claude Code, Codex and Antigravity plugin manifests and the MCP Registry entry.
 // `pnpm version-packages` runs it after `changeset version`; `--check` fails if any of them disagree (CI and tests).
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -15,6 +15,9 @@ const targets = [
   json('plugin/.claude-plugin/plugin.json', (j) => { j.version = version; }),
   json('.antigravity-plugin/plugin.json', (j) => { j.version = version; }),
   json('plugin/server.json', (j) => { j.version = version; for (const p of j.packages) if (p.identifier === 'trod') p.version = version; }),
+  json('plugin/.codex-plugin/plugin.json', (j) => { j.version = version; }),
+  // The Codex plugin runs the published package: Codex does not expand the plugin's own path in a server's arguments.
+  json('plugin/.codex-mcp.json', (j) => { j.mcpServers.trod.args = j.mcpServers.trod.args.map((a) => (/^trod(@|$)/.test(a) ? `trod@${version}` : a)); }),
   ['packages/server/src/server.ts', (text) => text.replace(/export const VERSION = '[^']*';/, `export const VERSION = '${version}';`)],
 ];
 

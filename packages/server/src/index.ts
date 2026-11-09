@@ -6,5 +6,5 @@ export { Registry, describeForClient, runToolExamples, type RegistryChange } fro
 export { TrodServer, STATUS_TOOL, RUN_TOOL, VERSION, sessionIdFromEnv } from './server.ts';
 export { computeStats, formatStats, type StatsSummary, type ToolStats } from './stats.ts';
 export { checkDefinition, checkExpectation, listToolEntries, loadToolEntry, loadToolFile, loadToolFolder, validateInput, NAME_PATTERN } from './validate.ts';
-export { ANTIGRAVITY_NOTES_RULE, linkAntigravityNotes, linkNotes, notesLinked, notesPaths, readChecks, verifyNotes, NOTES_FILE, CHECKS_FILE, NOTES_IMPORT, NOTES_MAX_CHARS, type NoteCheck, type NoteCheckResult, type NotesReport } from './notes.ts';
+export { ANTIGRAVITY_NOTES_RULE, CODEX_NOTES_FILE, CODEX_NOTES_MARKER, codexNotesFile, linkAntigravityNotes, linkCodexNotes, linkNotes, notesLinked, notesPaths, readChecks, verifyNotes, NOTES_FILE, CHECKS_FILE, NOTES_IMPORT, NOTES_MAX_CHARS, type NoteCheck, type NoteCheckResult, type NotesReport } from './notes.ts';
 export type * from './types.ts';

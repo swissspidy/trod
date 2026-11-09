@@ -15284,9 +15284,16 @@ var StdioServerTransport = class {
 };
 
 // packages/server/src/paths.ts
+import { existsSync } from "node:fs";
 import path from "node:path";
 function resolveProjectDir(env = process.env, cwd = process.cwd()) {
-  return path.resolve(env.TROD_PROJECT_DIR || env.CLAUDE_PROJECT_DIR || cwd);
+  const configured = env.TROD_PROJECT_DIR || env.CLAUDE_PROJECT_DIR;
+  if (configured) return path.resolve(configured);
+  const start = path.resolve(cwd);
+  for (let dir = start; ; dir = path.dirname(dir)) {
+    if (existsSync(path.join(dir, ".trod")) || existsSync(path.join(dir, ".codex"))) return dir;
+    if (existsSync(path.join(dir, ".git")) || path.dirname(dir) === dir) return start;
+  }
 }
 function trodPaths(projectDir) {
   const trodDir = path.join(projectDir, ".trod");
@@ -15300,7 +15307,7 @@ function trodPaths(projectDir) {
 }
 
 // packages/server/src/server.ts
-import { existsSync as existsSync3, mkdirSync as mkdirSync2, watch } from "node:fs";
+import { existsSync as existsSync4, mkdirSync as mkdirSync2, watch } from "node:fs";
 import { homedir } from "node:os";
 import path5 from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17326,7 +17333,7 @@ ${tail(stdout)}` : "")
 }
 
 // packages/server/src/logs.ts
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync as existsSync2, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import path2 from "node:path";
 var CallLog = class {
   file;
@@ -17347,7 +17354,7 @@ var CallLog = class {
   }
 };
 function readLogs(logsDir) {
-  if (!existsSync(logsDir)) return [];
+  if (!existsSync2(logsDir)) return [];
   const records = [];
   for (const file of readdirSync(logsDir).filter((f) => f.endsWith(".jsonl")).sort()) {
     for (const line of readFileSync(path2.join(logsDir, file), "utf8").split("\n")) {
@@ -17433,7 +17440,7 @@ import path4 from "node:path";
 var import_ajv2 = __toESM(require_ajv(), 1);
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync as existsSync2, readdirSync as readdirSync2, readFileSync as readFileSync2 } from "node:fs";
+import { existsSync as existsSync3, readdirSync as readdirSync2, readFileSync as readFileSync2 } from "node:fs";
 import path3 from "node:path";
 import { promisify } from "node:util";
 var execFileAsync = promisify(execFile);
@@ -17445,11 +17452,11 @@ var Ajv2 = mod.default ?? mod;
 var ajv = new Ajv2({ allErrors: true, strict: false });
 function hashTool(dir) {
   const h = createHash("sha256");
-  if (dir.endsWith(".mjs")) return h.update(existsSync2(dir) ? readFileSync2(dir) : "").digest("hex");
+  if (dir.endsWith(".mjs")) return h.update(existsSync3(dir) ? readFileSync2(dir) : "").digest("hex");
   for (const file of ["tool.json", "run.mjs", "run.sh"]) {
     const p = path3.join(dir, file);
     h.update(file + "\0");
-    if (existsSync2(p)) h.update(readFileSync2(p));
+    if (existsSync3(p)) h.update(readFileSync2(p));
     h.update("\0");
   }
   return h.digest("hex");
@@ -17535,7 +17542,7 @@ async function loadToolFolder(dir, source) {
   const folder = path3.basename(dir);
   const tool = { folder, dir, source, hash: hashTool(dir), ok: false, errors: [], warnings: [] };
   const jsonPath = path3.join(dir, "tool.json");
-  if (!existsSync2(jsonPath)) {
+  if (!existsSync3(jsonPath)) {
     tool.errors.push("missing tool.json");
     return tool;
   }
@@ -17549,8 +17556,8 @@ async function loadToolFolder(dir, source) {
   const { errors, warnings, def } = checkDefinition(raw, folder);
   tool.errors.push(...errors);
   tool.warnings.push(...warnings);
-  const hasMjs = existsSync2(path3.join(dir, "run.mjs"));
-  const hasSh = existsSync2(path3.join(dir, "run.sh"));
+  const hasMjs = existsSync3(path3.join(dir, "run.mjs"));
+  const hasSh = existsSync3(path3.join(dir, "run.sh"));
   if (hasMjs && hasSh) tool.errors.push("has both run.mjs and run.sh; keep exactly one");
   else if (!hasMjs && !hasSh) tool.errors.push("missing run.mjs (export default async (input, ctx) => result) or run.sh (input JSON on stdin)");
   else {
@@ -17638,7 +17645,7 @@ function loadToolEntry(entry, source, opts) {
   return entry.endsWith(".mjs") ? loadToolFile(entry, source, opts) : loadToolFolder(entry, source);
 }
 function listToolEntries(root) {
-  if (!existsSync2(root)) return [];
+  if (!existsSync3(root)) return [];
   return readdirSync2(root, { withFileTypes: true }).filter((d) => !d.name.startsWith(".") && (d.isDirectory() || d.isFile() && d.name.endsWith(".mjs"))).map((d) => path3.join(root, d.name)).sort();
 }
 
@@ -18013,7 +18020,7 @@ var TrodServer = class {
       this.schedule();
     };
     try {
-      if (existsSync3(this.paths.trodDir)) this.watcher = watch(this.paths.trodDir, { recursive: true }, onEvent);
+      if (existsSync4(this.paths.trodDir)) this.watcher = watch(this.paths.trodDir, { recursive: true }, onEvent);
     } catch {
     }
     const pollMs = this.opts.pollMs ?? 1e3;

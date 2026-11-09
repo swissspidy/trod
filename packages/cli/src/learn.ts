@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readSync, readFileSync, realpathSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 
@@ -29,6 +29,36 @@ export interface SessionDigest {
 /** Where Claude Code keeps the transcripts of sessions started in projectDir (<config dir>/projects/<project>). */
 export function transcriptDir(projectDir: string, configDir = process.env.CLAUDE_CONFIG_DIR || path.join(homedir(), '.claude')): string {
   return path.join(configDir, 'projects', path.resolve(projectDir).replace(/[^a-zA-Z0-9]/g, '-'));
+}
+
+/** Where Codex keeps its session transcripts ($CODEX_HOME/sessions/YYYY/MM/DD/rollout-*.jsonl). */
+export function codexSessionsDir(codexHome = process.env.CODEX_HOME || path.join(homedir(), '.codex')): string {
+  return path.join(codexHome, 'sessions');
+}
+
+/** The first line of a Codex rollout file is its session_meta, which names the folder the session ran in. */
+function codexSessionCwd(file: string): string | undefined {
+  try {
+    // Read only the start: rollouts can be large, and there can be thousands of them.
+    const fd = openSync(file, 'r');
+    const buf = Buffer.alloc(256 * 1024);
+    const n = readSync(fd, buf, 0, buf.length, 0);
+    closeSync(fd);
+    const head = buf.subarray(0, n).toString('utf8');
+    const e = JSON.parse(head.slice(0, head.indexOf('\n') >= 0 ? head.indexOf('\n') : undefined)) as { type?: string; payload?: { cwd?: string } };
+    return e.type === 'session_meta' ? e.payload?.cwd : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Codex transcripts of sessions that ran in projectDir or a folder inside it. */
+export function codexTranscripts(projectDir: string, sessionsDir = codexSessionsDir()): string[] {
+  const root = path.resolve(projectDir);
+  return findTranscripts([sessionsDir]).filter((f) => {
+    const cwd = codexSessionCwd(f);
+    return cwd !== undefined && (path.resolve(cwd) === root || path.resolve(cwd).startsWith(root + path.sep));
+  });
 }
 
 /**
@@ -67,7 +97,6 @@ function textOf(content: unknown): string {
  * output (which has no first prompt; pass it as `task`). Returns undefined for files with no conversation.
  */
 export function digestTranscript(file: string, opts: { outcome?: Outcome; task?: string; maxChars?: number } = {}): SessionDigest | undefined {
-  const maxChars = opts.maxChars ?? 8000;
   const events: Record<string, unknown>[] = [];
   for (const line of readFileSync(file, 'utf8').split('\n')) {
     if (!line.trim()) continue;
@@ -77,6 +106,7 @@ export function digestTranscript(file: string, opts: { outcome?: Outcome; task?:
       // a torn line: skip it
     }
   }
+  if (events[0]?.type === 'session_meta') return digestCodex(file, events, opts);
   let task = opts.task ?? '';
   const steps: string[] = [];
   let toolCalls = 0;
@@ -117,6 +147,12 @@ export function digestTranscript(file: string, opts: { outcome?: Outcome; task?:
       final = e.result;
     }
   }
+  return assembleDigest(file, { task, steps, toolCalls, errors, final, learnRun }, opts);
+}
+
+function assembleDigest(file: string, d: { task: string; steps: string[]; toolCalls: number; errors: number; final: string; learnRun: boolean }, opts: { outcome?: Outcome; maxChars?: number }): SessionDigest | undefined {
+  const { task, steps, toolCalls, errors, final, learnRun } = d;
+  const maxChars = opts.maxChars ?? 8000;
   if (!task && !steps.length) return undefined;
   const id = path.basename(file, '.jsonl');
   const outcome = opts.outcome ?? 'unknown';
@@ -131,6 +167,73 @@ export function digestTranscript(file: string, opts: { outcome?: Outcome; task?:
     body = `${body.slice(0, Math.floor(budget * 0.6))}${OMITTED}${body.slice(-Math.floor(budget * 0.4))}`;
   }
   return { id, file, task, outcome, toolCalls, errors, learnRun, text: `${head}${body}\n${finalPart(body)}` };
+}
+
+/** Text Codex puts in user messages that the user did not type (environment, AGENTS.md, skills, turn context). */
+const CODEX_WRAPPER = /^(<(environment_context|user_instructions|skills_instructions|turn_aborted|user_shell_command|subagent_notification|permissions instructions|apps_instructions|collaboration_mode|multi_agent_[a-z_]+)>|# AGENTS\.md instructions)/;
+
+type CodexItem = { type?: string; role?: string; content?: { type?: string; text?: string }[]; name?: string; arguments?: string; input?: string; call_id?: string; output?: unknown };
+
+/** A Codex tool result: a string, or { output, metadata: { exit_code } } (sometimes JSON-encoded). */
+export function codexOutput(output: unknown): { text: string; error: boolean } {
+  let value = output;
+  if (typeof value === 'string' && value.trimStart().startsWith('{')) {
+    try {
+      value = JSON.parse(value);
+    } catch {
+      // plain text that starts with a brace
+    }
+  }
+  if (value && typeof value === 'object') {
+    const o = value as { output?: unknown; content?: unknown; metadata?: { exit_code?: number }; success?: boolean };
+    const text = typeof o.output === 'string' ? o.output : typeof o.content === 'string' ? o.content : JSON.stringify(value);
+    return { text, error: (o.metadata?.exit_code ?? 0) !== 0 || o.success === false };
+  }
+  const text = String(value ?? '');
+  return { text, error: /^(Exit code|Process exited with code):? *[1-9]/m.test(text) };
+}
+
+/** Condenses a Codex rollout transcript (session_meta, response_item, event_msg lines) like a Claude Code one. */
+function digestCodex(file: string, events: Record<string, unknown>[], opts: { outcome?: Outcome; task?: string; maxChars?: number }): SessionDigest | undefined {
+  let task = opts.task ?? '';
+  const steps: string[] = [];
+  let toolCalls = 0;
+  let errors = 0;
+  let final = '';
+  let learnRun = false;
+  for (const e of events) {
+    if (e.type !== 'response_item') continue;
+    const item = (e.payload ?? {}) as CodexItem;
+    if (item.type === 'message') {
+      const text = (item.content ?? []).map((c) => (c?.type === 'input_text' || c?.type === 'output_text' ? (c.text ?? '') : '')).join('\n').trim();
+      if (item.role === 'user') {
+        if (text.includes(LEARN_RUN_MARKER)) learnRun = true;
+        if (!text || CODEX_WRAPPER.test(text)) continue;
+        if (!task) task = text;
+        else steps.push(`USER: ${clip(text, 600)}`);
+      } else if (item.role === 'assistant' && text) {
+        final = text;
+        steps.push(`ASSISTANT: ${clip(text, 500)}`);
+      }
+    } else if (item.type === 'function_call' || item.type === 'custom_tool_call') {
+      toolCalls++;
+      let shown = item.arguments ?? item.input ?? '';
+      try {
+        const args = JSON.parse(shown) as { command?: unknown; cmd?: unknown };
+        const cmd = args.command ?? args.cmd;
+        if (Array.isArray(cmd)) shown = cmd.join(' ');
+        else if (typeof cmd === 'string') shown = cmd;
+      } catch {
+        // custom tools (apply_patch) send plain text
+      }
+      steps.push(`CALL ${item.name}: ${clip(shown, 500)}`);
+    } else if (item.type === 'function_call_output' || item.type === 'custom_tool_call_output') {
+      const { text, error } = codexOutput(item.output);
+      if (error) errors++;
+      steps.push(`${error ? 'ERROR' : 'RESULT'}: ${clip(text.trim(), 700)}`);
+    }
+  }
+  return assembleDigest(file, { task, steps, toolCalls, errors, final, learnRun }, opts);
 }
 
 /** Reads an outcomes file: {"<session id or file name>": true | false | "pass" | "fail" | <score 0..1>}. */

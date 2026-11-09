@@ -119,6 +119,41 @@ export function linkAntigravityNotes(paths: TrodPaths): 'written' | 'exists' | '
   }
 }
 
+/** Codex reads AGENTS.md, which cannot import a file, so the block tells the agent to read the notes. */
+export const CODEX_NOTES_FILE = 'AGENTS.md';
+/** Codex reads AGENTS.override.md instead of AGENTS.md when both exist. */
+export function codexNotesFile(paths: TrodPaths): string {
+  return existsSync(path.join(paths.projectDir, 'AGENTS.override.md')) ? 'AGENTS.override.md' : CODEX_NOTES_FILE;
+}
+export const CODEX_NOTES_MARKER = '<!-- trod notes -->';
+const CODEX_NOTES_BLOCK = `${CODEX_NOTES_MARKER}
+## Project notes (trod)
+
+Before you start a task, read \`.trod/notes.md\`: verified rules about this project's environment, kept by trod
+(\`trod forge\`, \`trod learn\`, \`trod verify\`). Follow them; when its index lists a page in \`.trod/wiki/\` for
+your kind of task, read that page too.
+`;
+
+/**
+ * For projects that use Codex (a .codex/ folder, e.g. from `trod init --codex`, or an AGENTS.md or
+ * AGENTS.override.md already there, as in projects that only use the Codex plugin): adds a block to the instruction
+ * file Codex reads (AGENTS.override.md if it exists, else AGENTS.md) that points it at .trod/notes.md. 'skipped' when
+ * there is neither. Errors come back as { error }.
+ */
+export function linkCodexNotes(paths: TrodPaths): 'written' | 'exists' | 'skipped' | { error: string } {
+  const name = codexNotesFile(paths);
+  const file = path.join(paths.projectDir, name);
+  if (!existsSync(path.join(paths.projectDir, '.codex')) && !existsSync(file)) return 'skipped';
+  try {
+    const current = existsSync(file) ? readFileSync(file, 'utf8') : '';
+    if (current.includes(CODEX_NOTES_MARKER)) return 'exists';
+    writeFileSync(file, current ? `${current}${current.endsWith('\n') ? '' : '\n'}\n${CODEX_NOTES_BLOCK}` : CODEX_NOTES_BLOCK);
+    return 'written';
+  } catch (err) {
+    return { error: `could not update ${name}: ${(err as Error).message}` };
+  }
+}
+
 /** Adds the `@.trod/notes.md` import to CLAUDE.md (creating it if needed). Returns false if it was already there. */
 export function linkNotes(paths: TrodPaths): boolean {
   if (notesLinked(paths)) return false;

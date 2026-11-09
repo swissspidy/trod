@@ -15,9 +15,9 @@ await build({
   outfile: 'plugin/bin/trod',
   banner: { js: '#!/usr/bin/env node\n' + banner.js },
 });
-// The Antigravity plugin at the repository root ships the same skill as `trod init --antigravity`.
+// The Antigravity plugin at the repository root ships the same skills as `trod init --antigravity` (and --codex).
 for (const skill of ['trod', 'trod-learn']) {
   mkdirSync(`skills/${skill}`, { recursive: true });
-  copyFileSync(`plugin/antigravity/skills/${skill}/SKILL.md`, `skills/${skill}/SKILL.md`);
+  copyFileSync(`plugin/agents/skills/${skill}/SKILL.md`, `skills/${skill}/SKILL.md`);
 }
-console.log('bundled plugin/server/trod-server.mjs and plugin/bin/trod; copied the Antigravity skills to skills/');
+console.log('bundled plugin/server/trod-server.mjs and plugin/bin/trod; copied the .agents skills to skills/');

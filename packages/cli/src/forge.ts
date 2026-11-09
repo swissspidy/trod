@@ -3,7 +3,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSyn
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ANTIGRAVITY_NOTES_RULE, linkAntigravityNotes, linkNotes, NOTES_IMPORT, NOTES_MAX_CHARS, promoteTool, trodPaths, verifyNotes, type NotesReport } from '@trod/server';
+import { ANTIGRAVITY_NOTES_RULE, codexNotesFile, linkAntigravityNotes, linkCodexNotes, linkNotes, NOTES_IMPORT, NOTES_MAX_CHARS, promoteTool, trodPaths, verifyNotes, type NotesReport } from '@trod/server';
 
 /**
  * `trod forge`: a dedicated tool-building session. A headless Claude Code session studies an environment (a brief
@@ -198,6 +198,9 @@ export async function forge(opts: ForgeOptions): Promise<ForgeResult> {
       const rule = linkAntigravityNotes(paths);
       if (rule === 'written') out(`  linked .trod/notes.md into Antigravity (${ANTIGRAVITY_NOTES_RULE})`);
       else if (typeof rule === 'object') out(`  ${rule.error}`);
+      const codex = linkCodexNotes(paths);
+      if (codex === 'written') out(`  linked .trod/notes.md into Codex (${codexNotesFile(paths)})`);
+      else if (typeof codex === 'object') out(`  ${codex.error}`);
     }
   }
   return { exitCode, promoted, rejected, unverified, notes: notes.exists ? { ...notes, linked: notes.linked || notesLinkedNow } : undefined, costUsd: result?.total_cost_usd, turns: result?.num_turns, usage: result?.usage, practice };
