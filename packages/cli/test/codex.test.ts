@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { linkCodexNotes, resolveProjectDir, trodPaths } from '@trod/server';
@@ -61,6 +61,9 @@ describe('trod init --codex', () => {
     mkdirSync(path.join(dir, '.trod'));
     writeFileSync(path.join(dir, '.trod', 'notes.md'), '# Notes\n- a rule\n');
     writeFileSync(path.join(dir, 'AGENTS.md'), '# Agents\n\nUse pnpm.');
+    // Not linked into CLAUDE.md yet (unverified): init leaves them alone.
+    expect(init({ projectDir: dir, packageRoot: PLUGIN, codex: true }).written).not.toContain('AGENTS.md');
+    writeFileSync(path.join(dir, 'CLAUDE.md'), '@.trod/notes.md\n');
     const res = init({ projectDir: dir, packageRoot: PLUGIN, codex: true });
     expect(res.written).toContain('AGENTS.md');
     const agents = read(dir, 'AGENTS.md');
@@ -178,6 +181,16 @@ describe('learning from Codex sessions', () => {
     expect(d.text).not.toContain('environment_context');
     expect(d.text).not.toContain('Use pnpm');
     expect(d.text).not.toContain('You are Codex');
+  });
+
+  it('matches a symlinked project with the real path Codex recorded', () => {
+    const sessions = tmp();
+    const real = path.join(tmp(), 'app');
+    mkdirSync(real);
+    const link = path.join(tmp(), 'link');
+    symlinkSync(real, link);
+    const file = rollout(sessions, 'r', real, 'a');
+    expect(codexTranscripts(link, sessions)).toEqual([file]);
   });
 
   it('finds the sessions that ran in the project or a folder inside it', () => {

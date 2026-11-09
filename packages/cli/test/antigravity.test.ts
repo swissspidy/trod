@@ -33,6 +33,7 @@ describe('trod init --antigravity', () => {
     mkdirSync(path.join(dir, '.trod'));
     writeFileSync(path.join(dir, '.agents', 'mcp_config.json'), JSON.stringify({ mcpServers: { other: { command: 'x' } } }));
     writeFileSync(path.join(dir, '.trod', 'notes.md'), '# Notes\n- a rule\n');
+    writeFileSync(path.join(dir, 'CLAUDE.md'), '@.trod/notes.md\n'); // linked, so verified or linked on purpose
     const res = init({ projectDir: dir, packageRoot: PLUGIN, antigravity: true });
     expect(json(path.join(dir, '.agents', 'mcp_config.json')).mcpServers.other).toEqual({ command: 'x' });
     expect(res.written).toContain(path.join('.agents', 'rules', 'trod-notes.md'));
@@ -46,12 +47,21 @@ describe('trod init --antigravity', () => {
     mkdirSync(path.join(dir, '.agents'));
     mkdirSync(path.join(dir, '.trod'));
     writeFileSync(path.join(dir, '.trod', 'notes.md'), '# Notes\n');
+    writeFileSync(path.join(dir, 'CLAUDE.md'), '@.trod/notes.md\n');
     writeFileSync(path.join(dir, '.agents', 'mcp_config.json'), JSON.stringify({ mcpServers: { trod: { command: 'npx', env: { TROD_PROJECT_DIR: '/work/app' } } } }));
     init({ projectDir: dir, packageRoot: PLUGIN, antigravity: true, allowExec: true });
     expect(json(path.join(dir, '.agents', 'mcp_config.json')).mcpServers.trod.env).toEqual({ TROD_PROJECT_DIR: '/work/app', TROD_ALLOW_EXEC: '1' });
     const again = init({ projectDir: dir, packageRoot: PLUGIN, antigravity: true, allowExec: true });
     expect(again.written).toEqual([]);
     expect(again.unchanged).toContain(path.join('.agents', 'rules', 'trod-notes.md'));
+  });
+
+  it('leaves notes that were never linked into CLAUDE.md (unverified) unlinked', () => {
+    const dir = repo();
+    mkdirSync(path.join(dir, '.trod'));
+    writeFileSync(path.join(dir, '.trod', 'notes.md'), '# Notes\n- unverified\n');
+    init({ projectDir: dir, packageRoot: PLUGIN, antigravity: true });
+    expect(existsSync(path.join(dir, '.agents', 'rules', 'trod-notes.md'))).toBe(false);
   });
 
   it('rejects --vendor', () => {

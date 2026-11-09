@@ -272,6 +272,25 @@ describe('MCP roots', () => {
     expect(await trod.relocate(workspace.projectDir)).toBe(false);
   });
 
+  it('adopts the project when the client reports a subfolder of it as its root', async () => {
+    const workspace = tempProject();
+    writeTool(workspace.libraryDir, 'from_workspace', {});
+    mkdirSync(path.join(workspace.projectDir, '.git'));
+    const sub = path.join(workspace.projectDir, 'src', 'deep');
+    mkdirSync(sub, { recursive: true });
+    const trod = new TrodServer({ paths: tempProject(), env: { TROD_ALLOW_EXEC: '1', PATH: process.env.PATH }, debounceMs: 30, pollMs: 0 });
+    servers.push(trod);
+    await trod.start();
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    await trod.server.connect(a);
+    trod.markConnected();
+    const client = new Client({ name: 'roots-client', version: '0' }, { capabilities: { roots: { listChanged: true } } });
+    client.setRequestHandler(ListRootsRequestSchema, async () => ({ roots: [{ uri: pathToFileURL(sub).href, name: 'ws' }] }));
+    await client.connect(b);
+    expect(await trod.adoptClientRoots()).toBe(workspace.projectDir);
+    expect((await client.listTools()).tools.map((t) => t.name)).toContain('from_workspace');
+  });
+
   it('ignores clients without roots', async () => {
     const { trod } = await connect(tempProject());
     expect(await trod.adoptClientRoots()).toBeUndefined();

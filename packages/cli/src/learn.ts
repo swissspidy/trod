@@ -54,10 +54,20 @@ function codexSessionCwd(file: string): string | undefined {
 
 /** Codex transcripts of sessions that ran in projectDir or a folder inside it. */
 export function codexTranscripts(projectDir: string, sessionsDir = codexSessionsDir()): string[] {
-  const root = path.resolve(projectDir);
+  // Compare real paths (a symlinked project), falling back to the path as written for folders that are gone.
+  const real = (p: string) => {
+    try {
+      return realpathSync(p);
+    } catch {
+      return path.resolve(p);
+    }
+  };
+  const root = real(projectDir);
   return findTranscripts([sessionsDir]).filter((f) => {
     const cwd = codexSessionCwd(f);
-    return cwd !== undefined && (path.resolve(cwd) === root || path.resolve(cwd).startsWith(root + path.sep));
+    if (cwd === undefined) return false;
+    const dir = real(cwd);
+    return dir === root || dir.startsWith(root + path.sep);
   });
 }
 

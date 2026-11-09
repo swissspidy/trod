@@ -71,6 +71,8 @@ export function sessionMetrics(file: string): SessionMetrics | undefined {
       if (e.type !== 'response_item') continue;
       if (p.type === 'message') {
         const text = (p.content ?? []).map((c) => c?.text ?? '').join('\n').trim();
+        // The marker counts wherever it is, also in injected context (a skill); only typed prompts count as prompts.
+        if (p.role === 'user' && text.includes(LEARN_RUN_MARKER)) m.trodRun = true;
         if (p.role === 'user' && text && !CODEX_WRAPPER.test(text)) prompt(text);
         else if (p.role === 'assistant') m.turns++;
       } else if (p.type === 'function_call' || p.type === 'custom_tool_call') m.toolCalls++;
@@ -78,6 +80,8 @@ export function sessionMetrics(file: string): SessionMetrics | undefined {
     }
   } else {
     for (const e of events) {
+      // The marker counts wherever it is, also in a meta message (a skill's text); only typed prompts count as prompts.
+      if (e.type === 'user' && JSON.stringify((e.message as { content?: unknown } | undefined)?.content ?? '').includes(LEARN_RUN_MARKER)) m.trodRun = true;
       if (e.isSidechain) continue;
       const msg = e.message as { id?: string; content?: unknown; usage?: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number } } | undefined;
       if (e.type === 'user' && msg && !e.isMeta) {

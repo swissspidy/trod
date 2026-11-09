@@ -17998,8 +17998,9 @@ var TrodServer = class {
       } catch {
         continue;
       }
-      await this.relocate(dir);
-      return dir;
+      const project = resolveProjectDir({}, dir);
+      await this.relocate(project);
+      return project;
     }
     throw new Error(`no usable file:// root among ${roots.length} root(s) the client reported`);
   }

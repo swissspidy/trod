@@ -6,7 +6,7 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { CallToolRequestSchema, ListToolsRequestSchema, type CallToolResult, type Tool } from '@modelcontextprotocol/sdk/types.js';
 import { DEFAULT_MAX_OUTPUT_CHARS, EVAL_RUNNER, MAX_TIMEOUT_MS, executeTool } from './executor.ts';
 import { CallLog, readLogs } from './logs.ts';
-import { trodPaths } from './paths.ts';
+import { resolveProjectDir, trodPaths } from './paths.ts';
 import { computeStats } from './stats.ts';
 import { Registry, describeForClient, type RegistryChange } from './registry.ts';
 import type { LoadedTool, TrodPaths } from './types.ts';
@@ -278,8 +278,10 @@ export class TrodServer {
       } catch {
         continue;
       }
-      await this.relocate(dir);
-      return dir;
+      // A root in a subfolder of the project (a client started there) still finds the project's .trod/.
+      const project = resolveProjectDir({}, dir);
+      await this.relocate(project);
+      return project;
     }
     throw new Error(`no usable file:// root among ${roots.length} root(s) the client reported`);
   }
