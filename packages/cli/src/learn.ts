@@ -62,12 +62,14 @@ export function codexTranscripts(projectDir: string, sessionsDir = codexSessions
       return path.resolve(p);
     }
   };
+  const inside = (dir: string, root: string) => dir === root || dir.startsWith(root + path.sep);
+  const written = path.resolve(projectDir);
   const root = real(projectDir);
   return findTranscripts([sessionsDir]).filter((f) => {
     const cwd = codexSessionCwd(f);
     if (cwd === undefined) return false;
-    const dir = real(cwd);
-    return dir === root || dir.startsWith(root + path.sep);
+    // As written (a session in a symlinked subfolder) or as real paths (a symlinked project).
+    return inside(path.resolve(cwd), written) || inside(real(cwd), root);
   });
 }
 

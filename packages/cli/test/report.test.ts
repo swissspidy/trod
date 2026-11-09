@@ -63,6 +63,12 @@ describe('sessionMetrics', () => {
       { timestamp: '2026-11-01T10:00:02Z', type: 'response_item', payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'Learn.' }] } },
     ]);
     expect(sessionMetrics(codex)).toMatchObject({ trodRun: true, followUps: 0 });
+    // A session that only read the skill file (the marker in a tool result) is an ordinary session.
+    const read = write(path.join(tmp(), 'read.jsonl'), [
+      { type: 'user', timestamp: '2026-11-01T10:00:00Z', message: { role: 'user', content: 'What does the learn skill do?' } },
+      { type: 'user', timestamp: '2026-11-01T10:00:01Z', message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't', content: 'trod-learn-run-7c1e5a (this marker …)' }] } },
+    ]);
+    expect(sessionMetrics(read)!.trodRun).toBe(false);
   });
 
   it('takes the last usage of a split message and counts a multi-block prompt once', () => {

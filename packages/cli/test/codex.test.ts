@@ -140,6 +140,21 @@ describe('the project directory', () => {
     mkdirSync(path.join(codex, '.codex'));
     mkdirSync(path.join(codex, 'src'));
     expect(resolveProjectDir({}, path.join(codex, 'src'))).toBe(codex);
+    // ~/.codex is Codex's own folder: a workspace in the home folder without markers stays where it is.
+    const home = tmp();
+    mkdirSync(path.join(home, '.codex'));
+    mkdirSync(path.join(home, 'work'));
+    const saved = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE };
+    process.env.HOME = home;
+    process.env.USERPROFILE = home;
+    try {
+      expect(resolveProjectDir({}, path.join(home, 'work'))).toBe(path.join(home, 'work'));
+    } finally {
+      for (const [k, v] of Object.entries(saved)) {
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      }
+    }
     expect(resolveProjectDir({ TROD_PROJECT_DIR: '/x' }, repo)).toBe(path.resolve('/x'));
   });
 });
@@ -191,6 +206,9 @@ describe('learning from Codex sessions', () => {
     symlinkSync(real, link);
     const file = rollout(sessions, 'r', real, 'a');
     expect(codexTranscripts(link, sessions)).toEqual([file]);
+    // A session recorded in a symlinked subfolder, under the path as written.
+    const viaLink = rollout(sessions, 'l', path.join(link, 'sub'), 'b');
+    expect(codexTranscripts(link, sessions).sort()).toEqual([file, viaLink].sort());
   });
 
   it('finds the sessions that ran in the project or a folder inside it', () => {

@@ -15285,12 +15285,15 @@ var StdioServerTransport = class {
 
 // packages/server/src/paths.ts
 import { existsSync } from "node:fs";
+import { homedir } from "node:os";
 import path from "node:path";
 function resolveProjectDir(env = process.env, cwd = process.cwd()) {
   const configured = env.TROD_PROJECT_DIR || env.CLAUDE_PROJECT_DIR;
   if (configured) return path.resolve(configured);
   const start = path.resolve(cwd);
+  const home = path.resolve(homedir());
   for (let dir = start; ; dir = path.dirname(dir)) {
+    if (dir === home && dir !== start) return start;
     if (existsSync(path.join(dir, ".trod")) || existsSync(path.join(dir, ".codex"))) return dir;
     if (existsSync(path.join(dir, ".git")) || path.dirname(dir) === dir) return start;
   }
@@ -15308,7 +15311,7 @@ function trodPaths(projectDir) {
 
 // packages/server/src/server.ts
 import { existsSync as existsSync4, mkdirSync as mkdirSync2, watch } from "node:fs";
-import { homedir } from "node:os";
+import { homedir as homedir2 } from "node:os";
 import path5 from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -17931,7 +17934,7 @@ var TrodServer = class {
    * nothing else) has not said which project it works in yet, so trod creates nothing there.
    */
   get unplaced() {
-    return this.paths.projectDir === path5.resolve(homedir());
+    return this.paths.projectDir === path5.resolve(homedir2());
   }
   async start() {
     await this.load("start");

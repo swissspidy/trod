@@ -80,8 +80,13 @@ export function sessionMetrics(file: string): SessionMetrics | undefined {
     }
   } else {
     for (const e of events) {
-      // The marker counts wherever it is, also in a meta message (a skill's text); only typed prompts count as prompts.
-      if (e.type === 'user' && JSON.stringify((e.message as { content?: unknown } | undefined)?.content ?? '').includes(LEARN_RUN_MARKER)) m.trodRun = true;
+      // The marker counts in user text, also in a meta message (a skill's text), but not in a tool result (a session
+      // that only read the skill file); only typed prompts count as prompts.
+      if (e.type === 'user') {
+        const content = (e.message as { content?: unknown } | undefined)?.content;
+        const texts = typeof content === 'string' ? [content] : Array.isArray(content) ? (content as { type?: string; text?: string }[]).filter((c) => c?.type === 'text').map((c) => c.text ?? '') : [];
+        if (texts.some((t) => t.includes(LEARN_RUN_MARKER))) m.trodRun = true;
+      }
       if (e.isSidechain) continue;
       const msg = e.message as { id?: string; content?: unknown; usage?: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number } } | undefined;
       if (e.type === 'user' && msg && !e.isMeta) {

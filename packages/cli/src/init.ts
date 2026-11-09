@@ -156,7 +156,7 @@ function initAntigravity(opts: InitOptions, root: string, spec: string, res: Ini
   writeIfChanged(mcpFile, JSON.stringify(mcp, null, 2) + '\n', res, dir);
   writeAgentsSkills(root, dir, res);
   // Only notes already linked into CLAUDE.md (verified, or linked on purpose): unverified ones stay unlinked.
-  if (notesLinked(trodPaths(dir))) {
+  if (existsSync(path.join(dir, '.trod', 'notes.md')) && notesLinked(trodPaths(dir))) {
     const rule = linkAntigravityNotes(trodPaths(dir));
     if (rule === 'written') res.written.push(ANTIGRAVITY_NOTES_RULE);
     else if (rule === 'exists') res.unchanged.push(ANTIGRAVITY_NOTES_RULE);
@@ -232,7 +232,7 @@ function initCodex(opts: InitOptions, root: string, spec: string, res: InitResul
   if (featuresTable && !/^\s*mcp_tool_list_changed\s*=\s*true/m.test(outside)) res.notes.push(`${path.relative(dir, file)} has its own [features] table: add \`mcp_tool_list_changed = true\` to it so tools written mid-session appear in Codex's tool list.`);
   writeAgentsSkills(root, dir, res);
   // Only notes already linked into CLAUDE.md (verified, or linked on purpose): unverified ones stay unlinked.
-  if (notesLinked(trodPaths(dir))) {
+  if (existsSync(path.join(dir, '.trod', 'notes.md')) && notesLinked(trodPaths(dir))) {
     const notes = linkCodexNotes(trodPaths(dir));
     if (notes === 'written') res.written.push(codexNotesFile(trodPaths(dir)));
     else if (notes === 'exists') res.unchanged.push(codexNotesFile(trodPaths(dir)));

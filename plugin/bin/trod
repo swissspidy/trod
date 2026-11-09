@@ -7501,12 +7501,15 @@ function readLogs(logsDir) {
 
 // packages/server/src/paths.ts
 import { existsSync as existsSync2 } from "node:fs";
+import { homedir } from "node:os";
 import path2 from "node:path";
 function resolveProjectDir(env = process.env, cwd = process.cwd()) {
   const configured = env.TROD_PROJECT_DIR || env.CLAUDE_PROJECT_DIR;
   if (configured) return path2.resolve(configured);
   const start = path2.resolve(cwd);
+  const home = path2.resolve(homedir());
   for (let dir = start; ; dir = path2.dirname(dir)) {
+    if (dir === home && dir !== start) return start;
     if (existsSync2(path2.join(dir, ".trod")) || existsSync2(path2.join(dir, ".codex"))) return dir;
     if (existsSync2(path2.join(dir, ".git")) || path2.dirname(dir) === dir) return start;
   }
@@ -16106,12 +16109,12 @@ ${PRACTICE_PROMPT(!!opts.practice.reset)}` : ""}`;
 
 // packages/cli/src/learn.ts
 import { closeSync, existsSync as existsSync7, mkdirSync as mkdirSync5, openSync, readdirSync as readdirSync4, readSync, readFileSync as readFileSync6, realpathSync, statSync, unlinkSync, writeFileSync as writeFileSync4 } from "node:fs";
-import { homedir } from "node:os";
+import { homedir as homedir2 } from "node:os";
 import path7 from "node:path";
-function transcriptDir(projectDir, configDir = process.env.CLAUDE_CONFIG_DIR || path7.join(homedir(), ".claude")) {
+function transcriptDir(projectDir, configDir = process.env.CLAUDE_CONFIG_DIR || path7.join(homedir2(), ".claude")) {
   return path7.join(configDir, "projects", path7.resolve(projectDir).replace(/[^a-zA-Z0-9]/g, "-"));
 }
-function codexSessionsDir(codexHome = process.env.CODEX_HOME || path7.join(homedir(), ".codex")) {
+function codexSessionsDir(codexHome = process.env.CODEX_HOME || path7.join(homedir2(), ".codex")) {
   return path7.join(codexHome, "sessions");
 }
 function codexSessionCwd(file) {
@@ -16135,12 +16138,13 @@ function codexTranscripts(projectDir, sessionsDir = codexSessionsDir()) {
       return path7.resolve(p);
     }
   };
+  const inside = (dir, root2) => dir === root2 || dir.startsWith(root2 + path7.sep);
+  const written = path7.resolve(projectDir);
   const root = real(projectDir);
   return findTranscripts([sessionsDir]).filter((f) => {
     const cwd = codexSessionCwd(f);
     if (cwd === void 0) return false;
-    const dir = real(cwd);
-    return dir === root || dir.startsWith(root + path7.sep);
+    return inside(path7.resolve(cwd), written) || inside(real(cwd), root);
   });
 }
 function findTranscripts(sources) {
@@ -16530,7 +16534,7 @@ function initAntigravity(opts, root, spec, res) {
   mcp.mcpServers = servers;
   writeIfChanged(mcpFile, JSON.stringify(mcp, null, 2) + "\n", res, dir);
   writeAgentsSkills(root, dir, res);
-  if (notesLinked(trodPaths(dir))) {
+  if (existsSync8(path8.join(dir, ".trod", "notes.md")) && notesLinked(trodPaths(dir))) {
     const rule = linkAntigravityNotes(trodPaths(dir));
     if (rule === "written") res.written.push(ANTIGRAVITY_NOTES_RULE);
     else if (rule === "exists") res.unchanged.push(ANTIGRAVITY_NOTES_RULE);
@@ -16590,7 +16594,7 @@ function initCodex(opts, root, spec, res) {
   writeIfChanged(file, next, res, dir);
   if (featuresTable && !/^\s*mcp_tool_list_changed\s*=\s*true/m.test(outside)) res.notes.push(`${path8.relative(dir, file)} has its own [features] table: add \`mcp_tool_list_changed = true\` to it so tools written mid-session appear in Codex's tool list.`);
   writeAgentsSkills(root, dir, res);
-  if (notesLinked(trodPaths(dir))) {
+  if (existsSync8(path8.join(dir, ".trod", "notes.md")) && notesLinked(trodPaths(dir))) {
     const notes = linkCodexNotes(trodPaths(dir));
     if (notes === "written") res.written.push(codexNotesFile(trodPaths(dir)));
     else if (notes === "exists") res.unchanged.push(codexNotesFile(trodPaths(dir)));
@@ -16666,7 +16670,11 @@ function sessionMetrics(file) {
     }
   } else {
     for (const e of events) {
-      if (e.type === "user" && JSON.stringify(e.message?.content ?? "").includes(LEARN_RUN_MARKER)) m.trodRun = true;
+      if (e.type === "user") {
+        const content = e.message?.content;
+        const texts = typeof content === "string" ? [content] : Array.isArray(content) ? content.filter((c) => c?.type === "text").map((c) => c.text ?? "") : [];
+        if (texts.some((t) => t.includes(LEARN_RUN_MARKER))) m.trodRun = true;
+      }
       if (e.isSidechain) continue;
       const msg = e.message;
       if (e.type === "user" && msg && !e.isMeta) {

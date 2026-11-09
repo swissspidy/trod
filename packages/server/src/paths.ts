@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { homedir } from 'node:os';
 import path from 'node:path';
 import type { TrodPaths } from './types.ts';
 
@@ -11,7 +12,10 @@ export function resolveProjectDir(env: NodeJS.ProcessEnv = process.env, cwd = pr
   const configured = env.TROD_PROJECT_DIR || env.CLAUDE_PROJECT_DIR;
   if (configured) return path.resolve(configured);
   const start = path.resolve(cwd);
+  const home = path.resolve(homedir());
   for (let dir = start; ; dir = path.dirname(dir)) {
+    // The home folder is never a project found by walking up: ~/.codex is Codex's own folder, not a project's.
+    if (dir === home && dir !== start) return start;
     if (existsSync(path.join(dir, '.trod')) || existsSync(path.join(dir, '.codex'))) return dir;
     if (existsSync(path.join(dir, '.git')) || path.dirname(dir) === dir) return start;
   }
