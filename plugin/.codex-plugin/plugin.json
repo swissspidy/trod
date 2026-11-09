@@ -1,0 +1,11 @@
+{
+  "name": "trod",
+  "version": "0.0.0",
+  "description": "Self-morphing tools: files in .trod/tools become live MCP tools mid-session, plus notes learned from past sessions.",
+  "skills": "./agents/skills/",
+  "mcpServers": "./.codex-mcp.json",
+  "interface": {
+    "displayName": "trod",
+    "category": "Productivity"
+  }
+}

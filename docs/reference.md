@@ -106,9 +106,32 @@ run its tools), or for your machine by setting `TROD_ALLOW_EXEC=1` in the enviro
 on, Antigravity still asks before each MCP tool call unless you allowed it. Antigravity's PostToolUse hooks
 cannot send messages to the agent, so instead of the validation hook the skill tells the agent to check
 `trod_status` after writing a tool. `trod forge` and `trod learn` run Claude Code sessions, so they need the
-`claude` CLI; `trod learn` reads Claude Code's transcripts, not Antigravity's. Verified here with an MCP client that
+`claude` CLI; `trod learn` reads Claude Code's and Codex's transcripts, not Antigravity's. Verified here with an MCP client that
 behaves like Antigravity (starts the server in an empty home directory, reports a workspace root); not yet tested in
 Antigravity itself.
+
+**Codex**, per repository (tested with the Codex CLI 0.167: it loads the config, starts the server in the folder it
+runs in and the server finds the project; no model calls were made):
+
+```sh
+npx trod init --codex --allow-exec   # .codex/config.toml, .agents/skills/, .gitignore entries
+```
+
+`trod init --codex` adds a marked block to `.codex/config.toml` (the rest of the file is kept): the server through
+`npx -y trod@<version> mcp`, and the `mcp_tool_list_changed` feature, which makes tools written mid-session appear in
+Codex's tool list (without it, `trod_run` and `trod_eval` still call them). If the file already has a `[features]`
+table, add `mcp_tool_list_changed = true` there yourself (init says so). Codex reads a project's `.codex/config.toml`
+only once you trust the project. It starts project servers in the folder Codex runs in and sends no MCP roots, so
+trod walks up from there to the nearest folder with `.trod/` (stopping at the git root). The skills go to
+`.agents/skills/` (the same files Antigravity reads), and `trod forge`, `trod learn`, `trod notes --link` and `trod init
+--codex` (once notes exist) add a block to `AGENTS.md` that tells Codex to read `.trod/notes.md`, in projects with a
+`.codex/` folder. `trod learn` reads Codex's sessions too (`$CODEX_HOME/sessions`, default `~/.codex/sessions`, those
+that ran in the project or a folder inside it); `trod forge` and `trod learn` still run Claude Code as their engine.
+
+As a plugin for every project, `codex plugin marketplace add swissspidy/trod` and `codex plugin add trod@trod`
+install `plugin/.codex-plugin/plugin.json`: the skills and the server through `npx` (Codex does not expand the
+plugin's own path in a server's arguments, so the plugin runs the published package), with execution off and no
+hooks. Untested: Codex only started plugin servers in a signed-in session, which this repository's tests cannot do.
 
 **Other MCP clients** (Cursor, VS Code, ...): run `npx -y trod mcp` as a stdio server, with `TROD_ALLOW_EXEC=1` in
 its environment and the project directory as its working directory, `TROD_PROJECT_DIR`, or an MCP root.

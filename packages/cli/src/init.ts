@@ -1,7 +1,7 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ANTIGRAVITY_NOTES_RULE, linkAntigravityNotes, trodPaths } from '@trod/server';
+import { ANTIGRAVITY_NOTES_RULE, CODEX_NOTES_FILE, linkAntigravityNotes, linkCodexNotes, trodPaths } from '@trod/server';
 
 /**
  * `trod init`: set a repository up so that every Claude Code session in it, local or cloud (including sessions
@@ -22,6 +22,8 @@ export interface InitOptions {
   allowExec?: boolean;
   /** Set the repository up for Antigravity (.agents/) instead of Claude Code. */
   antigravity?: boolean;
+  /** Set the repository up for Codex (.codex/config.toml, .agents/skills/, AGENTS.md) instead of Claude Code. */
+  codex?: boolean;
 }
 
 export interface InitResult {
@@ -68,7 +70,9 @@ export function init(opts: InitOptions): InitResult {
   const res: InitResult = { written: [], unchanged: [], notes: [] };
   const version = packageVersion(root);
   const spec = version ? `trod@${version}` : 'trod';
+  if (opts.antigravity && opts.codex) throw new Error('trod init: pick one of --antigravity and --codex (run it twice to set up both)');
   if (opts.antigravity) return initAntigravity(opts, root, spec, res);
+  if (opts.codex) return initCodex(opts, root, spec, res);
 
   // How sessions start the server and the CLI.
   let server: { command: string; args: string[] };
@@ -150,11 +154,7 @@ function initAntigravity(opts: InitOptions, root: string, spec: string, res: Ini
   servers.trod = { command: 'npx', args: ['-y', spec, 'mcp'], ...(Object.keys(env).length ? { env } : {}) };
   mcp.mcpServers = servers;
   writeIfChanged(mcpFile, JSON.stringify(mcp, null, 2) + '\n', res, dir);
-  for (const name of ['trod', 'trod-learn']) {
-    const skill = path.join(root, 'antigravity', 'skills', name, 'SKILL.md');
-    if (existsSync(skill)) writeIfChanged(path.join(dir, '.agents', 'skills', name, 'SKILL.md'), readFileSync(skill, 'utf8'), res, dir);
-    else res.notes.push(`skill not found at ${skill}; skipped`);
-  }
+  writeAgentsSkills(root, dir, res);
   if (existsSync(path.join(dir, '.trod', 'notes.md'))) {
     const rule = linkAntigravityNotes(trodPaths(dir));
     if (rule === 'written') res.written.push(ANTIGRAVITY_NOTES_RULE);
@@ -165,6 +165,75 @@ function initAntigravity(opts: InitOptions, root: string, spec: string, res: Ini
   res.notes.push('trod forge and trod learn add .agents/rules/trod-notes.md, which loads .trod/notes.md into every Antigravity conversation.');
   if (opts.allowExec) res.notes.push('TROD_ALLOW_EXEC=1 is set in .agents/mcp_config.json: tool code runs outside the terminal sandbox. Antigravity still asks before each MCP tool call unless you allow it.');
   else res.notes.push('Tools are registered but not executed until TROD_ALLOW_EXEC=1 is set (re-run with --allow-exec).');
+  return res;
+}
+
+/** The skills Antigravity and Codex both read from .agents/skills/. */
+function writeAgentsSkills(root: string, dir: string, res: InitResult): void {
+  for (const name of ['trod', 'trod-learn']) {
+    const skill = path.join(root, 'agents', 'skills', name, 'SKILL.md');
+    if (existsSync(skill)) writeIfChanged(path.join(dir, '.agents', 'skills', name, 'SKILL.md'), readFileSync(skill, 'utf8'), res, dir);
+    else res.notes.push(`skill not found at ${skill}; skipped`);
+  }
+}
+
+const TOML_BEGIN = '# >>> trod (managed by `trod init --codex`; edits inside this block are replaced)';
+const TOML_END = '# <<< trod';
+
+/**
+ * The trod block of .codex/config.toml: the server (Codex starts project servers in the folder it runs in, and trod
+ * finds the project from there) and, unless the file already has a [features] table, the feature that makes tools
+ * written mid-session appear in Codex's tool list.
+ */
+export function codexConfigBlock(spec: string, opts: { allowExec?: boolean; env?: Record<string, string>; featuresTable: boolean }): string {
+  const q = (v: string) => JSON.stringify(v);
+  const env = { ...opts.env, ...(opts.allowExec ? { TROD_ALLOW_EXEC: '1' } : {}) };
+  const lines = [TOML_BEGIN, '[mcp_servers.trod]', 'command = "npx"', `args = ["-y", ${q(spec)}, "mcp"]`, 'startup_timeout_sec = 60', 'tool_timeout_sec = 600'];
+  if (Object.keys(env).length) lines.push('', '[mcp_servers.trod.env]', ...Object.entries(env).map(([k, v]) => `${k} = ${q(v)}`));
+  if (!opts.featuresTable) lines.push('', '# Tools written mid-session appear in the tool list (trod_run calls them either way).', '[features]', 'mcp_tool_list_changed = true');
+  lines.push(TOML_END);
+  return `${lines.join('\n')}\n`;
+}
+
+/**
+ * `trod init --codex`: .codex/config.toml (the trod server through npx, merged as a marked block), the .agents/
+ * skills Codex reads, and a block in AGENTS.md that points Codex at .trod/notes.md. Codex loads a project's
+ * .codex/config.toml only once the project is trusted.
+ */
+function initCodex(opts: InitOptions, root: string, spec: string, res: InitResult): InitResult {
+  const dir = opts.projectDir;
+  if (opts.vendor) throw new Error('trod init --codex: --vendor is not supported yet (Codex starts project servers in the folder it runs in, which may be a subfolder)');
+  const file = path.join(dir, '.codex', 'config.toml');
+  const current = existsSync(file) ? readFileSync(file, 'utf8') : '';
+  const begin = current.indexOf(TOML_BEGIN);
+  const end = current.indexOf(TOML_END, begin);
+  const outside = begin >= 0 && end > begin ? current.slice(0, begin) + current.slice(end + TOML_END.length) : current;
+  if (/^\s*\[mcp_servers\.trod(\.env)?\]/m.test(outside)) throw new Error(`trod init --codex: ${path.relative(dir, file)} already defines [mcp_servers.trod] outside trod's block; remove it and run again`);
+  // Keep variables the user put in our block (e.g. TROD_PROJECT_DIR).
+  const previousEnv: Record<string, string> = {};
+  if (begin >= 0 && end > begin) {
+    const envPart = current.slice(begin, end).split('[mcp_servers.trod.env]')[1]?.split(/^\s*\[/m)[0] ?? '';
+    for (const m of envPart.matchAll(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"((?:[^"\\]|\\.)*)"/gm)) previousEnv[m[1]] = JSON.parse(`"${m[2]}"`);
+  }
+  const featuresTable = /^\s*\[features\]/m.test(outside);
+  const block = codexConfigBlock(spec, { allowExec: opts.allowExec, env: previousEnv, featuresTable });
+  const next = begin >= 0 && end > begin ? current.slice(0, begin) + block.trimEnd() + current.slice(end + TOML_END.length) : `${current}${current && !current.endsWith('\n') ? '\n' : ''}${current ? '\n' : ''}${block}`;
+  writeIfChanged(file, next, res, dir);
+  if (featuresTable && !/^\s*mcp_tool_list_changed\s*=\s*true/m.test(outside)) res.notes.push(`${path.relative(dir, file)} has its own [features] table: add \`mcp_tool_list_changed = true\` to it so tools written mid-session appear in Codex's tool list.`);
+  writeAgentsSkills(root, dir, res);
+  if (existsSync(path.join(dir, '.trod', 'notes.md'))) {
+    const notes = linkCodexNotes(trodPaths(dir));
+    if (notes === 'written') res.written.push(CODEX_NOTES_FILE);
+    else if (notes === 'exists') res.unchanged.push(CODEX_NOTES_FILE);
+    else if (typeof notes === 'object') res.notes.push(notes.error);
+  }
+  addIgnores(dir, res);
+  res.notes.push('Codex loads .codex/config.toml only in trusted projects: trust this one when Codex asks (or with `codex --cd <repo>` once).');
+  res.notes.push('trod forge and trod learn add a block to AGENTS.md that points Codex at .trod/notes.md.');
+  res.notes.push('Run Codex from the repository root or a folder inside it; trod finds the project by walking up to the nearest .trod/ folder.');
+  if (opts.allowExec) res.notes.push('TROD_ALLOW_EXEC=1 is set in .codex/config.toml: tool code runs outside Codex\'s sandbox. Codex still applies its approval settings to MCP tool calls.');
+  else res.notes.push('Tools are registered but not executed until TROD_ALLOW_EXEC=1 is set (re-run with --allow-exec).');
+  res.notes.push('trod forge and trod learn still run Claude Code (the `claude` CLI) as their engine; trod learn also reads your Codex sessions.');
   return res;
 }
 

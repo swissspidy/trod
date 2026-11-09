@@ -7,8 +7,9 @@ description: Build your own MCP tools mid-task with trod. Use when you are about
 
 trod turns files in `.trod/tools/` into live tools. You write one file; trod validates it and registers it in the
 same conversation. **Call it with the trod tool `trod_run` and `{"tool": "<name>", "input": {…}}`**: it runs any
-trod tool by name, with nothing to load first. In your tool list the trod tools carry an MCP prefix (for example
-`mcp_trod_server_trod_run`); if they are not listed, call them through `call_mcp_tool`.
+trod tool by name, with nothing to load first. In your tool list the trod tools carry an MCP prefix (in Antigravity
+for example `mcp_trod_server_trod_run`, in Codex the `trod` server's `trod_run`); in Antigravity, if they are not
+listed, call them through `call_mcp_tool`.
 
 ## When
 
@@ -83,14 +84,18 @@ and `projectDir` are available.
 
 Tools in `.trod/library/` were built and promoted earlier, and their examples pass. Call them directly; read
 their source only when a call fails. `.trod/notes.md` holds rules about this project's environment, written by
-`trod forge` or `trod learn` and loaded through `.agents/rules/trod-notes.md`. Follow them; if a note is wrong,
+`trod forge` or `trod learn` and loaded through `.agents/rules/trod-notes.md` (Antigravity) or `AGENTS.md` (Codex).
+Read and follow them; if a note is wrong,
 say so instead of silently working around it.
 
 ## Rules
 
 - Tool code runs outside the terminal sandbox, in a subprocess with a timeout. Antigravity asks before each MCP
-  tool call unless you allowed it. Keep tools inside the project directory and the hosts the task needs.
+  tool call unless you allowed it; Codex follows its approval settings. Keep tools inside the project directory and
+  the hosts the task needs.
 - Execution only works when the server has `TROD_ALLOW_EXEC=1`, which the user turns on per repository or machine.
   If trod says execution is disabled, use the terminal instead; do not change the setting yourself.
-- If `trod_status` reports the home directory as the project, Antigravity did not tell trod which workspace you
+- If `trod_status` reports the home directory as the project, the client did not tell trod which workspace you
   are in: ask the user to set `TROD_PROJECT_DIR` for the trod server.
+- In Codex, a tool you just wrote shows up in your tool list only with the `mcp_tool_list_changed` feature on
+  (`trod init --codex` turns it on); `trod_run` calls it either way.

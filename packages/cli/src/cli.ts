@@ -1,23 +1,24 @@
 import { existsSync, mkdtempSync, readdirSync, readFileSync } from 'node:fs';
 import { defaultServerPath, forge, type ForgeResult } from './forge.ts';
-import { acquireLearnLock, checkLedgerHistory, digestTranscript, findTranscripts, LEARN_PROMPT, LEDGER_FILE, readLearnState, readLedger, readOutcomes, summarizeLedger, transcriptDir, writeDigests, writeLearnState, type SessionDigest } from './learn.ts';
+import { acquireLearnLock, checkLedgerHistory, digestTranscript, findTranscripts, LEARN_PROMPT, LEDGER_FILE, readLearnState, readLedger, readOutcomes, summarizeLedger, transcriptDir, codexSessionsDir, codexTranscripts, writeDigests, writeLearnState, type SessionDigest } from './learn.ts';
 import { tmpdir } from 'node:os';
 import { defaultPackageRoot, init, packageVersion } from './init.ts';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
-import { ANTIGRAVITY_NOTES_RULE, linkAntigravityNotes, computeStats, formatStats, linkNotes, listToolEntries, loadToolEntry, NOTES_IMPORT, NOTES_MAX_CHARS, promoteTool, readLogs, resolveProjectDir, runToolExamples, trodPaths, verifyNotes, type NotesReport } from '@trod/server';
+import { ANTIGRAVITY_NOTES_RULE, CODEX_NOTES_FILE, linkAntigravityNotes, linkCodexNotes, computeStats, formatStats, linkNotes, listToolEntries, loadToolEntry, NOTES_IMPORT, NOTES_MAX_CHARS, promoteTool, readLogs, resolveProjectDir, runToolExamples, trodPaths, verifyNotes, type NotesReport } from '@trod/server';
 
 const USAGE = `trod: self-morphing tools for Claude Code
 
 Usage:
-  trod init [--vendor] [--allow-exec] [--antigravity]
+  trod init [--vendor] [--allow-exec] [--antigravity | --codex]
                            Set this repository up for trod in every Claude Code session, local or cloud (also
                            sessions started from the mobile app): writes .mcp.json, .claude/settings.json and the
                            skill. --vendor copies the server into .trod/pkg instead of running it through npx;
                            --allow-exec lets tools run (TROD_ALLOW_EXEC=1; meant for ephemeral cloud containers).
                            --antigravity sets the repository up for Antigravity instead (.agents/mcp_config.json,
-                           the skill, and a rule that loads the notes)
+                           the skill, and a rule that loads the notes); --codex sets it up for Codex
+                           (.codex/config.toml, the skills in .agents/skills/, a notes block in AGENTS.md)
   trod mcp                 Start the trod MCP server on stdio (for any MCP client)
   trod promote <name>      Move .trod/tools/<name> to .trod/library/<name> (commit the library)
   trod stats [--json]      Summarize tool usage across .trod/logs/*.jsonl
@@ -77,6 +78,7 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       vendor: { type: 'boolean', default: false },
       'allow-exec': { type: 'boolean', default: false },
       antigravity: { type: 'boolean', default: false },
+      codex: { type: 'boolean', default: false },
       version: { type: 'boolean', short: 'v', default: false },
     },
   });
@@ -113,7 +115,7 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
     case 'init': {
       let res;
       try {
-        res = init({ projectDir: paths.projectDir, vendor: values.vendor, allowExec: values['allow-exec'], antigravity: values.antigravity });
+        res = init({ projectDir: paths.projectDir, vendor: values.vendor, allowExec: values['allow-exec'], antigravity: values.antigravity, codex: values.codex });
       } catch (err) {
         out((err as Error).message);
         return 1;
@@ -121,7 +123,7 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       for (const f of res.written) out(`wrote     ${f}`);
       for (const f of res.unchanged) out(`unchanged ${f}`);
       for (const n of res.notes) out(n);
-      out(values.antigravity ? 'Commit these files. Antigravity starts trod from .agents/mcp_config.json in this workspace.' : 'Commit these files. Local sessions and cloud sessions (also from the mobile app) start trod from .mcp.json.');
+      out(values.antigravity ? 'Commit these files. Antigravity starts trod from .agents/mcp_config.json in this workspace.' : values.codex ? 'Commit these files. Codex starts trod from .codex/config.toml once you trust the project.' : 'Commit these files. Local sessions and cloud sessions (also from the mobile app) start trod from .mcp.json.');
       return 0;
     }
     case 'promote': {
@@ -172,7 +174,8 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
         out('trod learn: --reset needs --practice');
         return 1;
       }
-      const sources = values.from?.length ? values.from.map((f) => path.resolve(f)) : [transcriptDir(paths.projectDir)];
+      // Claude Code's transcripts of this project, and Codex's sessions that ran in it.
+      const sources = values.from?.length ? values.from.map((f) => path.resolve(f)) : [transcriptDir(paths.projectDir), ...codexTranscripts(paths.projectDir)];
       const outcomes = values.outcomes ? readOutcomes(values.outcomes) : undefined;
       const limit = values.limit ? Number(values.limit) : 200;
       if (!Number.isInteger(limit) || limit < 1) {
@@ -208,7 +211,7 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
             out(`trod learn: no session transcripts found in ${sources.join(', ')}`);
             return 1;
           }
-          out(skipped ? `learn: nothing new since the last run (${state.lastRun ?? 'unknown'}; ${skipped} session(s) already learned from). --all learns from them again.` : `learn: nothing to learn from yet (no sessions of this project in ${sources.join(', ')})`);
+          out(skipped ? `learn: nothing new since the last run (${state.lastRun ?? 'unknown'}; ${skipped} session(s) already learned from). --all learns from them again.` : `learn: nothing to learn from yet (no sessions of this project in ${values.from?.length ? sources.join(', ') : `${transcriptDir(paths.projectDir)} or ${codexSessionsDir()}`})`);
           return 0;
         }
         const dir = mkdtempSync(path.join(tmpdir(), 'trod-learn-'));
@@ -281,6 +284,9 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
           const rule = linkAntigravityNotes(paths);
           if (rule === 'written') out(`linked .trod/notes.md into Antigravity (${ANTIGRAVITY_NOTES_RULE})`);
           else if (typeof rule === 'object') out(rule.error);
+          const codex = linkCodexNotes(paths);
+          if (codex === 'written') out(`linked .trod/notes.md into Codex (${CODEX_NOTES_FILE})`);
+          else if (typeof codex === 'object') out(codex.error);
         }
       }
       if (values.json) out(JSON.stringify(notes, null, 2));

@@ -52,7 +52,8 @@ ones included, loads it.
 
 Or install the Claude Code plugin: `claude plugin marketplace add swissspidy/trod`, then
 `claude plugin install trod@trod`. In Antigravity: `agy plugin install https://github.com/swissspidy/trod` (or
-`npx trod init --antigravity` per repository; execution stays off until you opt in, see the reference). Other MCP clients run `npx -y trod mcp`.
+`npx trod init --antigravity` per repository; execution stays off until you opt in, see the reference). In Codex:
+`npx trod init --codex` per repository (`trod learn` reads Codex sessions too). Other MCP clients run `npx -y trod mcp`.
 
 ## How it works
 
