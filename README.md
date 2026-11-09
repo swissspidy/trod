@@ -9,7 +9,7 @@ cost per run ([site](https://swissspidy.github.io/trod/), [all experiments](http
 
 | Haiku 5.5, solved | alone | with forged notes |
 |---|---|---|
-| [MiniWoB++](results-9/README.md), 30 hardest web task types | 68% | **90%** (91% after three rounds of [learning from past sessions](results-12/README.md)) |
+| [MiniWoB++](results-9/README.md), 30 hardest web task types | 68% | **90%** (91% after three rounds of [learning from past sessions](results-12/README.md), 94% after [validated tuning](results-13/README.md); 97% of the scoreable runs) |
 | [ScienceWorld](results-8/README.md), 30 science task types | 52% | **89%** |
 | [AppWorld](results-6/README.md), everyday app chores | 87.5% | **95%** (`trod forge`'s own notes: 87–90%) |
 | [BIRD](results-7/README.md) text-to-SQL (each question needs its own fact) | 61% | 63% |
@@ -97,7 +97,7 @@ Tool code runs outside Claude Code's permission prompts, so execution is off unl
 
 - [Reference](docs/reference.md): tool format, every install route (plugin, `trod init`, cloud environments, other
   MCP clients), CLI, configuration, releasing.
-- [Experiments](experiments/) and results: [round 1](results/README.md) … [round 12](results-12/README.md);
+- [Experiments](experiments/) and results: [round 1](results/README.md) … [round 13](results-13/README.md);
   decisions in [docs/adr](docs/adr/); [distribution](docs/distribution.md); [changelog](plugin/CHANGELOG.md).
 
 ```sh

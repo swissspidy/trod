@@ -1,0 +1,370 @@
+{
+  "test": {
+    "runs": 150,
+    "solved": 141,
+    "fullCredit": 136,
+    "scoreableRuns": 145,
+    "solvedScoreable": 141
+  },
+  "round12": {
+    "solved": 137,
+    "fullCredit": 122
+  },
+  "tuning": {
+    "iterations": 3,
+    "proposerCostUsd": 10.26,
+    "accepted": [
+      "button-delay",
+      "click-button-sequence",
+      "click-checkboxes-soft",
+      "click-menu",
+      "click-test-2",
+      "click-test-transfer",
+      "draw-circle",
+      "hot-cold",
+      "right-angle",
+      "tic-tac-toe",
+      "stock-market"
+    ],
+    "history": [
+      {
+        "iteration": 1,
+        "type": "button-delay",
+        "parent": {
+          "solved": 5,
+          "reward": 4.6
+        },
+        "candidate": {
+          "solved": 5,
+          "reward": 5
+        },
+        "accepted": true,
+        "proposerCost": 0.23133000000000004
+      },
+      {
+        "iteration": 1,
+        "type": "click-button-sequence",
+        "parent": {
+          "solved": 5,
+          "reward": 5
+        },
+        "candidate": {
+          "solved": 6,
+          "reward": 6
+        },
+        "accepted": true,
+        "proposerCost": 0.2423346
+      },
+      {
+        "iteration": 1,
+        "type": "click-checkboxes-soft",
+        "parent": {
+          "solved": 6,
+          "reward": 5.6
+        },
+        "candidate": {
+          "solved": 6,
+          "reward": 6
+        },
+        "accepted": true,
+        "proposerCost": 0.1720446
+      },
+      {
+        "iteration": 1,
+        "type": "click-menu",
+        "parent": {
+          "solved": 5,
+          "reward": 5
+        },
+        "candidate": {
+          "solved": 6,
+          "reward": 6
+        },
+        "accepted": true,
+        "proposerCost": 0.26708980000000004
+      },
+      {
+        "iteration": 1,
+        "type": "click-test-2",
+        "parent": {
+          "solved": 5,
+          "reward": 5
+        },
+        "candidate": {
+          "solved": 6,
+          "reward": 6
+        },
+        "accepted": true,
+        "proposerCost": 0.1835954
+      },
+      {
+        "iteration": 1,
+        "type": "click-test-transfer",
+        "parent": {
+          "solved": 5,
+          "reward": 5
+        },
+        "candidate": {
+          "solved": 6,
+          "reward": 6
+        },
+        "accepted": true,
+        "proposerCost": 0.1924976
+      },
+      {
+        "iteration": 1,
+        "type": "draw-circle",
+        "parent": {
+          "solved": 6,
+          "reward": 3
+        },
+        "candidate": {
+          "solved": 6,
+          "reward": 6
+        },
+        "accepted": true,
+        "proposerCost": 0.518876
+      },
+      {
+        "iteration": 1,
+        "type": "email-inbox-nl-turk",
+        "parent": {
+          "solved": 6,
+          "reward": 6
+        },
+        "candidate": {
+          "solved": 6,
+          "reward": 6
+        },
+        "accepted": false,
+        "proposerCost": 0.38621939999999993
+      },
+      {
+        "iteration": 1,
+        "type": "enter-date",
+        "parent": {
+          "solved": 6,
+          "reward": 6
+        },
+        "candidate": {
+          "solved": 6,
+          "reward": 6
+        },
+        "accepted": false,
+        "proposerCost": 0.18324160000000003
+      },
+      {
+        "iteration": 1,
+        "type": "hot-cold",
+        "parent": {
+          "solved": 2,
+          "reward": 0.75
+        },
+        "candidate": {
+          "solved": 6,
+          "reward": 6
+        },
+        "accepted": true,
+        "proposerCost": 0.9931512
+      },
+      {
+        "iteration": 1,
+        "type": "hover-shape",
+        "parent": {
+          "solved": 0,
+          "reward": 0
+        },
+        "accepted": false,
+        "proposerCost": 0.5565477999999999
+      },
+      {
+        "iteration": 1,
+        "type": "right-angle",
+        "parent": {
+          "solved": 3,
+          "reward": 1.732
+        },
+        "candidate": {
+          "solved": 6,
+          "reward": 5.937
+        },
+        "accepted": true,
+        "proposerCost": 0.5053546
+      },
+      {
+        "iteration": 1,
+        "type": "tic-tac-toe",
+        "parent": {
+          "solved": 5,
+          "reward": 5
+        },
+        "candidate": {
+          "solved": 6,
+          "reward": 6
+        },
+        "accepted": true,
+        "proposerCost": 0.582708
+      },
+      {
+        "iteration": 1,
+        "type": "visual-addition",
+        "parent": {
+          "solved": 6,
+          "reward": 6
+        },
+        "candidate": {
+          "solved": 6,
+          "reward": 6
+        },
+        "accepted": false,
+        "proposerCost": 0.34956279999999995
+      },
+      {
+        "iteration": 2,
+        "type": "hover-shape",
+        "parent": {
+          "solved": 0,
+          "reward": 0
+        },
+        "accepted": false,
+        "proposerCost": 0.3889762
+      },
+      {
+        "iteration": 2,
+        "type": "right-angle",
+        "parent": {
+          "solved": 6,
+          "reward": 5.937
+        },
+        "candidate": {
+          "solved": 6,
+          "reward": 5.983
+        },
+        "accepted": false,
+        "proposerCost": 0.6014004000000001
+      },
+      {
+        "iteration": 2,
+        "type": "social-media-all",
+        "parent": {
+          "solved": 6,
+          "reward": 6
+        },
+        "candidate": {
+          "solved": 6,
+          "reward": 6
+        },
+        "accepted": false,
+        "proposerCost": 0.6460542
+      },
+      {
+        "iteration": 2,
+        "type": "stock-market",
+        "parent": {
+          "solved": 4,
+          "reward": 4
+        },
+        "candidate": {
+          "solved": 5,
+          "reward": 5
+        },
+        "accepted": true,
+        "proposerCost": 0.503059
+      },
+      {
+        "iteration": 2,
+        "type": "tic-tac-toe",
+        "parent": {
+          "solved": 6,
+          "reward": 6
+        },
+        "candidate": {
+          "solved": 6,
+          "reward": 6
+        },
+        "accepted": false,
+        "proposerCost": 0.5595726
+      },
+      {
+        "iteration": 3,
+        "type": "button-delay",
+        "parent": {
+          "solved": 5,
+          "reward": 5
+        },
+        "candidate": {
+          "solved": 5,
+          "reward": 5
+        },
+        "accepted": false,
+        "proposerCost": 0.2840334
+      },
+      {
+        "iteration": 3,
+        "type": "click-menu-2",
+        "parent": {
+          "solved": 6,
+          "reward": 6
+        },
+        "candidate": {
+          "solved": 6,
+          "reward": 6
+        },
+        "accepted": false,
+        "proposerCost": 0.41175620000000007
+      },
+      {
+        "iteration": 3,
+        "type": "enter-date",
+        "parent": {
+          "solved": 6,
+          "reward": 6
+        },
+        "candidate": {
+          "solved": 6,
+          "reward": 6
+        },
+        "accepted": false,
+        "proposerCost": 0.23754960000000003
+      },
+      {
+        "iteration": 3,
+        "type": "hover-shape",
+        "parent": {
+          "solved": 0,
+          "reward": 0
+        },
+        "accepted": false,
+        "proposerCost": 0.2674268
+      },
+      {
+        "iteration": 3,
+        "type": "right-angle",
+        "parent": {
+          "solved": 6,
+          "reward": 5.937
+        },
+        "candidate": {
+          "solved": 6,
+          "reward": 5.981
+        },
+        "accepted": false,
+        "proposerCost": 0.42973059999999996
+      },
+      {
+        "iteration": 3,
+        "type": "tic-tac-toe",
+        "parent": {
+          "solved": 6,
+          "reward": 6
+        },
+        "candidate": {
+          "solved": 6,
+          "reward": 6
+        },
+        "accepted": false,
+        "proposerCost": 0.56246
+      }
+    ]
+  }
+}
