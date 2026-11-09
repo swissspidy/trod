@@ -13,7 +13,7 @@
  *     --iterations 3 --as-user agent --out results/runs/aw-tune
  */
 import { spawn, spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 
@@ -65,6 +65,17 @@ const log = (s: string) => {
 
 /** Runs Haiku on an AppWorld split with the notes file; returns the results in that run dir. */
 async function runSplit(notes: string, split: string, seeds: number, out: string): Promise<{ passed: number; runs: number; missing: number }> {
+  // The runner skips runs that have a result.json and retries the rest: one extra pass covers runs lost to infrastructure.
+  let t = { passed: 0, runs: 0, missing: 0 };
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await runnerPass(notes, split, seeds, out);
+    t = tally(out, seeds, split);
+    if (!t.missing) break;
+  }
+  return t;
+}
+
+async function runnerPass(notes: string, split: string, seeds: number, out: string): Promise<void> {
   const args = ['experiments/runner/run.ts', '--suite', `appworld:${split}`, '--arms', 'baseline', '--seeds', String(seeds), '--model', values.model!, '--parallel', values.parallel!, '--out', out];
   if (values['as-user']) args.push('--as-user', values['as-user']);
   await new Promise<void>((resolve, reject) => {
@@ -75,7 +86,6 @@ async function runSplit(notes: string, split: string, seeds: number, out: string
     child.on('error', reject);
     child.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`runner exited ${code}: ${tail}`))));
   });
-  return tally(out, seeds, split);
 }
 
 function tally(out: string, seeds: number, split: string): { passed: number; runs: number; missing: number } {
@@ -90,8 +100,15 @@ function tally(out: string, seeds: number, split: string): { passed: number; run
         missing++;
         continue;
       }
+      const r = JSON.parse(readFileSync(f, 'utf8')) as { check: { pass: boolean; infra?: boolean }; steps?: { check?: { infra?: boolean } }[] };
+      // An evaluator that failed for infrastructure reasons is not a task failure: drop it so the next runner pass retries it.
+      if (r.check.infra || r.steps?.some((st) => st.check?.infra)) {
+        rmSync(f);
+        missing++;
+        continue;
+      }
       runs++;
-      if ((JSON.parse(readFileSync(f, 'utf8')) as { check: { pass: boolean } }).check.pass) passed++;
+      if (r.check.pass) passed++;
     }
   return { passed, runs, missing };
 }
@@ -114,6 +131,8 @@ async function propose(iteration: number, notes: string, digest: string): Promis
   if (existsSync(cached)) return JSON.parse(readFileSync(cached, 'utf8'));
   const work = path.join(dir, 'work');
   const home = path.join(dir, 'home');
+  // A fresh directory per attempt: an interrupted earlier attempt's NOTES_NEW.md must not become this attempt's proposal.
+  rmSync(dir, { recursive: true, force: true });
   for (const d of [work, path.join(home, '.claude'), path.join(home, 'tmp')]) mkdirSync(d, { recursive: true });
   writeFileSync(path.join(home, '.claude', '.claude.json'), JSON.stringify({ hasCompletedOnboarding: true }));
   writeFileSync(path.join(work, 'NOTES.md'), notes);
@@ -126,7 +145,7 @@ async function propose(iteration: number, notes: string, digest: string): Promis
   if (user) spawnSync('chown', ['-R', `${user}:`, dir]);
   const args = ['-p', PROPOSER, '--model', values.proposer!, '--output-format', 'stream-json', '--verbose', '--max-budget-usd', '5', '--strict-mcp-config', '--allowedTools', 'Read,Write,Edit,Glob,Grep', '--disallowedTools', 'Bash,WebFetch,WebSearch,Task,Agent'];
   const [cmd, cargs] = user ? ['runuser', ['-u', user, '--', 'env', '-i', ...Object.entries(env).map(([k, v]) => `${k}=${v}`), 'claude', ...args]] : ['claude', args];
-  const stream = await new Promise<string>((resolve, reject) => {
+  const { stream, code } = await new Promise<{ stream: string; code: number | null }>((resolve, reject) => {
     const child = spawn(cmd as string, cargs as string[], { cwd: work, env: user ? undefined : env, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
     let text = '';
     child.stdout.on('data', (c: Buffer) => (text += c));
@@ -142,13 +161,15 @@ async function propose(iteration: number, notes: string, digest: string): Promis
       clearTimeout(timer);
       reject(err);
     });
-    child.on('close', () => {
+    child.on('close', (exit) => {
       clearTimeout(timer);
-      resolve(text);
+      resolve({ stream: text, code: exit });
     });
   });
   writeFileSync(path.join(dir, 'stream.jsonl'), stream);
-  const res = stream.split('\n').filter((l) => l.includes('"type":"result"')).map((l) => JSON.parse(l)).at(-1) ?? {};
+  const res = stream.split('\n').filter((l) => l.includes('"type":"result"')).map((l) => JSON.parse(l)).at(-1);
+  // A session that failed is not a proposal of "no change": throw (nothing cached) so a restart retries it.
+  if (code !== 0 || !res || res.is_error) throw new Error(`proposer session ${iteration} failed (exit ${code}${res?.subtype ? `, ${res.subtype}` : ''}); see ${path.join(dir, 'stream.jsonl')}`);
   const file = path.join(work, 'NOTES_NEW.md');
   const text = existsSync(file) ? readFileSync(file, 'utf8').trim() : '';
   const result = { notes: text && text.length <= NOTES_MAX * 1.1 ? `${text}\n` : undefined, costUsd: res.total_cost_usd ?? 0 };
@@ -173,10 +194,13 @@ const save = () => writeFileSync(statePath, JSON.stringify(state, null, 2));
 save();
 
 for (let it = state.iteration + 1; it <= ITERATIONS; it++) {
-  const trainDir = it === 1 && values['train-dir'] ? path.resolve(values['train-dir']) : path.join(OUT, `train-${it}`);
-  log(`iteration ${it}: practice on train with ${path.basename(state.notes)}${trainDir.endsWith(`train-${it}`) ? '' : ` (reusing ${trainDir})`}`);
-  const train = trainDir.endsWith(`train-${it}`) ? await runSplit(state.notes, 'train', 1, trainDir) : tally(trainDir, 1, 'train');
+  const reuse = it === 1 && !!values['train-dir'];
+  const trainDir = reuse ? path.resolve(values['train-dir']!) : path.join(OUT, `train-${it}`);
+  log(`iteration ${it}: practice on train with ${path.basename(state.notes)}${reuse ? ` (reusing ${trainDir})` : ''}`);
+  const train = reuse ? tally(trainDir, 1, 'train') : await runSplit(state.notes, 'train', 1, trainDir);
   log(`  train: ${train.passed}/${train.runs} passed${train.missing ? `, ${train.missing} missing` : ''}`);
+  // The digest must cover every train run: stop (state unchanged) rather than propose from part of the evidence.
+  if (train.missing) throw new Error(`iteration ${it}: ${train.missing} train run(s) missing; restart to retry them${reuse ? ' (or drop --train-dir)' : ''}`);
   const notes = readFileSync(state.notes, 'utf8');
   const proposal = await propose(it, notes, digestOf(trainDir));
   state.costUsd += proposal.costUsd;
@@ -188,10 +212,10 @@ for (let it = state.iteration + 1; it <= ITERATIONS; it++) {
   if (proposal.notes) {
     writeFileSync(candFile, proposal.notes);
     candidate = await runSplit(candFile, 'dev', VAL_SEEDS, path.join(OUT, `val-candidate-${it}`));
-    // Like with like: a run lost to an infrastructure failure on either side means no decision.
-    const complete = !parent.missing && !candidate.missing;
-    accepted = complete && candidate.passed >= parent.passed + MARGIN;
-    log(`  ${accepted ? 'ACCEPT' : 'reject'}: dev parent ${parent.passed}/${parent.runs} vs candidate ${candidate.passed}/${candidate.runs}${complete ? '' : ' (incomplete)'}`);
+    // Like with like: runs missing on either side mean no decision yet. Stop before saving, so a restart retries them.
+    if (parent.missing || candidate.missing) throw new Error(`iteration ${it}: dev comparison incomplete (parent ${parent.missing}, candidate ${candidate.missing} missing); restart to retry`);
+    accepted = candidate.passed >= parent.passed + MARGIN;
+    log(`  ${accepted ? 'ACCEPT' : 'reject'}: dev parent ${parent.passed}/${parent.runs} vs candidate ${candidate.passed}/${candidate.runs}`);
   }
   const next = path.join(OUT, `notes-${it}.md`);
   copyFileSync(accepted ? candFile : state.notes, next);

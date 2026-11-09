@@ -38,8 +38,9 @@ are kept in `rejected-candidate-*.md`.
 - **The other failures don't repeat.** The other 4 train failures were on 4 different tasks, one run each. On dev, one
   task failed in all three parent passes. It needs songs from every page of two Spotify lists (playlists and liked
   songs), and the notes already say to fetch all pages. Every other dev failure appeared once or twice in six runs.
-- **The proposals regressed.** The three rewrites restructured the notes and added rules drawn from four failures.
-  Each one did as well or worse on dev. Without validation, iteration 1's rewrite would have shipped and cost about
+- **The proposals did not improve dev.** The three rewrites restructured the notes and added rules drawn from four
+  failures. Two did worse on dev (106 vs 110, 111 vs 113). The third passed one run more (110 vs 109), short of the
+  two-run margin and within run-to-run variation. Without validation, iteration 1's rewrite would have shipped and cost about
   3.5 points.
 
 ## The three test misses
@@ -53,8 +54,8 @@ digest could not teach them.
 
 - AppWorld with the 6b notes sits at 97–98% on test and dev. The remaining failures are one grader bug, which matters
   on train only, and rare one-off misses spread across tasks.
-- Validated tuning is a safeguard as much as a lever. Here it found no improvement, and it stopped three plausible
-  rewrites that would each have scored the same or worse, one of them 3.5 points worse.
+- Validated tuning is a safeguard as much as a lever. Here it found no improvement. It stopped two plausible
+  rewrites that scored worse, one of them by 3.5 points, and a third whose one-run gain was within noise.
 - Moving the last two points would take scenario-specific knowledge the train split does not contain (Splitwise
   trips, multi-template emails) or more practice runs per task, so that rare misses show up in the digest.
 
