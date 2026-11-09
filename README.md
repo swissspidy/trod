@@ -11,7 +11,7 @@ cost per run ([site](https://swissspidy.github.io/trod/), [all experiments](http
 |---|---|---|
 | [MiniWoB++](results-9/README.md), 30 hardest web task types | 68% | **90%** (91% after three rounds of [learning from past sessions](results-12/README.md), 94% after [validated tuning](results-13/README.md), [95%](results-14/README.md) with an exact right angle: 98.6% of the scoreable runs) |
 | [ScienceWorld](results-8/README.md), 30 science task types | 52% | **89%** |
-| [AppWorld](results-6/README.md), everyday app chores | 87.5% | **95%** (`trod forge`'s own notes: 87–90%) |
+| [AppWorld](results-6/README.md), everyday app chores | 87.5% | **95%**, 97.5% when [re-measured](results-15/README.md); validated tuning found nothing better (`trod forge`'s own notes: 87–90%) |
 | [BIRD](results-7/README.md) text-to-SQL (each question needs its own fact) | 61% | 63% |
 | [SWE-bench Verified](results-5/README.md), Django (the model already knows it) | 79.6% | 79.1% (tool library) |
 
@@ -97,7 +97,7 @@ Tool code runs outside Claude Code's permission prompts, so execution is off unl
 
 - [Reference](docs/reference.md): tool format, every install route (plugin, `trod init`, cloud environments, other
   MCP clients), CLI, configuration, releasing.
-- [Experiments](experiments/) and results: [round 1](results/README.md) … [round 14](results-14/README.md);
+- [Experiments](experiments/) and results: [round 1](results/README.md) … [round 15](results-15/README.md);
   decisions in [docs/adr](docs/adr/); [distribution](docs/distribution.md); [changelog](plugin/CHANGELOG.md).
 
 ```sh
