@@ -1,0 +1,82 @@
+{
+  "test": {
+    "runs": 120,
+    "passed": 117,
+    "normal": 58,
+    "challenge": 59
+  },
+  "round6b": {
+    "runs": 120,
+    "passed": 114
+  },
+  "baselinePasses": {
+    "dev": "52/57",
+    "train": "86/90"
+  },
+  "tuning": {
+    "iterations": 3,
+    "proposerCostUsd": 1.18,
+    "history": [
+      {
+        "iteration": 1,
+        "train": {
+          "passed": 86,
+          "runs": 90,
+          "missing": 0
+        },
+        "parent": {
+          "passed": 110,
+          "runs": 114,
+          "missing": 0
+        },
+        "candidate": {
+          "passed": 106,
+          "runs": 114,
+          "missing": 0
+        },
+        "accepted": false,
+        "proposerCost": 0.386814
+      },
+      {
+        "iteration": 2,
+        "train": {
+          "passed": 86,
+          "runs": 90,
+          "missing": 0
+        },
+        "parent": {
+          "passed": 113,
+          "runs": 114,
+          "missing": 0
+        },
+        "candidate": {
+          "passed": 111,
+          "runs": 114,
+          "missing": 0
+        },
+        "accepted": false,
+        "proposerCost": 0.3948052
+      },
+      {
+        "iteration": 3,
+        "train": {
+          "passed": 86,
+          "runs": 90,
+          "missing": 0
+        },
+        "parent": {
+          "passed": 109,
+          "runs": 114,
+          "missing": 0
+        },
+        "candidate": {
+          "passed": 110,
+          "runs": 114,
+          "missing": 0
+        },
+        "accepted": false,
+        "proposerCost": 0.3991686
+      }
+    ]
+  }
+}
