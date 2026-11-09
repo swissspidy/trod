@@ -190,6 +190,9 @@ export function codexConfigBlock(spec: string, opts: { allowExec?: boolean; env?
   const q = (v: string) => JSON.stringify(v);
   const env = { ...opts.env, ...(opts.allowExec ? { TROD_ALLOW_EXEC: '1' } : {}) };
   const lines = [TOML_BEGIN, '[mcp_servers.trod]', 'command = "npx"', `args = ["-y", ${q(spec)}, "mcp"]`, 'startup_timeout_sec = 60', 'tool_timeout_sec = 600'];
+  // With execution on, the user chose to run trod tools: approve their calls, or `codex exec` (approval policy never)
+  // refuses every one ("MCP tool call requires approval").
+  if (opts.allowExec) lines.push('default_tools_approval_mode = "approve"');
   if (Object.keys(env).length) lines.push('', '[mcp_servers.trod.env]', ...Object.entries(env).map(([k, v]) => `${k} = ${q(v)}`));
   if (!opts.featuresTable) lines.push('', '# Tools written mid-session appear in the tool list (trod_run calls them either way).', '[features]', 'mcp_tool_list_changed = true');
   lines.push(TOML_END);
@@ -240,7 +243,7 @@ function initCodex(opts: InitOptions, root: string, spec: string, res: InitResul
   }
   addIgnores(dir, res);
   res.notes.push('Codex loads .codex/config.toml only in trusted projects: trust this one when Codex asks (or with `codex --cd <repo>` once).');
-  res.notes.push('trod forge and trod learn add a block to AGENTS.md that points Codex at .trod/notes.md.');
+  res.notes.push('trod forge, trod learn and trod notes --link keep a copy of .trod/notes.md in a block of AGENTS.md (Codex cannot import a file).');
   res.notes.push('Run Codex from the repository root or a folder inside it; trod finds the project by walking up to the nearest .trod/ folder.');
   if (opts.allowExec) res.notes.push('TROD_ALLOW_EXEC=1 is set in .codex/config.toml: tool code runs outside Codex\'s sandbox. Codex still applies its approval settings to MCP tool calls.');
   else res.notes.push('Tools are registered but not executed until TROD_ALLOW_EXEC=1 is set (re-run with --allow-exec).');

@@ -195,6 +195,12 @@ describe('trod_eval and library cards', () => {
     expect(err.isError).toBe(true);
     expect(err.text).toContain('nope');
     expect(trod.status()).toMatch(/double_it \[session\].*1 call/);
+    // Code that declares its own fs, path or require (as models do) runs instead of failing with a SyntaxError.
+    const own = await call('trod_eval', { code: "const fs = await import('node:fs'); const path = require('node:path'); return typeof fs.existsSync + ' ' + path.sep;" });
+    expect(own.isError).toBe(false);
+    expect(own.text).toBe(`function ${path.sep}`);
+    const unknown = await call('trod_run', { tool: 'nope', input: {} });
+    expect(unknown.text).toMatch(/unknown tool "nope"\. Tools are files in .*<name>\.mjs .*live: .*double_it/);
   });
 
   it('writes library tools with their evidence into the instructions', async () => {

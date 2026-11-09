@@ -7717,7 +7717,8 @@ async function loadToolFile(file, source, opts) {
     meta2 = JSON.parse(stdout);
   } catch (err) {
     const e = err;
-    const msg = (e.stderr || e.message).trim().split("\n").find((l) => /Error/.test(l)) ?? (e.stderr || e.message).trim().split("\n")[0];
+    const lines2 = (e.stderr || e.message).trim().split("\n");
+    const msg = lines2.find((l) => /^\s*([A-Z]\w*)?Error\b.*:/.test(l)) ?? lines2.find((l) => /Error/.test(l)) ?? lines2[0];
     tool.errors.push(`could not load ${path3.basename(file)}: ${msg}`);
     return tool;
   }
@@ -15875,7 +15876,8 @@ Verified notes about this project's environment, kept by trod (\`trod forge\`, \
 `;
 function linkAntigravityNotes(paths) {
   const rule = path5.join(paths.projectDir, ANTIGRAVITY_NOTES_RULE);
-  if (!existsSync5(path5.join(paths.projectDir, ".agents"))) return "skipped";
+  const agents = path5.join(paths.projectDir, ".agents");
+  if (!existsSync5(path5.join(agents, "mcp_config.json")) && !existsSync5(path5.join(agents, "rules"))) return "skipped";
   if (existsSync5(rule)) return "exists";
   try {
     mkdirSync3(path5.dirname(rule), { recursive: true });
@@ -15890,22 +15892,37 @@ function codexNotesFile(paths) {
   return existsSync5(path5.join(paths.projectDir, "AGENTS.override.md")) ? "AGENTS.override.md" : CODEX_NOTES_FILE;
 }
 var CODEX_NOTES_MARKER = "<!-- trod notes -->";
-var CODEX_NOTES_BLOCK = `${CODEX_NOTES_MARKER}
+var CODEX_NOTES_END = "<!-- /trod notes -->";
+function codexNotesBlock(notes) {
+  return `${CODEX_NOTES_MARKER}
 ## Project notes (trod)
 
-Before you start a task, read \`.trod/notes.md\`: verified rules about this project's environment, kept by trod
-(\`trod forge\`, \`trod learn\`, \`trod verify\`). Follow them; when its index lists a page in \`.trod/wiki/\` for
-your kind of task, read that page too.
+Verified rules about this project's environment, kept by trod in \`.trod/notes.md\` (\`trod forge\`, \`trod learn\`,
+\`trod verify\`; this copy is refreshed when they link the notes). Follow them; when they list a page in
+\`.trod/wiki/\` for your kind of task, read that page.
+
+${notes.trim()}
+${CODEX_NOTES_END}
 `;
+}
 function linkCodexNotes(paths) {
   const name = codexNotesFile(paths);
   const file = path5.join(paths.projectDir, name);
   if (!existsSync5(path5.join(paths.projectDir, ".codex")) && !existsSync5(file)) return "skipped";
+  const notesFile = notesPaths(paths).notes;
+  if (!existsSync5(notesFile)) return "skipped";
   try {
+    const block = codexNotesBlock(readFileSync4(notesFile, "utf8"));
     const current = existsSync5(file) ? readFileSync4(file, "utf8") : "";
-    if (current.includes(CODEX_NOTES_MARKER)) return "exists";
-    writeFileSync2(file, current ? `${current}${current.endsWith("\n") ? "" : "\n"}
-${CODEX_NOTES_BLOCK}` : CODEX_NOTES_BLOCK);
+    const start = current.indexOf(CODEX_NOTES_MARKER);
+    const end = start >= 0 ? current.indexOf(CODEX_NOTES_END, start) : -1;
+    let next;
+    if (start >= 0 && end > start) next = current.slice(0, start) + block.trimEnd() + current.slice(end + CODEX_NOTES_END.length);
+    else if (start >= 0) next = current.slice(0, start) + block;
+    else next = current ? `${current}${current.endsWith("\n") ? "" : "\n"}
+${block}` : block;
+    if (next === current) return "exists";
+    writeFileSync2(file, next);
     return "written";
   } catch (err) {
     return { error: `could not update ${name}: ${err.message}` };
@@ -16258,6 +16275,7 @@ function codexOutput(output) {
     } catch {
     }
   }
+  if (Array.isArray(value)) return { text: value.map((b) => b?.text ?? "").join("\n"), error: false };
   if (value && typeof value === "object") {
     const o = value;
     const text2 = typeof o.output === "string" ? o.output : typeof o.content === "string" ? o.content : JSON.stringify(value);
@@ -16266,6 +16284,14 @@ function codexOutput(output) {
   const text = String(value ?? "");
   return { text, error: /^(Exit code|Process exited with code):? *[1-9]/m.test(text) };
 }
+function codexFailedCalls(events) {
+  const failed = /* @__PURE__ */ new Set();
+  for (const e of events) {
+    const p = e.payload;
+    if (e.type === "event_msg" && p?.type === "item_completed" && p.item?.type === "McpToolCall" && p.item.id && (p.item.status === "failed" || p.item.result?.isError)) failed.add(p.item.id);
+  }
+  return failed;
+}
 function digestCodex(file, events, opts) {
   let task = opts.task ?? "";
   const steps = [];
@@ -16273,6 +16299,7 @@ function digestCodex(file, events, opts) {
   let errors = 0;
   let final = "";
   let learnRun = false;
+  const failedMcp = codexFailedCalls(events);
   for (const e of events) {
     if (e.type !== "response_item") continue;
     const item = e.payload ?? {};
@@ -16299,7 +16326,9 @@ function digestCodex(file, events, opts) {
       }
       steps.push(`CALL ${item.name}: ${clip(shown, 500)}`);
     } else if (item.type === "function_call_output" || item.type === "custom_tool_call_output") {
-      const { text, error: error2 } = codexOutput(item.output);
+      const out = codexOutput(item.output);
+      const text = out.text;
+      const error2 = out.error || item.call_id !== void 0 && failedMcp.has(item.call_id);
       if (error2) errors++;
       steps.push(`${error2 ? "ERROR" : "RESULT"}: ${clip(text.trim(), 700)}`);
     }
@@ -16559,6 +16588,7 @@ function codexConfigBlock(spec, opts) {
   const q = (v) => JSON.stringify(v);
   const env = { ...opts.env, ...opts.allowExec ? { TROD_ALLOW_EXEC: "1" } : {} };
   const lines2 = [TOML_BEGIN, "[mcp_servers.trod]", 'command = "npx"', `args = ["-y", ${q(spec)}, "mcp"]`, "startup_timeout_sec = 60", "tool_timeout_sec = 600"];
+  if (opts.allowExec) lines2.push('default_tools_approval_mode = "approve"');
   if (Object.keys(env).length) lines2.push("", "[mcp_servers.trod.env]", ...Object.entries(env).map(([k, v]) => `${k} = ${q(v)}`));
   if (!opts.featuresTable) lines2.push("", "# Tools written mid-session appear in the tool list (trod_run calls them either way).", "[features]", "mcp_tool_list_changed = true");
   lines2.push(TOML_END);
@@ -16602,7 +16632,7 @@ function initCodex(opts, root, spec, res) {
   }
   addIgnores(dir, res);
   res.notes.push("Codex loads .codex/config.toml only in trusted projects: trust this one when Codex asks (or with `codex --cd <repo>` once).");
-  res.notes.push("trod forge and trod learn add a block to AGENTS.md that points Codex at .trod/notes.md.");
+  res.notes.push("trod forge, trod learn and trod notes --link keep a copy of .trod/notes.md in a block of AGENTS.md (Codex cannot import a file).");
   res.notes.push("Run Codex from the repository root or a folder inside it; trod finds the project by walking up to the nearest .trod/ folder.");
   if (opts.allowExec) res.notes.push("TROD_ALLOW_EXEC=1 is set in .codex/config.toml: tool code runs outside Codex's sandbox. Codex still applies its approval settings to MCP tool calls.");
   else res.notes.push("Tools are registered but not executed until TROD_ALLOW_EXEC=1 is set (re-run with --allow-exec).");
@@ -16653,6 +16683,7 @@ function sessionMetrics(file) {
   };
   const usage = /* @__PURE__ */ new Map();
   if (m.client === "codex") {
+    const failedMcp = codexFailedCalls(events);
     for (const e of events) {
       const p = e.payload ?? {};
       if (e.type === "event_msg" && p.type === "token_count" && p.info?.total_token_usage) {
@@ -16666,7 +16697,7 @@ function sessionMetrics(file) {
         if (p.role === "user" && text && !CODEX_WRAPPER2.test(text)) prompt(text);
         else if (p.role === "assistant") m.turns++;
       } else if (p.type === "function_call" || p.type === "custom_tool_call") m.toolCalls++;
-      else if ((p.type === "function_call_output" || p.type === "custom_tool_call_output") && codexOutput(p.output).error) m.toolErrors++;
+      else if ((p.type === "function_call_output" || p.type === "custom_tool_call_output") && (codexOutput(p.output).error || p.call_id !== void 0 && failedMcp.has(p.call_id))) m.toolErrors++;
     }
   } else {
     for (const e of events) {
@@ -16818,7 +16849,8 @@ Usage:
                            notes are linked only if it passed at least once. --reset starts a fresh attempt.
   trod learn [--from <dir|file>]... [--outcomes <file>] [--limit <n>] [--all] [--brief <text|@file>] [--model <id>]
                            Distil notes from sessions that already happened: condenses Claude Code's transcripts of
-                           this project (default: ~/.claude/projects/<project>/), compares failed with passed
+                           this project (default: ~/.claude/projects/<project>/) and Codex's sessions in it
+                           (~/.codex/sessions), compares failed with passed
                            sessions in a forge session and writes rules into .trod/notes.md (and .trod/wiki/ pages
                            when there are many kinds of task). --outcomes: JSON mapping session ids to true/false
                            (e.g. from CI); without it the outcome is judged from each transcript. Takes --practice too.

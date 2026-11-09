@@ -228,7 +228,9 @@ export async function loadToolFile(file: string, source: ToolSource, opts: LoadO
     meta = JSON.parse(stdout);
   } catch (err) {
     const e = err as { stderr?: string; message: string };
-    const msg = (e.stderr || e.message).trim().split('\n').find((l) => /Error/.test(l)) ?? (e.stderr || e.message).trim().split('\n')[0];
+    // Node prints the failing source line before the error itself: pick the "SomeError: message" line.
+    const lines = (e.stderr || e.message).trim().split('\n');
+    const msg = lines.find((l) => /^\s*([A-Z]\w*)?Error\b.*:/.test(l)) ?? lines.find((l) => /Error/.test(l)) ?? lines[0];
     tool.errors.push(`could not load ${path.basename(file)}: ${msg}`);
     return tool;
   }

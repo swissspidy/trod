@@ -45,7 +45,11 @@ describe('single-file tools', () => {
     writeTool(paths.toolsDir, 'placeholder', {});
     const file = path.join(paths.toolsDir, 'no_meta.mjs');
     writeFileSync(file, 'export default async () => 1;');
-    expect((await loadToolFile(file, 'session', { execAllowed: true, env })).errors.join()).toMatch(/must export meta/);
+    const errors = (await loadToolFile(file, 'session', { execAllowed: true, env })).errors.join();
+    expect(errors).toMatch(/must export meta/);
+    // The error itself, not the line of trod's code that threw it.
+    expect(errors).toMatch(/could not load no_meta\.mjs: Error: /);
+    expect(errors).not.toContain('throw new Error');
     expect((await loadToolFile(file, 'session', { execAllowed: false, env })).errors.join()).toMatch(/TROD_ALLOW_EXEC/);
   });
 

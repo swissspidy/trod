@@ -371,7 +371,7 @@ export class TrodServer {
       const invalid = [...this.registry.folders.values()].find((t) => t.folder === name && !t.ok);
       const text = invalid
         ? `trod: tool "${name}" is not registered because it failed validation:\n- ${invalid.errors.join('\n- ')}`
-        : `trod: unknown tool "${name}". Call trod_status to see the registry.`;
+        : `trod: unknown tool "${name}". Tools are files in ${path.join(this.paths.toolsDir, '<name>.mjs')} (project ${this.paths.projectDir}); live: ${[...this.registry.active.keys()].join(', ') || 'none'}.`;
       return { isError: true, content: [{ type: 'text', text }] };
     }
     const def = tool.def!;
@@ -498,7 +498,7 @@ export class TrodServer {
     const lines = [
       `trod ${VERSION}: ${this.registry.active.size} live tool(s), ${invalid.length} invalid. Execution ${this.execAllowed ? 'enabled' : 'DISABLED (set TROD_ALLOW_EXEC=1)'}.`,
       `project: ${this.paths.projectDir}${this.unplaced ? ' (the home directory: the client named no workspace; set TROD_PROJECT_DIR for the trod server)' : ''}`,
-      `session tools: ${rel(this.paths.toolsDir)}/<name>/  library: ${rel(this.paths.libraryDir)}/<name>/`,
+      `session tools: ${rel(this.paths.toolsDir)}/<name>.mjs  library: ${rel(this.paths.libraryDir)}/<name>.mjs`,
     ];
     if (this.registry.active.size) {
       lines.push('', 'live:');

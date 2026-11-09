@@ -41,7 +41,8 @@ Usage:
                            notes are linked only if it passed at least once. --reset starts a fresh attempt.
   trod learn [--from <dir|file>]... [--outcomes <file>] [--limit <n>] [--all] [--brief <text|@file>] [--model <id>]
                            Distil notes from sessions that already happened: condenses Claude Code's transcripts of
-                           this project (default: ~/.claude/projects/<project>/), compares failed with passed
+                           this project (default: ~/.claude/projects/<project>/) and Codex's sessions in it
+                           (~/.codex/sessions), compares failed with passed
                            sessions in a forge session and writes rules into .trod/notes.md (and .trod/wiki/ pages
                            when there are many kinds of task). --outcomes: JSON mapping session ids to true/false
                            (e.g. from CI); without it the outcome is judged from each transcript. Takes --practice too.

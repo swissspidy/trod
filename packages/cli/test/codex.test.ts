@@ -19,6 +19,8 @@ describe('trod init --codex', () => {
     expect(toml).toContain('[mcp_servers.trod]\ncommand = "npx"\n');
     expect(toml).toContain(`args = ["-y", "trod@${packageVersion(PLUGIN)}", "mcp"]`);
     expect(toml).toContain('[mcp_servers.trod.env]\nTROD_ALLOW_EXEC = "1"');
+    // With execution on, trod's calls are approved, or codex exec (approval policy never) refuses them all.
+    expect(toml).toContain('default_tools_approval_mode = "approve"');
     expect(toml).toContain('[features]\nmcp_tool_list_changed = true');
     expect(read(dir, '.agents', 'skills', 'trod', 'SKILL.md')).toBe(read(PLUGIN, 'agents', 'skills', 'trod', 'SKILL.md'));
     expect(read(dir, '.agents', 'skills', 'trod-learn', 'SKILL.md')).toBe(read(PLUGIN, 'agents', 'skills', 'trod-learn', 'SKILL.md'));
@@ -68,15 +70,26 @@ describe('trod init --codex', () => {
     expect(res.written).toContain('AGENTS.md');
     const agents = read(dir, 'AGENTS.md');
     expect(agents.startsWith('# Agents\n\nUse pnpm.\n\n<!-- trod notes -->')).toBe(true);
-    expect(agents).toContain('read `.trod/notes.md`');
+    // A copy of the notes, not a pointer: models do not reliably open another file.
+    expect(agents).toContain('- a rule\n<!-- /trod notes -->');
     expect(init({ projectDir: dir, packageRoot: PLUGIN, codex: true }).unchanged).toContain('AGENTS.md');
-    expect(read(dir, 'AGENTS.md').match(/trod notes -->/g)).toHaveLength(1);
+    // Changed notes refresh the copy in place, keeping the rest of the file.
+    writeFileSync(path.join(dir, '.trod', 'notes.md'), '# Notes\n- a better rule\n');
+    writeFileSync(path.join(dir, 'AGENTS.md'), read(dir, 'AGENTS.md') + '\n## After\n');
+    expect(linkCodexNotes(trodPaths(dir))).toBe('written');
+    const updated = read(dir, 'AGENTS.md');
+    expect(updated).toContain('- a better rule');
+    expect(updated).not.toContain('- a rule\n');
+    expect(updated.endsWith('## After\n')).toBe(true);
+    expect(updated.match(/<!-- trod notes -->/g)).toHaveLength(1);
   });
 });
 
 describe('notes for Codex', () => {
-  it('writes the AGENTS.md block only in projects with a .codex/ folder', () => {
+  it('writes the AGENTS.md block only in projects with a .codex/ folder, and only with notes', () => {
     const dir = tmp();
+    mkdirSync(path.join(dir, '.trod'));
+    writeFileSync(path.join(dir, '.trod', 'notes.md'), '# Notes\n');
     expect(linkCodexNotes(trodPaths(dir))).toBe('skipped');
     mkdirSync(path.join(dir, '.codex'));
     expect(linkCodexNotes(trodPaths(dir))).toBe('written');
@@ -87,10 +100,16 @@ describe('notes for Codex', () => {
 describe('Codex notes, review fixes', () => {
   it('writes to AGENTS.override.md when Codex would read that, and links plugin-only projects that have an AGENTS.md', () => {
     const dir = tmp();
+    const notes = (d: string) => {
+      mkdirSync(path.join(d, '.trod'), { recursive: true });
+      writeFileSync(path.join(d, '.trod', 'notes.md'), '# Notes\n');
+    };
+    notes(dir);
     writeFileSync(path.join(dir, 'AGENTS.md'), '# Agents\n');
     expect(linkCodexNotes(trodPaths(dir))).toBe('written'); // no .codex/: the plugin-only case
     expect(read(dir, 'AGENTS.md')).toContain('<!-- trod notes -->');
     const other = tmp();
+    notes(other);
     mkdirSync(path.join(other, '.codex'));
     writeFileSync(path.join(other, 'AGENTS.override.md'), '# Override\n');
     expect(linkCodexNotes(trodPaths(other))).toBe('written');

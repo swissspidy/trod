@@ -196,6 +196,8 @@ export function codexOutput(output: unknown): { text: string; error: boolean } {
       // plain text that starts with a brace
     }
   }
+  // MCP results: a list of text blocks.
+  if (Array.isArray(value)) return { text: value.map((b: { text?: string }) => b?.text ?? '').join('\n'), error: false };
   if (value && typeof value === 'object') {
     const o = value as { output?: unknown; content?: unknown; metadata?: { exit_code?: number }; success?: boolean };
     const text = typeof o.output === 'string' ? o.output : typeof o.content === 'string' ? o.content : JSON.stringify(value);
@@ -203,6 +205,19 @@ export function codexOutput(output: unknown): { text: string; error: boolean } {
   }
   const text = String(value ?? '');
   return { text, error: /^(Exit code|Process exited with code):? *[1-9]/m.test(text) };
+}
+
+/**
+ * Call ids of Codex MCP calls that failed. Codex 0.167 records an MCP result as plain text blocks; the failure is only
+ * in the item_completed event (status "failed", or a result with isError).
+ */
+export function codexFailedCalls(events: Record<string, unknown>[]): Set<string> {
+  const failed = new Set<string>();
+  for (const e of events) {
+    const p = e.payload as { type?: string; item?: { type?: string; id?: string; status?: string; result?: { isError?: boolean } } } | undefined;
+    if (e.type === 'event_msg' && p?.type === 'item_completed' && p.item?.type === 'McpToolCall' && p.item.id && (p.item.status === 'failed' || p.item.result?.isError)) failed.add(p.item.id);
+  }
+  return failed;
 }
 
 /** Condenses a Codex rollout transcript (session_meta, response_item, event_msg lines) like a Claude Code one. */
@@ -213,6 +228,7 @@ function digestCodex(file: string, events: Record<string, unknown>[], opts: { ou
   let errors = 0;
   let final = '';
   let learnRun = false;
+  const failedMcp = codexFailedCalls(events);
   for (const e of events) {
     if (e.type !== 'response_item') continue;
     const item = (e.payload ?? {}) as CodexItem;
@@ -240,7 +256,9 @@ function digestCodex(file: string, events: Record<string, unknown>[], opts: { ou
       }
       steps.push(`CALL ${item.name}: ${clip(shown, 500)}`);
     } else if (item.type === 'function_call_output' || item.type === 'custom_tool_call_output') {
-      const { text, error } = codexOutput(item.output);
+      const out = codexOutput(item.output);
+      const text = out.text;
+      const error = out.error || (item.call_id !== undefined && failedMcp.has(item.call_id));
       if (error) errors++;
       steps.push(`${error ? 'ERROR' : 'RESULT'}: ${clip(text.trim(), 700)}`);
     }

@@ -95,7 +95,7 @@ MCP roots and moves to the first one; until then it creates nothing in the home 
 the directory it uses. If Antigravity does not answer with a root, set `TROD_PROJECT_DIR` for the server. Notes reach
 Antigravity through `.agents/rules/trod-notes.md`, an always-on rule that inlines `.trod/notes.md`; `trod init
 --antigravity`, `trod forge`, `trod learn` and `trod notes --link` write it in projects with an `.agents/` folder (in
-a workspace that only uses the plugin, run `npx trod init --antigravity` or create `.agents/` first; for notes that
+a workspace that only uses the plugin, run `npx trod init --antigravity` or create `.agents/rules/` first; for notes that
 already exist, then run `trod notes --link`).
 
 Execution stays off in the plugin: it is installed for every workspace, and with execution on the server imports a
@@ -110,8 +110,8 @@ cannot send messages to the agent, so instead of the validation hook the skill t
 behaves like Antigravity (starts the server in an empty home directory, reports a workspace root); not yet tested in
 Antigravity itself.
 
-**Codex**, per repository (tested with the Codex CLI 0.167: it loads the config, starts the server in the folder it
-runs in and the server finds the project; no model calls were made):
+**Codex**, per repository (tested with the Codex CLI 0.167 and gpt-5-mini: the server starts from the project or a
+subfolder, a tool written mid-session is called as a tool of its own, and `trod learn` learns from the sessions):
 
 ```sh
 npx trod init --codex --allow-exec   # .codex/config.toml, .agents/skills/, .gitignore entries
@@ -124,8 +124,10 @@ table, add `mcp_tool_list_changed = true` there yourself (init says so). Codex r
 only once you trust the project. It starts project servers in the folder Codex runs in and sends no MCP roots, so
 trod walks up from there to the nearest folder with `.trod/` (stopping at the git root). The skills go to
 `.agents/skills/` (the same files Antigravity reads), and `trod forge`, `trod learn`, `trod notes --link` and `trod init
---codex` (once notes exist) add a block to `AGENTS.md` that tells Codex to read `.trod/notes.md`, in projects with a
-`.codex/` folder. `trod learn` reads Codex's sessions too (`$CODEX_HOME/sessions`, default `~/.codex/sessions`, those
+--codex` (for notes already linked into `CLAUDE.md`) keep a copy of `.trod/notes.md` in a marked block of `AGENTS.md`
+(or `AGENTS.override.md`), in projects with a `.codex/` folder or an `AGENTS.md`: Codex cannot import a file, and in a
+real run gpt-5-mini never followed a pointer to it. Run `trod notes --link` after editing the notes by hand to refresh
+the copy. `trod learn` reads Codex's sessions too (`$CODEX_HOME/sessions`, default `~/.codex/sessions`, those
 that ran in the project or a folder inside it); `trod forge` and `trod learn` still run Claude Code as their engine.
 
 As a plugin for every project, `codex plugin marketplace add swissspidy/trod` and `codex plugin add trod@trod`
