@@ -12,12 +12,18 @@
     "typecheck": "tsc -p tsconfig.json",
     "lint": "oxlint",
     "test": "vitest run",
-    "check": "pnpm typecheck && pnpm lint && pnpm test"
+    "check": "pnpm typecheck && pnpm lint && pnpm test",
+    "lint:publish": "publint --strict plugin",
+    "changeset": "changeset",
+    "version-packages": "changeset version && node scripts/sync-version.mjs && pnpm install --lockfile-only && pnpm build"
   },
   "devDependencies": {
+    "@changesets/changelog-github": "^1.0.1",
+    "@changesets/cli": "^3.0.3",
     "@types/node": "^22.19.0",
     "esbuild": "^0.28.2",
     "oxlint": "^1.91.0",
+    "publint": "^0.3.25",
     "typescript": "^7.0.2",
     "vitest": "^5.1.0"
   }

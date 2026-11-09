@@ -209,8 +209,9 @@ pnpm build      # bundles plugin/server/trod-server.mjs and plugin/bin/trod (com
 pnpm monorepo: `packages/server` (MCP server, registry, executor, logs), `packages/cli`, `plugin/` (the
 Claude Code plugin), `experiments/` (tasks, runner, report). MIT licensed.
 
-**Releasing.** `plugin/` is also the npm package `trod` (bundled server and CLI, the skill and the hook; no
-dependencies). Bump the version in `plugin/package.json`, `plugin/.claude-plugin/plugin.json` and `plugin/server.json` (a test
-keeps them equal), merge, then push a `v<version>` tag: the Release workflow checks, tests, publishes to npm with
-provenance and lists the server in the [MCP Registry](https://registry.modelcontextprotocol.io) as
-`io.github.swissspidy/trod`. It needs an `NPM_TOKEN` secret in a GitHub environment named `npm`.
+**Releasing.** `plugin/` is also the npm package `trod` (bundled server and CLI, the skills and the hook; no
+dependencies). Releases go through [Changesets](../.changeset/README.md): add a changeset (`pnpm changeset`) to a
+pull request that changes what users get; merging the "Version packages" pull request bumps the version everywhere
+(`scripts/sync-version.mjs`), stages it on npm with provenance, tags it and creates the GitHub release. A
+maintainer approves the staged version on npmjs.com, and the MCP Registry workflow lists it as
+`io.github.swissspidy/trod`. Nothing is tagged by hand and no npm token is stored.

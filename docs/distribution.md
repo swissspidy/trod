@@ -14,16 +14,26 @@ How trod reaches users, what is ready, and what needs the repository owner.
 | Antigravity, per repository | `npx trod init --antigravity --allow-exec` (`.agents/mcp_config.json`, skill, notes rule) | ready; needs the npm release |
 | Antigravity Marketplace | submit through the partner intake form (`agy plugin validate --strict` first) | owner step |
 | Any other MCP client (Cursor, VS Code, ...) | `npx -y trod mcp`, `TROD_ALLOW_EXEC=1` (project from cwd, `TROD_PROJECT_DIR` or MCP roots) | ready; needs the npm release; untested in those clients |
-| MCP Registry | listed as `io.github.swissspidy/trod` (`plugin/server.json`) | published by the Release workflow |
+| MCP Registry | listed as `io.github.swissspidy/trod` (`plugin/server.json`) | published by the MCP Registry workflow once the version is on npm |
+
+## Releases
+
+Releases are automated with [Changesets](https://github.com/changesets/changesets) (details in
+[.changeset/README.md](../.changeset/README.md)): pull requests that change what users get add a changeset
+(`pnpm changeset`); merging the "Version packages" pull request the Release workflow keeps open stages the new
+version on npm with provenance, tags it and creates the GitHub release. Nothing is tagged by hand. The first release
+is 0.1.0.
 
 ## Owner steps for the first release
 
-1. Create an npm granular access token on the `swissspidy` account with read and write access to packages (the
-   first publish creates `trod`, so the token cannot be limited to it yet) and 2FA bypass for CI. Add it as the
-   `NPM_TOKEN` secret of a GitHub environment named `npm` (Settings, Environments). The name `trod` was free on npm when this was written.
-2. Push the tag: `git tag v0.5.0 && git push origin v0.5.0`. The Release workflow checks, tests, publishes to npm
-   with provenance and lists the server in the MCP Registry (GitHub OIDC; no extra secret).
-3. Optional: set the repository's description and topics (`mcp`, `claude-code`, `ai-agents`) so it is found.
+1. On npmjs.com, add `swissspidy/trod` with the workflow `release.yml` as the trusted publisher of the `trod`
+   package, allowing staged publishes only (no token is stored). The name `trod` was free on npm when this was
+   written. Run the first release within 48 hours, or the configuration expires.
+2. Settings → Actions → General: allow GitHub Actions to create and approve pull requests.
+3. Merge the "Version packages" pull request, then approve the staged version on npmjs.com (Staged Packages) or
+   with `npm stage approve <stage-id>` from the job summary. The MCP Registry workflow lists it within six hours,
+   or run it by hand.
+4. Optional: set the repository's description and topics (`mcp`, `claude-code`, `ai-agents`) so it is found.
 
 ## Why it is worth distributing
 
