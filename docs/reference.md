@@ -154,6 +154,35 @@ which is meant for ephemeral cloud containers. See [ADR 0001](adr/0001-tool-exec
 
 The CLI is `npx trod <command>`, or bundled at `plugin/bin/trod` in this repository (`node plugin/bin/trod stats`).
 
+## Keep learning
+
+Notes improve with every round of sessions ([round 11](../results-11/README.md): 68% → 83% → 88%), so `trod learn`
+is made to run on a schedule:
+
+- **Incremental.** It learns only from sessions since its last run (`.trod/learn.json`, gitignored: it lists local
+  session ids). With nothing new it says so and exits 0 without starting a session, so a frequent schedule costs
+  nothing on quiet days. `--all` learns from every session again.
+- **Evidence.** Sessions after a learning run ran with its notes loaded, so each run checks every existing rule
+  against them and keeps `.trod/notes.evidence.json` (committed): per rule, how often later sessions confirmed or
+  contradicted it, and whether it was kept, fixed, newly added or dropped. Contradicted rules are fixed or dropped;
+  dropped ones stay in the ledger so they are not re-learned. `trod learn` prints a one-line summary.
+- **Review, don't auto-commit.** A run leaves its changes in the working tree; review `git diff -- .trod` like any
+  other change.
+
+It has to run where the sessions happen, because it reads the local transcripts: a CI job or a cloud scheduled task
+starts in a fresh checkout with no history to learn from. Options:
+
+| Scheduler | How |
+|---|---|
+| Claude Code Desktop, scheduled task | Code tab, Scheduled, New task: "Only on this computer", the project as local folder, weekly, prompt `/trod:learn` (plugin) or `/trod-learn` (after `trod init`). Runs while the app is open; a missed run gets one catch-up. |
+| cron (Linux, macOS) | `17 9 * * 1  cd /path/to/project && npx -y trod learn >> .trod/learn.log 2>&1` (needs the `claude` CLI on cron's PATH and logged in) |
+| launchd (macOS) | a LaunchAgent with `ProgramArguments` `npx -y trod learn`, `WorkingDirectory` the project, `StartCalendarInterval` weekly |
+| Antigravity | an Automation or a sidecar `schedule` that runs `npx -y trod learn` in the project (`/schedule` lasts only for its conversation) |
+
+The `learn` skill (`/trod:learn`, or `trod-learn` in projects set up with `trod init`) runs `trod learn` and
+reports the evidence line and the diff without committing. Its prompt carries a marker (`[trod-learn-run]`), and
+`trod learn` never learns from sessions that contain it, so scheduled runs do not feed on themselves.
+
 ## Configuration
 
 | Variable | Default | |

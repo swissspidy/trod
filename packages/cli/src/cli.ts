@@ -1,6 +1,6 @@
 import { existsSync, mkdtempSync, readdirSync, readFileSync } from 'node:fs';
 import { defaultServerPath, forge, type ForgeResult } from './forge.ts';
-import { digestTranscript, findTranscripts, LEARN_PROMPT, readOutcomes, transcriptDir, writeDigests, type SessionDigest } from './learn.ts';
+import { digestTranscript, findTranscripts, LEARN_PROMPT, LEARN_RUN_MARKER, LEDGER_FILE, readLearnState, readLedger, readOutcomes, summarizeLedger, transcriptDir, writeDigests, writeLearnState, type SessionDigest } from './learn.ts';
 import { tmpdir } from 'node:os';
 import { defaultPackageRoot, init, packageVersion } from './init.ts';
 import { pathToFileURL } from 'node:url';
@@ -33,12 +33,16 @@ Usage:
                            --practice: a shell command whose exit code 0 means the current attempt succeeded (e.g.
                            a test suite, a grader); the forge practises against it before writing notes, and its
                            notes are linked only if it passed at least once. --reset starts a fresh attempt.
-  trod learn [--from <dir|file>]... [--outcomes <file>] [--limit <n>] [--brief <text|@file>] [--model <id>]
+  trod learn [--from <dir|file>]... [--outcomes <file>] [--limit <n>] [--all] [--brief <text|@file>] [--model <id>]
                            Distil notes from sessions that already happened: condenses Claude Code's transcripts of
                            this project (default: ~/.claude/projects/<project>/), compares failed with passed
                            sessions in a forge session and writes rules into .trod/notes.md (and .trod/wiki/ pages
                            when there are many kinds of task). --outcomes: JSON mapping session ids to true/false
                            (e.g. from CI); without it the outcome is judged from each transcript. Takes --practice too.
+                           Incremental: only sessions since the last run (.trod/learn.json); exits 0 without a
+                           session when there is nothing new, so it can run on a schedule. --all relearns everything.
+                           The learner keeps .trod/notes.evidence.json: per rule, how often later sessions confirmed
+                           or contradicted it; contradicted rules are fixed or dropped.
 
 Options:
   --timeout <minutes>      forge and learn: stop the session after this long (default 30)
@@ -67,6 +71,7 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       from: { type: 'string', multiple: true },
       outcomes: { type: 'string' },
       limit: { type: 'string' },
+      all: { type: 'boolean', default: false },
       timeout: { type: 'string' },
       vendor: { type: 'boolean', default: false },
       'allow-exec': { type: 'boolean', default: false },
@@ -175,11 +180,23 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       }
       // Newest first; digest only until the limit is reached, skipping empty transcripts and trod's own sessions.
       const files = findTranscripts(sources);
+      // Incremental: sessions an earlier run learned from are skipped (--all learns from everything again).
+      const state = readLearnState(paths.projectDir);
+      const seen = new Set(values.all ? [] : state.sessions);
       const picked: SessionDigest[] = [];
+      let skipped = 0;
       for (const file of files) {
         if (picked.length >= limit) break;
+        if (seen.has(path.basename(file, '.jsonl'))) {
+          skipped++;
+          continue;
+        }
         const d = digestTranscript(file, { outcome: outcomes?.get(path.basename(file, '.jsonl')) });
-        if (d && !/^You are (a toolsmith|distilling experience)/.test(d.task)) picked.push(d);
+        if (d && !/^You are (a toolsmith|distilling experience)/.test(d.task) && !d.task.includes(LEARN_RUN_MARKER)) picked.push(d);
+      }
+      if (!picked.length && skipped) {
+        out(`learn: nothing new since the last run (${state.lastRun ?? 'unknown'}; ${skipped} session(s) already learned from). --all learns from every session again.`);
+        return 0;
       }
       if (!picked.length) {
         out(`trod learn: no session transcripts found in ${sources.join(', ')} (pass --from <dir|file>)`);
@@ -191,14 +208,20 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       const brief = values.brief ? (values.brief.startsWith('@') ? readFileSync(values.brief.slice(1), 'utf8') : values.brief) : "No brief: learn from the sessions and the project's files.";
       const practice = values.practice ? { check: values.practice, reset: values.reset } : undefined;
       const before = snapshot(paths.projectDir);
-      const res = await forge({ projectDir: paths.projectDir, brief, model: values.model, server: values.server, maxBudgetUsd: values.budget, timeoutMs: values.timeout ? Number(values.timeout) * 60_000 : undefined, streamFile: values.stream, out, linkNotes: !values['no-link'], practice, prompt: LEARN_PROMPT(path.join(dir, 'sessions'), counts) });
+      const res = await forge({ projectDir: paths.projectDir, brief, model: values.model, server: values.server, maxBudgetUsd: values.budget, timeoutMs: values.timeout ? Number(values.timeout) * 60_000 : undefined, streamFile: values.stream, out, linkNotes: !values['no-link'], practice, prompt: LEARN_PROMPT(path.join(dir, 'sessions'), counts, values.all ? undefined : state) });
       // Notes that were there before do not count as this run's result.
       if (!res.promoted.length && snapshot(paths.projectDir) === before) {
-        out('learn: the learner changed nothing in .trod/notes.md or .trod/wiki/');
+        out('learn: the learner changed nothing in .trod/notes.md, .trod/wiki/ or the evidence ledger');
         forgeExit('learn', res, values.json, out);
         return 1;
       }
-      return forgeExit('learn', res, values.json, out);
+      const ledger = readLedger(paths.projectDir);
+      if (ledger.exists) out(`  evidence: ${summarizeLedger(ledger.rules)}`);
+      for (const e of ledger.errors) out(`  ${e}`);
+      const code = forgeExit('learn', res, values.json, out);
+      // Only a run that worked marks its sessions as learned; a failed one is retried next time.
+      if (code === 0) writeLearnState(paths.projectDir, state, picked.map((d) => d.id));
+      return code;
     }
     case 'verify': {
       // Library tools are trusted from promotion and not re-checked at startup (ADR 0003), so environments that drift
@@ -261,7 +284,7 @@ function snapshot(projectDir: string): string {
   const read = (f: string) => (existsSync(f) ? readFileSync(f, 'utf8') : '');
   const wiki = path.join(projectDir, '.trod', 'wiki');
   const pages = existsSync(wiki) ? readdirSync(wiki).sort().map((f) => `${f}\n${read(path.join(wiki, f))}`) : [];
-  return [read(path.join(projectDir, '.trod', 'notes.md')), ...pages].join('\n\0');
+  return [read(path.join(projectDir, '.trod', 'notes.md')), read(path.join(projectDir, LEDGER_FILE)), ...pages].join('\n\0');
 }
 
 /**

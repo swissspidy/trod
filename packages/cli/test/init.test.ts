@@ -22,6 +22,7 @@ describe('trod init', () => {
     expect(settings.hooks.PostToolUse).toHaveLength(1);
     expect(settings.hooks.PostToolUse[0].hooks[0].command).toBe(`npx -y trod@${version} hook`);
     expect(existsSync(path.join(dir, '.claude', 'skills', 'trod', 'SKILL.md'))).toBe(true);
+    expect(readFileSync(path.join(dir, '.claude', 'skills', 'trod-learn', 'SKILL.md'), 'utf8')).toMatch(/^---\nname: trod-learn\n/);
     expect(res.notes.join(' ')).toContain('TROD_ALLOW_EXEC');
     expect(readFileSync(path.join(dir, '.gitignore'), 'utf8')).toContain('.trod/tools/');
   });

@@ -119,10 +119,13 @@ export function init(opts: InitOptions): InitResult {
   settings.hooks = hooks;
   writeIfChanged(settingsFile, JSON.stringify(settings, null, 2) + '\n', res, dir);
 
-  // The skill: plugins bring it locally, but cloud sessions only see project skills.
-  const skill = path.join(root, 'skills', 'trod', 'SKILL.md');
-  if (existsSync(skill)) writeIfChanged(path.join(dir, '.claude', 'skills', 'trod', 'SKILL.md'), readFileSync(skill, 'utf8'), res, dir);
-  else res.notes.push(`skill not found at ${skill}; skipped`);
+  // The skills: plugins bring them locally, but cloud sessions only see project skills. The plugin's `learn` skill
+  // (/trod:learn) becomes the project skill `trod-learn`.
+  for (const [from, to] of [['trod', 'trod'], ['learn', 'trod-learn']] as const) {
+    const skill = path.join(root, 'skills', from, 'SKILL.md');
+    if (existsSync(skill)) writeIfChanged(path.join(dir, '.claude', 'skills', to, 'SKILL.md'), readFileSync(skill, 'utf8').replace(/^name: .*$/m, `name: ${to}`), res, dir);
+    else res.notes.push(`skill not found at ${skill}; skipped`);
+  }
 
   addIgnores(dir, res);
   if (opts.allowExec) res.notes.push('TROD_ALLOW_EXEC=1 is set in .mcp.json: tool code runs outside Claude Code\'s permission prompts. Fine for ephemeral cloud containers; think twice on your own machine.');
@@ -147,9 +150,11 @@ function initAntigravity(opts: InitOptions, root: string, spec: string, res: Ini
   servers.trod = { command: 'npx', args: ['-y', spec, 'mcp'], ...(Object.keys(env).length ? { env } : {}) };
   mcp.mcpServers = servers;
   writeIfChanged(mcpFile, JSON.stringify(mcp, null, 2) + '\n', res, dir);
-  const skill = path.join(root, 'antigravity', 'skills', 'trod', 'SKILL.md');
-  if (existsSync(skill)) writeIfChanged(path.join(dir, '.agents', 'skills', 'trod', 'SKILL.md'), readFileSync(skill, 'utf8'), res, dir);
-  else res.notes.push(`skill not found at ${skill}; skipped`);
+  for (const name of ['trod', 'trod-learn']) {
+    const skill = path.join(root, 'antigravity', 'skills', name, 'SKILL.md');
+    if (existsSync(skill)) writeIfChanged(path.join(dir, '.agents', 'skills', name, 'SKILL.md'), readFileSync(skill, 'utf8'), res, dir);
+    else res.notes.push(`skill not found at ${skill}; skipped`);
+  }
   if (existsSync(path.join(dir, '.trod', 'notes.md'))) {
     const rule = linkAntigravityNotes(trodPaths(dir));
     if (rule === 'written') res.written.push(ANTIGRAVITY_NOTES_RULE);
@@ -167,7 +172,7 @@ function initAntigravity(opts: InitOptions, root: string, spec: string, res: Ini
 function addIgnores(dir: string, res: InitResult): void {
   const ignoreFile = path.join(dir, '.gitignore');
   const ignore = existsSync(ignoreFile) ? readFileSync(ignoreFile, 'utf8') : '';
-  const missing = ['.trod/tools/', '.trod/logs/'].filter((l) => !ignore.split(/\r?\n/).includes(l));
-  if (missing.length) writeIfChanged(ignoreFile, `${ignore}${ignore && !ignore.endsWith('\n') ? '\n' : ''}# trod: per-session tools and logs (the library in .trod/library is committed)\n${missing.join('\n')}\n`, res, dir);
+  const missing = ['.trod/tools/', '.trod/logs/', '.trod/learn.json'].filter((l) => !ignore.split(/\r?\n/).includes(l));
+  if (missing.length) writeIfChanged(ignoreFile, `${ignore}${ignore && !ignore.endsWith('\n') ? '\n' : ''}# trod: per-session tools and logs, and which local sessions trod learn has seen (the library, notes and evidence ledger are committed)\n${missing.join('\n')}\n`, res, dir);
   else res.unchanged.push('.gitignore');
 }
