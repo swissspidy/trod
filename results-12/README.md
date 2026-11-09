@@ -72,6 +72,10 @@ reads local transcripts; the reference lists the schedulers (a Claude Code Deskt
   a session where the rule applied and the session failed because of it or succeeded by doing something else.
 - **MiniWoB is templated**, so lessons transfer more readily than in a project whose tasks rarely repeat.
 
+To test these notes yourself, copy `learned/` into a project's `.trod/` folder (`mkdir -p p/.trod && cp -r
+results-12/learned/* p/.trod/`) and run the MiniWoB suite with `MW_LEARNED=p` (it reads `p/.trod/notes.md` and
+`p/.trod/wiki/`); the same holds for `results-11/learned/<arm>/`.
+
 Files: `summary.json`, `runs.jsonl` (the 120 round 3 sessions and the 150 test runs), `learned/` (notes, wiki pages
 and the evidence ledger after round 3). Code: `packages/cli/src/learn.ts` (incremental state, ledger, prompt),
 `MW_SEED_OFFSET` and `MW_LEARNED` in `experiments/miniwob/miniwob.ts`.

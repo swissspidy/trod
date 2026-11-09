@@ -34,7 +34,8 @@ npx trod learn                    # distil notes from Claude Code's transcripts 
 `trod learn` compares sessions that failed with ones that worked and writes rules (plus a page per kind of task when
 there are many). On MiniWoB++ it took Haiku from 68% to 81–83% from 120 old sessions, to 88% after one more
 round of sessions and learning, and to 91% after a third ([rounds 11](results-11/README.md) and [12](results-12/README.md)). Run it on a schedule where your sessions
-happen (a Claude Code Desktop scheduled task with `/trod:learn`, cron, or an Antigravity Automation): each run
+happen (a Claude Code Desktop scheduled task with `/trod:learn` from the plugin or `/trod-learn` after `trod init`,
+cron, or an Antigravity Automation): each run
 learns only from new sessions, checks every existing rule against them, and leaves a diff to review
 ([keep learning](docs/reference.md#keep-learning)).
 
@@ -46,7 +47,7 @@ npx trod verify                   # in CI: re-check every tool and note against 
 ```
 
 Commit and push what `init`, `learn` and `forge` wrote (`.mcp.json`, `.claude/`, `.gitignore`, `.trod/library`,
-`.trod/notes.md`, `.trod/notes.checks.json`, `.trod/wiki/`, the `CLAUDE.md` import) so every later session, cloud
+`.trod/notes.md`, `.trod/notes.checks.json`, `.trod/notes.evidence.json`, `.trod/wiki/`, the `CLAUDE.md` import) so every later session, cloud
 ones included, loads it.
 
 Or install the Claude Code plugin: `claude plugin marketplace add swissspidy/trod`, then

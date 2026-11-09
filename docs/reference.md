@@ -159,15 +159,19 @@ The CLI is `npx trod <command>`, or bundled at `plugin/bin/trod` in this reposit
 Notes improve with every round of sessions ([rounds 11](../results-11/README.md) and [12](../results-12/README.md): 68% → 83% → 88% → 91%), so `trod learn`
 is made to run on a schedule:
 
-- **Incremental.** It learns only from sessions since its last run (`.trod/learn.json`, gitignored: it lists local
-  session ids). With nothing new it says so and exits 0 without starting a session, so a frequent schedule costs
-  nothing on quiet days. `--all` learns from every session again.
-- **Evidence.** Sessions after a learning run ran with its notes loaded, so each run checks every existing rule
-  against them and keeps `.trod/notes.evidence.json` (committed): per rule, how often later sessions confirmed or
-  contradicted it, and whether it was kept, fixed, newly added or dropped. Contradicted rules are fixed or dropped;
-  dropped ones stay in the ledger so they are not re-learned. `trod learn` prints a one-line summary.
-- **Review, don't auto-commit.** A run leaves its changes in the working tree; review `git diff -- .trod` like any
-  other change.
+- **Incremental.** It learns only from sessions since its last run (`.trod/state/learn.json`: local session ids, in a
+  folder that ignores itself, so it is never committed). With nothing new, or no sessions yet, it says so and exits 0
+  without starting a session, so a frequent schedule costs nothing on quiet days. One run per project at a time.
+  `--all` learns from every session again (still at most `--limit`, 200 by default) and recounts the evidence.
+- **Evidence.** When the notes are linked (the default; not with `--no-link`), later sessions run with them loaded,
+  so each run checks every existing rule against those sessions and keeps `.trod/notes.evidence.json` (committed):
+  per rule, how often sessions confirmed or contradicted it, and whether it was kept, fixed, newly added or
+  dropped. The learner is told to fix or drop rules contradicted more often than confirmed; dropped ones stay in the
+  ledger so they are not re-learned. The ledger is required and only grows (no rule disappears, a dropped rule stays
+  dropped, counts never fall outside `--all`); a run that breaks it fails and does not mark its sessions as learned.
+  `trod learn` prints a one-line summary.
+- **Review, don't auto-commit.** A run leaves its changes in the working tree; review `git status -- .trod` and
+  `git diff -- .trod` (new files such as the first ledger are untracked) like any other change.
 
 It has to run where the sessions happen, because it reads the local transcripts: a CI job or a cloud scheduled task
 starts in a fresh checkout with no history to learn from. Options:
@@ -175,13 +179,14 @@ starts in a fresh checkout with no history to learn from. Options:
 | Scheduler | How |
 |---|---|
 | Claude Code Desktop, scheduled task | Code tab, Scheduled, New task: "Only on this computer", the project as local folder, weekly, prompt `/trod:learn` (plugin) or `/trod-learn` (after `trod init`). Runs while the app is open; a missed run gets one catch-up. |
-| cron (Linux, macOS) | `17 9 * * 1  cd /path/to/project && npx -y trod learn >> .trod/learn.log 2>&1` (needs the `claude` CLI on cron's PATH and logged in) |
+| cron (Linux, macOS) | `17 9 * * 1  cd /path/to/project && mkdir -p .trod/logs && npx -y trod learn >> .trod/logs/learn.log 2>&1` (needs the `claude` CLI on cron's PATH and logged in) |
 | launchd (macOS) | a LaunchAgent with `ProgramArguments` `npx -y trod learn`, `WorkingDirectory` the project, `StartCalendarInterval` weekly |
 | Antigravity | an Automation or a sidecar `schedule` that runs `npx -y trod learn` in the project (`/schedule` lasts only for its conversation) |
 
 The `learn` skill (`/trod:learn`, or `trod-learn` in projects set up with `trod init`) runs `trod learn` and
-reports the evidence line and the diff without committing. Its prompt carries a marker (`[trod-learn-run]`), and
-`trod learn` never learns from sessions that contain it, so scheduled runs do not feed on themselves.
+reports the evidence line and the changes without committing. Its prompt carries a marker (`trod-learn-run-7c1e5a`),
+and `trod learn` never learns from sessions whose prompts contain it (hidden skill messages included), so scheduled
+runs do not feed on themselves.
 
 ## Configuration
 

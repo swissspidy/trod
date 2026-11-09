@@ -16068,7 +16068,7 @@ ${PRACTICE_PROMPT(!!opts.practice.reset)}` : ""}`;
 }
 
 // packages/cli/src/learn.ts
-import { existsSync as existsSync6, mkdirSync as mkdirSync5, readdirSync as readdirSync4, readFileSync as readFileSync6, realpathSync, statSync, writeFileSync as writeFileSync4 } from "node:fs";
+import { existsSync as existsSync6, mkdirSync as mkdirSync5, readdirSync as readdirSync4, readFileSync as readFileSync6, realpathSync, statSync, unlinkSync, writeFileSync as writeFileSync4 } from "node:fs";
 import { homedir } from "node:os";
 import path7 from "node:path";
 function transcriptDir(projectDir, configDir = process.env.CLAUDE_CONFIG_DIR || path7.join(homedir(), ".claude")) {
@@ -16111,7 +16111,9 @@ function digestTranscript(file, opts = {}) {
   let toolCalls = 0;
   let errors = 0;
   let final = "";
+  let learnRun = false;
   for (const e of events) {
+    if (e.type === "user" && !learnRun && textOf(e.message?.content).includes(LEARN_RUN_MARKER)) learnRun = true;
     if (e.isSidechain || e.isMeta) continue;
     const msg = e.message;
     if (e.type === "user" && msg) {
@@ -16166,7 +16168,7 @@ ${clip(final, 800)}
     const budget = Math.max(500, maxChars - head.length - 1 - finalPart("").length - OMITTED.length);
     body = `${body.slice(0, Math.floor(budget * 0.6))}${OMITTED}${body.slice(-Math.floor(budget * 0.4))}`;
   }
-  return { id, file, task, outcome, toolCalls, errors, text: `${head}${body}
+  return { id, file, task, outcome, toolCalls, errors, learnRun, text: `${head}${body}
 ${finalPart(body)}` };
 }
 function readOutcomes(file) {
@@ -16192,9 +16194,11 @@ function writeDigests(dir, digests) {
   writeFileSync4(path7.join(dir, "INDEX.md"), index.join("\n") + "\n");
   return counts;
 }
-var LEARN_STATE_FILE = path7.join(".trod", "learn.json");
+var LEARN_STATE_DIR = path7.join(".trod", "state");
+var LEARN_STATE_FILE = path7.join(LEARN_STATE_DIR, "learn.json");
+var LEARN_LOCK_FILE = path7.join(LEARN_STATE_DIR, "learn.lock");
 var LEDGER_FILE = path7.join(".trod", "notes.evidence.json");
-var LEARN_RUN_MARKER = "[trod-learn-run]";
+var LEARN_RUN_MARKER = "trod-learn-run-7c1e5a";
 function readLearnState(projectDir) {
   try {
     const raw = JSON.parse(readFileSync6(path7.join(projectDir, LEARN_STATE_FILE), "utf8"));
@@ -16203,10 +16207,42 @@ function readLearnState(projectDir) {
     return { sessions: [] };
   }
 }
-function writeLearnState(projectDir, state, learned, now = /* @__PURE__ */ new Date()) {
-  const sessions = [.../* @__PURE__ */ new Set([...state.sessions, ...learned])].slice(-5e3);
-  mkdirSync5(path7.join(projectDir, ".trod"), { recursive: true });
+function ensureStateDir(projectDir) {
+  const dir = path7.join(projectDir, LEARN_STATE_DIR);
+  mkdirSync5(dir, { recursive: true });
+  if (!existsSync6(path7.join(dir, ".gitignore"))) writeFileSync4(path7.join(dir, ".gitignore"), "# machine-local trod state (written by trod learn)\n*\n");
+}
+function writeLearnState(projectDir, learned, now = /* @__PURE__ */ new Date()) {
+  ensureStateDir(projectDir);
+  const sessions = [.../* @__PURE__ */ new Set([...readLearnState(projectDir).sessions, ...learned])];
   writeFileSync4(path7.join(projectDir, LEARN_STATE_FILE), JSON.stringify({ lastRun: now.toISOString(), sessions }, null, 2) + "\n");
+}
+function acquireLearnLock(projectDir) {
+  ensureStateDir(projectDir);
+  const lock = path7.join(projectDir, LEARN_LOCK_FILE);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      writeFileSync4(lock, String(process.pid), { flag: "wx" });
+      return () => {
+        try {
+          if (readFileSync6(lock, "utf8") === String(process.pid)) unlinkSync(lock);
+        } catch {
+        }
+      };
+    } catch {
+      const pid = Number(readFileSync6(lock, "utf8"));
+      let alive = false;
+      try {
+        if (pid > 0) process.kill(pid, 0);
+        alive = pid > 0;
+      } catch (err) {
+        alive = err.code === "EPERM";
+      }
+      if (alive) return void 0;
+      unlinkSync(lock);
+    }
+  }
+  return void 0;
 }
 function readLedger(projectDir) {
   const file = path7.join(projectDir, LEDGER_FILE);
@@ -16229,12 +16265,23 @@ function readLedger(projectDir) {
   });
   return { rules, errors, exists: true };
 }
+function checkLedgerHistory(before, after, relearn) {
+  const now = new Map(after.map((r) => [r.id, r]));
+  const errors = [];
+  for (const old of before) {
+    const r = now.get(old.id);
+    if (!r) errors.push(`${LEDGER_FILE}: rule "${old.id}" disappeared (keep it; mark it "dropped" if it no longer holds)`);
+    else if (old.status === "dropped" && r.status !== "dropped") errors.push(`${LEDGER_FILE}: dropped rule "${old.id}" came back as "${r.status}"`);
+    else if (!relearn && (r.confirmed < old.confirmed || r.contradicted < old.contradicted)) errors.push(`${LEDGER_FILE}: counts of "${old.id}" went down (add this run's counts to the earlier ones)`);
+  }
+  return errors;
+}
 function summarizeLedger(rules) {
   const by = (s) => rules.filter((r) => r.status === s).length;
   const disputed = rules.filter((r) => r.status !== "dropped" && r.contradicted > r.confirmed).length;
   return `${rules.length} rule(s): ${by("kept")} kept, ${by("fixed")} fixed, ${by("new")} new, ${by("dropped")} dropped${disputed ? `; ${disputed} contradicted more often than confirmed` : ""}`;
 }
-var LEARN_PROMPT = (dir, counts, previous) => `You are distilling experience. You are not solving a task: you are writing the notes that future sessions in this project will load, so that they avoid the mistakes earlier sessions made and repeat what worked.
+var LEARN_PROMPT = (dir, counts, previous, relearn = false) => `You are distilling experience. You are not solving a task: you are writing the notes that future sessions in this project will load, so that they avoid the mistakes earlier sessions made and repeat what worked.
 
 Earlier sessions in this environment are condensed in ${dir}: INDEX.md lists them (${counts.pass} passed, ${counts.fail} failed, ${counts.unknown} with unknown outcome), one file per session. Future sessions start fresh and see only what you write.
 
@@ -16243,7 +16290,7 @@ Earlier sessions in this environment are condensed in ${dir}: INDEX.md lists the
 3. Write .trod/notes.md as RULES, each with the action to take: "X ends the attempt; do Y first", "Z is required even when the task does not say so". Put the rules that apply to most tasks first. Then, for each kind of task that needs its own rules, add a short recipe that worked, with <placeholders> for what differs between tasks. Keep the whole file under 4000 characters if you can.
 4. If there are many kinds of task and the rules do not fit, keep .trod/notes.md as the general rules plus an index, and put each kind's rules and recipe into .trod/wiki/<kind>.md (under 2000 characters each). Each index line must say when to read the page, e.g. "- Tasks like "<typical task wording>": read \`.trod/wiki/<kind>.md\` first". Start the index with: "Before acting, read the page that matches your task."
 5. ${previous?.lastRun ? `These sessions are new since the last learning run (${previous.lastRun}); most of them ran with the current .trod/notes.md and .trod/wiki/ pages loaded. ` : ""}If .trod/notes.md already exists, check every existing rule against these sessions before you add anything: did sessions that followed it succeed (confirmed), or fail because of it, or succeed by doing something else (contradicted)? Fix or drop rules that are contradicted more often than confirmed; keep the rest.
-   Keep the evidence in ${LEDGER_FILE}: {"rules": [{"id": "<short-kebab-id>", "where": "<file the rule is in>", "confirmed": <count>, "contradicted": <count>, "status": "new" | "kept" | "fixed" | "dropped"}]}. Read the file if it exists and add this run's counts to the earlier ones; give each new rule an entry with the sessions that support it counted as confirmed; leave dropped rules in the file with status "dropped" so they are not re-learned. Only count sessions where the rule actually applied.
+   Keep the evidence in ${LEDGER_FILE}: {"rules": [{"id": "<short-kebab-id>", "where": "<file the rule is in>", "confirmed": <count>, "contradicted": <count>, "status": "new" | "kept" | "fixed" | "dropped"}]}. ${relearn ? `This run re-reads sessions that earlier runs already counted, so recount: replace each rule's counts with what these sessions show (do not add them to the old counts), and keep every rule and every "dropped" status that is in the file;` : "Read the file if it exists and add this run's counts to the earlier ones;"} give each new rule an entry with the sessions that support it counted as confirmed; leave dropped rules in the file with status "dropped" so they are not re-learned. Only count sessions where the rule actually applied.
 6. Build a trod tool (.trod/tools/<name>.mjs, with examples) only if several sessions repeated the same fiddly multi-step procedure that a tool would make reliable, and back checkable claims with .trod/notes.checks.json as described in the project's trod skill. Most lessons need neither.
 
 Never copy answers to one particular task into the notes: write what transfers to the next task. When finished, reply with the list of rules you wrote and DONE.`;
@@ -16369,8 +16416,8 @@ function initAntigravity(opts, root, spec, res) {
 function addIgnores(dir, res) {
   const ignoreFile = path8.join(dir, ".gitignore");
   const ignore = existsSync7(ignoreFile) ? readFileSync7(ignoreFile, "utf8") : "";
-  const missing = [".trod/tools/", ".trod/logs/", ".trod/learn.json"].filter((l) => !ignore.split(/\r?\n/).includes(l));
-  if (missing.length) writeIfChanged(ignoreFile, `${ignore}${ignore && !ignore.endsWith("\n") ? "\n" : ""}# trod: per-session tools and logs, and which local sessions trod learn has seen (the library, notes and evidence ledger are committed)
+  const missing = [".trod/tools/", ".trod/logs/"].filter((l) => !ignore.split(/\r?\n/).includes(l));
+  if (missing.length) writeIfChanged(ignoreFile, `${ignore}${ignore && !ignore.endsWith("\n") ? "\n" : ""}# trod: per-session tools and logs (the library, notes and evidence ledger are committed)
 ${missing.join("\n")}
 `, res, dir);
   else res.unchanged.push(".gitignore");
@@ -16411,10 +16458,11 @@ Usage:
                            sessions in a forge session and writes rules into .trod/notes.md (and .trod/wiki/ pages
                            when there are many kinds of task). --outcomes: JSON mapping session ids to true/false
                            (e.g. from CI); without it the outcome is judged from each transcript. Takes --practice too.
-                           Incremental: only sessions since the last run (.trod/learn.json); exits 0 without a
-                           session when there is nothing new, so it can run on a schedule. --all relearns everything.
+                           Incremental: only sessions since the last run (.trod/state/learn.json); exits 0 without a
+                           session when there is nothing new, so it can run on a schedule. --all relearns from
+                           every session (still at most --limit, 200 by default) and recounts the evidence.
                            The learner keeps .trod/notes.evidence.json: per rule, how often later sessions confirmed
-                           or contradicted it; contradicted rules are fixed or dropped.
+                           or contradicted it; rules contradicted more often than confirmed are fixed or dropped.
 
 Options:
   --timeout <minutes>      forge and learn: stop the session after this long (default 30)
@@ -16547,46 +16595,61 @@ async function main(argv, out = console.log) {
         out("trod learn: --limit must be a positive integer");
         return 1;
       }
-      const files = findTranscripts(sources);
-      const state = readLearnState(paths.projectDir);
-      const seen = new Set(values.all ? [] : state.sessions);
-      const picked = [];
-      let skipped = 0;
-      for (const file of files) {
-        if (picked.length >= limit) break;
-        if (seen.has(path9.basename(file, ".jsonl"))) {
-          skipped++;
-          continue;
-        }
-        const d = digestTranscript(file, { outcome: outcomes?.get(path9.basename(file, ".jsonl")) });
-        if (d && !/^You are (a toolsmith|distilling experience)/.test(d.task) && !d.task.includes(LEARN_RUN_MARKER)) picked.push(d);
-      }
-      if (!picked.length && skipped) {
-        out(`learn: nothing new since the last run (${state.lastRun ?? "unknown"}; ${skipped} session(s) already learned from). --all learns from every session again.`);
+      const release = acquireLearnLock(paths.projectDir);
+      if (!release) {
+        out("learn: another trod learn run is in progress for this project; nothing to do");
         return 0;
       }
-      if (!picked.length) {
-        out(`trod learn: no session transcripts found in ${sources.join(", ")} (pass --from <dir|file>)`);
-        return 1;
+      try {
+        const files = findTranscripts(sources);
+        const state = readLearnState(paths.projectDir);
+        const seen = new Set(values.all ? [] : state.sessions);
+        const picked = [];
+        let skipped = 0;
+        for (const file of files) {
+          if (picked.length >= limit) break;
+          if (seen.has(path9.basename(file, ".jsonl"))) {
+            skipped++;
+            continue;
+          }
+          const d = digestTranscript(file, { outcome: outcomes?.get(path9.basename(file, ".jsonl")) });
+          if (d && !d.learnRun && !/^You are (a toolsmith|distilling experience)/.test(d.task)) picked.push(d);
+        }
+        if (!picked.length) {
+          if (!files.length && values.from?.length) {
+            out(`trod learn: no session transcripts found in ${sources.join(", ")}`);
+            return 1;
+          }
+          out(skipped ? `learn: nothing new since the last run (${state.lastRun ?? "unknown"}; ${skipped} session(s) already learned from). --all learns from them again.` : `learn: nothing to learn from yet (no sessions of this project in ${sources.join(", ")})`);
+          return 0;
+        }
+        const dir = mkdtempSync2(path9.join(tmpdir2(), "trod-learn-"));
+        const counts = writeDigests(path9.join(dir, "sessions"), picked);
+        out(`learning from ${picked.length} session(s) (${counts.pass} passed, ${counts.fail} failed, ${counts.unknown} unknown)${files.length > picked.length && picked.length === limit ? `, the ${limit} most recent` : ""}`);
+        const brief = values.brief ? values.brief.startsWith("@") ? readFileSync8(values.brief.slice(1), "utf8") : values.brief : "No brief: learn from the sessions and the project's files.";
+        const practice = values.practice ? { check: values.practice, reset: values.reset } : void 0;
+        const before = snapshot(paths.projectDir);
+        const ledgerBefore = readLedger(paths.projectDir).rules;
+        const res = await forge({ projectDir: paths.projectDir, brief, model: values.model, server: values.server, maxBudgetUsd: values.budget, timeoutMs: values.timeout ? Number(values.timeout) * 6e4 : void 0, streamFile: values.stream, out, linkNotes: !values["no-link"], practice, prompt: LEARN_PROMPT(path9.join(dir, "sessions"), counts, values.all ? void 0 : state, values.all) });
+        if (!res.promoted.length && snapshot(paths.projectDir) === before) {
+          out("learn: the learner changed nothing in .trod/notes.md, .trod/wiki/ or the evidence ledger");
+          forgeExit("learn", res, values.json, out);
+          return 1;
+        }
+        const ledger = readLedger(paths.projectDir);
+        const ledgerErrors = ledger.exists ? [...ledger.errors, ...checkLedgerHistory(ledgerBefore, ledger.rules, values.all)] : [`${LEDGER_FILE} is missing: the learner must keep the evidence ledger`];
+        if (ledger.exists) out(`  evidence: ${summarizeLedger(ledger.rules)}`);
+        for (const e of ledgerErrors) out(`  ${e}`);
+        const code = forgeExit("learn", res, values.json, out);
+        if (ledgerErrors.length) {
+          out("learn: sessions not marked as learned (the evidence ledger needs fixing); the next run retries them");
+          return 1;
+        }
+        if (code === 0) writeLearnState(paths.projectDir, picked.map((d) => d.id));
+        return code;
+      } finally {
+        release();
       }
-      const dir = mkdtempSync2(path9.join(tmpdir2(), "trod-learn-"));
-      const counts = writeDigests(path9.join(dir, "sessions"), picked);
-      out(`learning from ${picked.length} session(s) (${counts.pass} passed, ${counts.fail} failed, ${counts.unknown} unknown)${files.length > picked.length && picked.length === limit ? `, the ${limit} most recent` : ""}`);
-      const brief = values.brief ? values.brief.startsWith("@") ? readFileSync8(values.brief.slice(1), "utf8") : values.brief : "No brief: learn from the sessions and the project's files.";
-      const practice = values.practice ? { check: values.practice, reset: values.reset } : void 0;
-      const before = snapshot(paths.projectDir);
-      const res = await forge({ projectDir: paths.projectDir, brief, model: values.model, server: values.server, maxBudgetUsd: values.budget, timeoutMs: values.timeout ? Number(values.timeout) * 6e4 : void 0, streamFile: values.stream, out, linkNotes: !values["no-link"], practice, prompt: LEARN_PROMPT(path9.join(dir, "sessions"), counts, values.all ? void 0 : state) });
-      if (!res.promoted.length && snapshot(paths.projectDir) === before) {
-        out("learn: the learner changed nothing in .trod/notes.md, .trod/wiki/ or the evidence ledger");
-        forgeExit("learn", res, values.json, out);
-        return 1;
-      }
-      const ledger = readLedger(paths.projectDir);
-      if (ledger.exists) out(`  evidence: ${summarizeLedger(ledger.rules)}`);
-      for (const e of ledger.errors) out(`  ${e}`);
-      const code = forgeExit("learn", res, values.json, out);
-      if (code === 0) writeLearnState(paths.projectDir, state, picked.map((d) => d.id));
-      return code;
     }
     case "verify": {
       const report = [];

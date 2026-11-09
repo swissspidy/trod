@@ -2,9 +2,11 @@
 
 ## 0.5.0
 
-- Scheduled learning: `trod learn` is incremental (`.trod/learn.json`; nothing new means no session and exit 0;
-  `--all` relearns) and keeps an evidence ledger, `.trod/notes.evidence.json`, in which each run checks every
-  existing rule against the new sessions and fixes or drops contradicted ones. The `learn` skill (`/trod:learn`,
+- Scheduled learning: `trod learn` is incremental (`.trod/state/learn.json`, self-ignoring; nothing new means no
+  session and exit 0; one run per project at a time; `--all` relearns and recounts) and keeps an evidence ledger,
+  `.trod/notes.evidence.json`, in which each run checks every existing rule against the new sessions and fixes or
+  drops rules contradicted more often than confirmed; the ledger only grows, and a run that breaks it is not
+  recorded. The `learn` skill (`/trod:learn`,
   `trod-learn`) runs it for a Claude Code Desktop scheduled task, cron or an Antigravity Automation and reports the
   diff without committing.
 - Antigravity: the repository root is an Antigravity plugin (`agy plugin install https://github.com/swissspidy/trod`),

@@ -172,7 +172,7 @@ function initAntigravity(opts: InitOptions, root: string, spec: string, res: Ini
 function addIgnores(dir: string, res: InitResult): void {
   const ignoreFile = path.join(dir, '.gitignore');
   const ignore = existsSync(ignoreFile) ? readFileSync(ignoreFile, 'utf8') : '';
-  const missing = ['.trod/tools/', '.trod/logs/', '.trod/learn.json'].filter((l) => !ignore.split(/\r?\n/).includes(l));
-  if (missing.length) writeIfChanged(ignoreFile, `${ignore}${ignore && !ignore.endsWith('\n') ? '\n' : ''}# trod: per-session tools and logs, and which local sessions trod learn has seen (the library, notes and evidence ledger are committed)\n${missing.join('\n')}\n`, res, dir);
+  const missing = ['.trod/tools/', '.trod/logs/'].filter((l) => !ignore.split(/\r?\n/).includes(l));
+  if (missing.length) writeIfChanged(ignoreFile, `${ignore}${ignore && !ignore.endsWith('\n') ? '\n' : ''}# trod: per-session tools and logs (the library, notes and evidence ledger are committed)\n${missing.join('\n')}\n`, res, dir);
   else res.unchanged.push('.gitignore');
 }

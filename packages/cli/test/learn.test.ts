@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { main } from '../src/cli.ts';
-import { digestTranscript, findTranscripts, LEARN_PROMPT, readLedger, readOutcomes, summarizeLedger, transcriptDir, writeDigests } from '../src/learn.ts';
+import { checkLedgerHistory, digestTranscript, findTranscripts, LEARN_PROMPT, readLedger, readOutcomes, summarizeLedger, transcriptDir, writeDigests } from '../src/learn.ts';
 
 const tmp = () => mkdtempSync(path.join(tmpdir(), 'trod-learn-'));
 
@@ -148,7 +148,7 @@ describe('trod learn', () => {
     mkdirSync(project);
     // The fake learner records its prompt and writes notes.
     const fake = path.join(dir, 'fake-claude');
-    writeFileSync(fake, `#!/bin/sh\nprintf '%s' "$2" > ${JSON.stringify(path.join(dir, 'prompt.txt'))}\nmkdir -p .trod && printf '# Notes\\n- Enter does not submit; click Submit.\\n' > .trod/notes.md\necho '{"type":"result","subtype":"success","total_cost_usd":0.02,"num_turns":4}'\n`);
+    writeFileSync(fake, `#!/bin/sh\nprintf '%s' "$2" > ${JSON.stringify(path.join(dir, 'prompt.txt'))}\nmkdir -p .trod && printf '# Notes\\n- Enter does not submit; click Submit.\\n' > .trod/notes.md\nprintf '{"rules":[{"id":"submit","confirmed":1,"contradicted":1,"status":"new"}]}' > .trod/notes.evidence.json\necho '{"type":"result","subtype":"success","total_cost_usd":0.02,"num_turns":4}'\n`);
     chmodSync(fake, 0o755);
     process.env.TROD_CLAUDE_BIN = fake;
     const lines: string[] = [];
@@ -271,7 +271,8 @@ echo '{"type":"result","subtype":"success","num_turns":1}'
     expect(r.code).toBe(0);
     expect(r.out).toContain('learning from 2 session(s)');
     expect(r.out).toContain('evidence: 3 rule(s): 1 kept, 0 fixed, 1 new, 1 dropped');
-    expect(JSON.parse(readFileSync(path.join(project, '.trod', 'learn.json'), 'utf8')).sessions.sort()).toEqual(['a', 'b']);
+    expect(JSON.parse(readFileSync(path.join(project, '.trod', 'state', 'learn.json'), 'utf8')).sessions.sort()).toEqual(['a', 'b']);
+    expect(readFileSync(path.join(project, '.trod', 'state', '.gitignore'), 'utf8')).toContain('*');
 
     r = await learn();
     expect(r.code).toBe(0);
@@ -291,16 +292,74 @@ echo '{"type":"result","subtype":"success","num_turns":1}'
   });
 
   it('never learns from sessions that ran trod learn, and does not record a failed run', async () => {
-    const { sessions, project, learn } = setup();
-    transcript(sessions, 'sched', '[trod-learn-run] Run npx -y trod learn');
+    const { sessions, project, learn, runCount } = setup();
+    transcript(sessions, 'sched', 'trod-learn-run-7c1e5a Run npx -y trod learn');
+    // The skill body recorded as a hidden (meta) message counts too.
+    writeFileSync(path.join(sessions, 'meta.jsonl'), [{ type: 'user', message: { content: '/trod:learn' } }, { type: 'user', isMeta: true, message: { content: 'trod-learn-run-7c1e5a (marker)' } }].map((l) => JSON.stringify(l)).join('\n'));
     let r = await learn();
-    expect(r.code).toBe(1);
-    expect(r.out).toContain('no session transcripts found');
+    expect(r.code).toBe(0);
+    expect(r.out).toContain('nothing to learn from yet');
+    expect(runCount()).toBe(0);
     transcript(sessions, 'real', 'Task: real work');
     writeFileSync(process.env.TROD_CLAUDE_BIN!, '#!/bin/sh\nexit 3\n');
     r = await learn();
     expect(r.code).toBe(1);
-    expect(existsSync(path.join(project, '.trod', 'learn.json'))).toBe(false);
+    expect(existsSync(path.join(project, '.trod', 'state', 'learn.json'))).toBe(false);
+  });
+});
+
+describe('trod learn guards', () => {
+  const saved = process.env.TROD_CLAUDE_BIN;
+  afterEach(() => {
+    if (saved === undefined) delete process.env.TROD_CLAUDE_BIN;
+    else process.env.TROD_CLAUDE_BIN = saved;
+  });
+
+  function learner(dir: string, ledger: string | undefined) {
+    const fake = path.join(dir, `fake-${Math.random().toString(36).slice(2)}`);
+    writeFileSync(fake, `#!/bin/sh\nmkdir -p .trod && date +%s%N >> .trod/notes.md\n${ledger === undefined ? 'rm -f .trod/notes.evidence.json' : `printf '%s' '${ledger}' > .trod/notes.evidence.json`}\necho '{"type":"result","subtype":"success","num_turns":1}'\n`);
+    chmodSync(fake, 0o755);
+    process.env.TROD_CLAUDE_BIN = fake;
+  }
+
+  it('fails, and records nothing, when the learner skips or breaks the ledger', async () => {
+    const dir = tmp();
+    const sessions = path.join(dir, 's');
+    mkdirSync(sessions);
+    transcript(sessions, 'one', 'Task: one');
+    const project = path.join(dir, 'p');
+    mkdirSync(project);
+    const run = async () => {
+      const lines: string[] = [];
+      const code = await main(['learn', '--dir', project, '--from', sessions], (s) => lines.push(s));
+      return { code, out: lines.join('\n') };
+    };
+    learner(dir, undefined);
+    let r = await run();
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('notes.evidence.json is missing');
+    expect(existsSync(path.join(project, '.trod', 'state', 'learn.json'))).toBe(false);
+
+    learner(dir, '{"rules":[{"id":"a","confirmed":2,"contradicted":0,"status":"kept"},{"id":"b","confirmed":0,"contradicted":3,"status":"dropped"}]}');
+    expect((await run()).code).toBe(0);
+
+    transcript(sessions, 'two', 'Task: two');
+    learner(dir, '{"rules":[{"id":"a","confirmed":1,"contradicted":0,"status":"kept"}]}');
+    r = await run();
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('rule "b" disappeared');
+    expect(r.out).toContain('counts of "a" went down');
+    expect(JSON.parse(readFileSync(path.join(project, '.trod', 'state', 'learn.json'), 'utf8')).sessions).toEqual(['one']);
+  });
+
+  it('does nothing while another run holds the lock', async () => {
+    const dir = tmp();
+    mkdirSync(path.join(dir, '.trod', 'state'), { recursive: true });
+    writeFileSync(path.join(dir, '.trod', 'state', 'learn.lock'), String(process.pid));
+    transcript(dir, 'x', 'Task: x');
+    const lines: string[] = [];
+    expect(await main(['learn', '--dir', dir, '--from', dir], (s) => lines.push(s))).toBe(0);
+    expect(lines.join('\n')).toContain('another trod learn run is in progress');
   });
 });
 
@@ -314,5 +373,12 @@ describe('the evidence ledger', () => {
     expect(ledger.errors.join(' ')).toContain('rule 3');
     expect(summarizeLedger(ledger.rules)).toBe('2 rule(s): 1 kept, 1 fixed, 0 new, 0 dropped; 1 contradicted more often than confirmed');
     expect(readLedger(tmp()).exists).toBe(false);
+  });
+
+  it('only grows, except that --all may recount', () => {
+    const before = [{ id: 'a', confirmed: 3, contradicted: 1, status: 'kept' as const }, { id: 'd', confirmed: 0, contradicted: 2, status: 'dropped' as const }];
+    expect(checkLedgerHistory(before, [{ ...before[0], confirmed: 4 }, before[1]], false)).toEqual([]);
+    expect(checkLedgerHistory(before, [{ ...before[0], confirmed: 1 }, { ...before[1], status: 'new' }], false)).toHaveLength(2);
+    expect(checkLedgerHistory(before, [{ ...before[0], confirmed: 1 }, before[1]], true)).toEqual([]);
   });
 });
