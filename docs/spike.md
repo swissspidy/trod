@@ -52,7 +52,8 @@ so the model batches them. Consequences:
 **Decision.** Both routes stay. The plugin (`plugin/.claude-plugin/plugin.json`, `plugin/.mcp.json`, the skill)
 is how people install trod locally. A repository that wants trod in cloud sessions commits a root `.mcp.json`
 that runs the bundled server, plus `enableAllProjectMcpServers` (or `enabledMcpjsonServers: ["trod"]`). The
-server is committed as **one bundled file** with no `node_modules`, because a cloud container clones the repo
+server is committed **bundled** (today `plugin/server/trod-server.mjs`, the entry, and `trod-lib.mjs` next to it,
+which it imports) with no `node_modules`, because a cloud container clones the repo
 and starts the server without installing anything. The skill must also reach cloud sessions without the plugin,
 so it is mirrored at `.claude/skills/trod/SKILL.md`.
 

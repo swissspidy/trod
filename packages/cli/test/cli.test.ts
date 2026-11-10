@@ -20,9 +20,23 @@ async function run(args: string[]) {
 }
 
 describe('trod cli', () => {
-  it('prints usage', async () => {
-    expect((await run(['--help'])).out).toContain('trod promote');
+  it('prints an overview, per-command help, and a suggestion for a mistyped command', async () => {
+    const overview = await run(['--help']);
+    expect(overview.code).toBe(0);
+    // One line per command, short enough to scan.
+    for (const c of ['init', 'doctor', 'learn', 'forge', 'tune', 'verify', 'report', 'notes', 'stats', 'list', 'check', 'promote', 'mcp', 'hook']) expect(overview.out).toMatch(new RegExp(`^  ${c} `, 'm'));
+    expect(overview.out.split('\n').length).toBeLessThan(50);
     expect((await run([])).code).toBe(1);
+    expect((await run(['help'])).out).toBe(overview.out);
+    // The details are one command away, either way round.
+    const forge = await run(['help', 'forge']);
+    expect(forge).toMatchObject({ code: 0 });
+    expect(forge.out).toMatch(/^trod forge --brief/);
+    expect(forge.out).toContain('--practice <cmd>');
+    expect((await run(['forge', '--help'])).out).toBe(forge.out);
+    expect(await run(['forg'])).toMatchObject({ code: 1, out: expect.stringContaining('did you mean "forge"?') });
+    expect(await run(['help', 'lern'])).toMatchObject({ code: 1, out: expect.stringContaining('did you mean "learn"?') });
+    expect((await run(['frobnicate'])).out).not.toContain('did you mean');
   });
 
   it('checks, promotes and lists tools', async () => {
@@ -48,6 +62,27 @@ describe('trod cli', () => {
     writeFileSync(path.join(dir, '.trod', 'logs', 'x.jsonl'), JSON.stringify({ type: 'call', ts: 't', sessionId: 's', tool: 'say_hi', source: 'session', durationMs: 3, ok: true, inputChars: 2, outputChars: 2, truncated: false }) + '\n');
     expect((await run(['stats', '--dir', dir])).out).toContain('say_hi');
     expect(JSON.parse((await run(['stats', '--json', '--dir', dir])).out).calls).toBe(1);
+  });
+});
+
+describe('trod list and check', () => {
+  it('call a single-file tool they may not import unchecked, not invalid', async () => {
+    const dir = project();
+    writeFileSync(path.join(dir, '.trod', 'tools', 'one_file.mjs'), "export const meta = { description: 'Returns the number one.', whenToUse: 'In tests.', inputSchema: { type: 'object' } };\nexport default async () => 1;\n");
+    const before = process.env.TROD_ALLOW_EXEC;
+    delete process.env.TROD_ALLOW_EXEC;
+    try {
+      const list = await run(['list', '--dir', dir]);
+      expect(list.out).toContain('unchecked session/one_file');
+      expect(list.out).not.toContain('INVALID');
+      expect(list.out).toMatch(/1 single-file tool\(s\) not checked.*TROD_ALLOW_EXEC=1/);
+      expect((await run(['check', '--dir', dir])).code).toBe(0);
+      process.env.TROD_ALLOW_EXEC = '1';
+      expect((await run(['list', '--dir', dir])).out).toContain('ok      session/one_file');
+    } finally {
+      if (before === undefined) delete process.env.TROD_ALLOW_EXEC;
+      else process.env.TROD_ALLOW_EXEC = before;
+    }
   });
 });
 

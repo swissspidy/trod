@@ -153,6 +153,12 @@ single-file tools (`<name>.mjs`) are not registered at all: reading their `meta`
 
 ## CLI and lifecycle
 
+`trod` (or `trod help`) lists the commands on one screen; `trod help <command>` and `trod <command> --help` give one
+command's options. **`trod doctor`** is the place to start in a repository: it checks the setup (the Claude Code CLI,
+the server entry, the hooks, whether tools may run), shows what trod knows there (notes, wiki pages, library,
+evidence) and how many sessions it has not learned from, and names the next step. It changes nothing, runs no tool,
+and exits 1 when something is broken.
+
 - New tools land in `.trod/tools/` (ignored by git): session tools.
 - `trod promote <name>` moves one to `.trod/library/` (committed). The library loads at startup.
 - `trod forge --brief @env.md [--model claude-opus-5-5]` runs a dedicated tool-building session (headless Claude
@@ -178,6 +184,9 @@ single-file tools (`<name>.mjs`) are not registered at all: reading their `meta`
   is fine. It sees the transcripts on the machine where it runs: on your own machine that is every session you had
   in this project; a cloud container only holds its own session's transcripts, so point `--from` at transcripts you
   collected (for example from CI runs of `claude -p`).
+- `trod learn --dry-run` lists the sessions a learning run would read (outcome, tool calls, errors, first line of
+  the task) and starts nothing, so you can look before you spend. When the project has not turned execution on, the
+  learner is told not to build tools: its sessions could not run them.
 - `trod verify` re-runs every library tool's examples and every note check: run it in CI to catch a drifted
   environment. `trod notes` shows the notes' status.
 - `trod stats` summarizes `.trod/logs/*.jsonl`: tools created, called, reused, errors.
@@ -333,7 +342,7 @@ sessions are split by date, not by whether they actually saw the notes.
 ```sh
 pnpm install
 pnpm check      # typecheck, lint, tests
-pnpm build      # bundles plugin/server/trod-server.mjs and plugin/bin/trod (committed)
+pnpm build      # rebuilds the bundles under plugin/server/ and plugin/bin/trod (committed)
 ```
 
 pnpm monorepo: `packages/server` (MCP server, registry, executor, logs), `packages/cli`, `plugin/` (the

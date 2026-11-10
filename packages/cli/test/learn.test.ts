@@ -158,6 +158,10 @@ describe('trod learn', () => {
     const prompt = readFileSync(path.join(dir, 'prompt.txt'), 'utf8');
     expect(prompt).toContain('You are distilling experience');
     expect(prompt).toContain('No brief: learn from the sessions');
+    // The project has not turned execution on, so its sessions could not run a tool: the learner is told.
+    expect(prompt).toContain('Sessions in this project cannot run trod tools');
+    expect(lines.join('\n')).toMatch(/learning from 2 session\(s\) in /);
+    expect(lines.at(-1)).toMatch(/^Next: review what changed under \.trod\//);
     const sessionsDir = prompt.match(/condensed in (\S+): INDEX\.md/)![1]!;
     expect(readFileSync(path.join(dir, 'digests.txt'), 'utf8').trim().split('\n').map((f) => f.replace(/^\d+-/, '')).sort()).toEqual(['INDEX.md', 'fail.md', 'pass.md']);
     // The digests were for the learner only: gone once it finished.

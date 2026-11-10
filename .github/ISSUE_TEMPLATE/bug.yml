@@ -1,0 +1,29 @@
+name: Bug report
+description: Something does not work the way the docs say
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: The commands you ran, or the smallest tool file or config that shows it.
+      render: sh
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `npx trod doctor`
+      description: It shows the version and the setup. Remove anything you do not want public.
+      render: text
+  - type: input
+    id: client
+    attributes:
+      label: Client and version
+      description: For example Claude Code 2.1.320 (local or cloud), Codex 0.167, Antigravity.

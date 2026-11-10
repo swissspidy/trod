@@ -123,6 +123,8 @@ export function init(opts: InitOptions): InitResult {
   }
 
   addIgnores(dir, res);
+  // A build from a checkout is not on npm: the npx entries written above could not fetch it.
+  if (version === '0.0.0' && !opts.vendor) res.notes.push('This is an unreleased build (0.0.0), which npx cannot fetch: run `trod init --vendor` instead, to copy the server and CLI into the repository.');
   if (opts.allowExec) res.notes.push('TROD_ALLOW_EXEC=1 is set in .mcp.json: tool code runs outside Claude Code\'s permission prompts. Fine for ephemeral cloud containers; think twice on your own machine.');
   else res.notes.push('Tools do not run until TROD_ALLOW_EXEC=1 is set, and single-file tools are not even registered (re-run with --allow-exec, or set it in your cloud environment\'s variables).');
   return res;
@@ -169,6 +171,16 @@ export function installedHookCommand(dir: string): string | undefined {
   const hooks = (readJson(path.join(dir, '.claude', 'settings.json')).hooks ?? {}) as Record<string, HookGroup[]>;
   for (const groups of Object.values(hooks)) for (const g of groups) for (const h of g.hooks ?? []) if (isTrodHook(h)) return h.command as string;
   return undefined;
+}
+
+/** The hook events in .claude/settings.json that run trod's hook command. Empty when the file is missing or unreadable. */
+export function trodHookEvents(dir: string): string[] {
+  try {
+    const hooks = (readJson(path.join(dir, '.claude', 'settings.json')).hooks ?? {}) as Record<string, HookGroup[]>;
+    return Object.entries(hooks).filter(([, groups]) => Array.isArray(groups) && groups.some((g) => (g.hooks ?? []).some(isTrodHook))).map(([event]) => event);
+  } catch {
+    return [];
+  }
 }
 
 /**
