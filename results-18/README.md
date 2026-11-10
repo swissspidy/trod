@@ -2,8 +2,8 @@
 
 **Result:** on 300 held-out [AutomationBench](https://github.com/zapier/AutomationBench) tasks, Haiku passes 50
 (16.7%) alone and 109 (36.3%) with the notes `trod learn` wrote from its own earlier sessions: 66 tasks fixed, 7
-broken, p < 0.0001. Sonnet without notes passes 91 (30.3%) at twelve times the cost per task. The learning session
-cost $1.95.
+broken, p < 0.0001. Sonnet without notes passes 91 (30.3%) at twelve times the cost per task, and 133 (44.3%) with the same notes.
+The learning session cost $1.95.
 
 AutomationBench is Zapier's benchmark of business workflows: 600 tasks in sales, marketing, operations, support,
 finance and HR, each in a simulated world of about 50 apps reached through their REST APIs. A task passes only when
@@ -39,6 +39,7 @@ alone.
 | Haiku + learned notes, second pass | 106/300 | 35.3% [30.1, 40.9] | 77.5% | $0.008 | +65 / −9, p < 0.0001 |
 | Haiku + date hint only (control) | 55/300 | 18.3% [14.4, 23.1] | 50.6% | $0.011 | +22 / −17, p = 0.52 |
 | Sonnet | 91/300 | 30.3% [25.4, 35.8] | 68.3% | $0.095 | +54 / −13, p < 0.0001 |
+| **Sonnet + learned notes** | **133/300** | **44.3%** [38.8, 50.0] | 82.4% | $0.074 | +90 / −7, p < 0.0001 |
 
 Passes per domain (50 tasks each):
 
@@ -47,16 +48,15 @@ Passes per domain (50 tasks each):
 | Haiku | 5 | 8 | 9 | 12 | 6 | 10 |
 | Haiku + learned notes | 14 | 20 | 22 | 21 | 17 | 15 |
 | Sonnet | 13 | 21 | 12 | 22 | 8 | 15 |
+| Sonnet + learned notes | 22 | 24 | 28 | 24 | 20 | 15 |
 
 - **The gain is in every domain**, from 1.5× (support) to 2.8× (finance, sales).
 - **Haiku with notes against Sonnet alone:** 109 against 91 passes (+49 / −31, p = 0.057), at 8% of the cost per
   task.
 - **The notes make sessions shorter:** 8.8 turns instead of 11.9, and 36% fewer tokens.
-- **Sonnet with the same notes, unfinished.** The run stopped when the API credits ran out: 179 tasks were
-  graded (marketing, operations, sales and 29 of support), and 27 more attempts failed on the credit error and are
-  left out. On those 179, Sonnet passed 50 alone and 80 with the notes (+38 / −8,
-  p < 0.0001); Haiku with the notes passed 68 of the same tasks. Notes written from Haiku's sessions help the
-  larger model about as much. Finance and HR are missing, so this is not a number for the test set.
+- **The same notes help Sonnet about as much.** Written from Haiku's sessions, they take Sonnet from 91 to 133
+  passes (+61 / −19, p < 0.0001), with 6.6 turns instead of 9.7 and 23% lower cost per task. The gain is in five
+  domains; support stays at 15.
 
 ## Is it the notes, or the clock?
 

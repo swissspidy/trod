@@ -2,12 +2,11 @@
   "arms": [
     "haiku",
     "haiku-notes",
+    "haiku-learned",
     "sonnet",
     "sonnet-notes"
   ],
-  "infra": {
-    "haiku": 1
-  },
+  "infra": {},
   "summary": [
     {
       "set": "test_normal",
@@ -46,6 +45,27 @@
       "gained": 7,
       "lost": 3,
       "mcnemarP": 0.34375
+    },
+    {
+      "set": "test_normal",
+      "arm": "haiku-learned",
+      "tasks": 168,
+      "passed": 150,
+      "tgc": 0.8929,
+      "ci95": [
+        0.837,
+        0.9311
+      ],
+      "scenarios": 56,
+      "scenariosPassed": 49,
+      "sgc": 0.875,
+      "costPerTaskUsd": 0.00562,
+      "costUsd": 0.94,
+      "turns": 6.9,
+      "vs": "haiku",
+      "gained": 7,
+      "lost": 6,
+      "mcnemarP": 1
     },
     {
       "set": "test_normal",
@@ -92,18 +112,18 @@
     {
       "set": "test_challenge",
       "arm": "haiku",
-      "tasks": 416,
-      "passed": 352,
-      "tgc": 0.8462,
+      "tasks": 417,
+      "passed": 353,
+      "tgc": 0.8465,
       "ci95": [
-        0.8083,
-        0.8776
+        0.8088,
+        0.8779
       ],
-      "scenarios": 138,
-      "scenariosPassed": 102,
-      "sgc": 0.7391,
+      "scenarios": 139,
+      "scenariosPassed": 103,
+      "sgc": 0.741,
       "costPerTaskUsd": 0.00826,
-      "costUsd": 3.43,
+      "costUsd": 3.44,
       "turns": 10.6
     },
     {
@@ -126,6 +146,27 @@
       "gained": 25,
       "lost": 25,
       "mcnemarP": 1
+    },
+    {
+      "set": "test_challenge",
+      "arm": "haiku-learned",
+      "tasks": 417,
+      "passed": 329,
+      "tgc": 0.789,
+      "ci95": [
+        0.7473,
+        0.8254
+      ],
+      "scenarios": 139,
+      "scenariosPassed": 91,
+      "sgc": 0.6547,
+      "costPerTaskUsd": 0.00839,
+      "costUsd": 3.5,
+      "turns": 9.8,
+      "vs": "haiku",
+      "gained": 22,
+      "lost": 46,
+      "mcnemarP": 0.0049
     },
     {
       "set": "test_challenge",
@@ -172,18 +213,18 @@
     {
       "set": "both test sets",
       "arm": "haiku",
-      "tasks": 584,
-      "passed": 501,
-      "tgc": 0.8579,
+      "tasks": 585,
+      "passed": 502,
+      "tgc": 0.8581,
       "ci95": [
-        0.8272,
-        0.8839
+        0.8275,
+        0.8841
       ],
-      "scenarios": 194,
-      "scenariosPassed": 146,
-      "sgc": 0.7526,
+      "scenarios": 195,
+      "scenariosPassed": 147,
+      "sgc": 0.7538,
       "costPerTaskUsd": 0.00763,
-      "costUsd": 4.46,
+      "costUsd": 4.47,
       "turns": 10
     },
     {
@@ -206,6 +247,27 @@
       "gained": 32,
       "lost": 28,
       "mcnemarP": 0.69888
+    },
+    {
+      "set": "both test sets",
+      "arm": "haiku-learned",
+      "tasks": 585,
+      "passed": 479,
+      "tgc": 0.8188,
+      "ci95": [
+        0.7855,
+        0.8479
+      ],
+      "scenarios": 195,
+      "scenariosPassed": 140,
+      "sgc": 0.7179,
+      "costPerTaskUsd": 0.00759,
+      "costUsd": 4.44,
+      "turns": 9,
+      "vs": "haiku",
+      "gained": 29,
+      "lost": 52,
+      "mcnemarP": 0.014
     },
     {
       "set": "both test sets",
@@ -252,18 +314,18 @@
     {
       "set": "both test sets, unseen scenarios only",
       "arm": "haiku",
-      "tasks": 464,
-      "passed": 391,
-      "tgc": 0.8427,
+      "tasks": 465,
+      "passed": 392,
+      "tgc": 0.843,
       "ci95": [
-        0.8067,
-        0.873
+        0.8072,
+        0.8733
       ],
-      "scenarios": 154,
-      "scenariosPassed": 114,
-      "sgc": 0.7403,
+      "scenarios": 155,
+      "scenariosPassed": 115,
+      "sgc": 0.7419,
       "costPerTaskUsd": 0.00782,
-      "costUsd": 3.63,
+      "costUsd": 3.64,
       "turns": 10.2
     },
     {
@@ -286,6 +348,27 @@
       "gained": 26,
       "lost": 28,
       "mcnemarP": 0.89192
+    },
+    {
+      "set": "both test sets, unseen scenarios only",
+      "arm": "haiku-learned",
+      "tasks": 465,
+      "passed": 372,
+      "tgc": 0.8,
+      "ci95": [
+        0.7613,
+        0.8338
+      ],
+      "scenarios": 155,
+      "scenariosPassed": 107,
+      "sgc": 0.6903,
+      "costPerTaskUsd": 0.0078,
+      "costUsd": 3.63,
+      "turns": 9.2,
+      "vs": "haiku",
+      "gained": 25,
+      "lost": 45,
+      "mcnemarP": 0.02246
     },
     {
       "set": "both test sets, unseen scenarios only",

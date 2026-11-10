@@ -38,13 +38,15 @@ with and without the notes ([site](https://swissspidy.github.io/trod/),
 
 On the first three, Haiku with notes also beats Sonnet without them (30%, 67% and 67%) at about a tenth of the cost
 per run. On AutomationBench the notes came from `trod learn` alone: one $2 learning session over Haiku's own earlier
-sessions.
+sessions, and the same notes take Sonnet from 30% to 44%.
 
 **It helps** where the same hidden rules come back in every task: internal or quirky APIs, unfamiliar codebases,
 in-house tooling, web and app workflows. **It does not help** where the model already knows the domain (Django),
 where it already does well without notes (AppWorld), or where every task needs its own fact that no earlier task
 taught (BIRD). The null results are published with the same care as the wins, and so are corrections: an earlier
-AppWorld gain measured on a 120-task sample [did not hold](results-17/README.md) on the full test sets.
+AppWorld gain measured on a 120-task sample [did not hold](results-17/README.md) on the full test sets, and notes learned there
+from 90 sessions with only 6 failures cost 4 points. Check learned notes on held-out tasks before relying on them
+(`trod tune` does).
 
 ## Three ways to teach it
 
