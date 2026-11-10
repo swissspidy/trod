@@ -1,0 +1,12 @@
+{"rules": [
+ {"id": "act-before-complete", "where": ".trod/notes.md", "confirmed": 2, "contradicted": 0, "status": "kept"},
+ {"id": "paginate-default-5", "where": ".trod/notes.md", "confirmed": 12, "contradicted": 0, "status": "fixed"},
+ {"id": "pass-access-token", "where": ".trod/notes.md", "confirmed": 7, "contradicted": 0, "status": "kept"},
+ {"id": "phone-login-phone-number", "where": ".trod/notes.md", "confirmed": 13, "contradicted": 0, "status": "kept"},
+ {"id": "relationships-from-phone-contacts", "where": ".trod/notes.md", "confirmed": 16, "contradicted": 2, "status": "fixed"},
+ {"id": "friends-union-venmo-and-phone", "where": ".trod/notes.md", "confirmed": 3, "contradicted": 0, "status": "new"},
+ {"id": "sandbox-no-file-io", "where": ".trod/notes.md", "confirmed": 7, "contradicted": 0, "status": "kept"},
+ {"id": "dates-from-task", "where": ".trod/notes.md", "confirmed": 12, "contradicted": 0, "status": "kept"},
+ {"id": "workout-no-public-or-queue", "where": ".trod/notes.md", "confirmed": 6, "contradicted": 0, "status": "kept"},
+ {"id": "compress-verify-before-delete", "where": ".trod/notes.md", "confirmed": 3, "contradicted": 0, "status": "new"}
+]}
