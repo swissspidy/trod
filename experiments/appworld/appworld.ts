@@ -90,8 +90,10 @@ export async function evaluate(env: Running, workDir?: string): Promise<CheckRes
   const out = await new Promise<{ code: number | null; text: string }>((resolve) => {
     const child = spawn(PYTHON(), [EVAL, env.taskId, env.experiment], { env: { PATH: process.env.PATH ?? '', HOME: AW_HOME, APPWORLD_ROOT: AW_HOME }, stdio: ['ignore', 'pipe', 'pipe'] });
     let text = '';
-    child.stdout.on('data', (c: Buffer) => (text += c));
-    child.stderr.on('data', (c: Buffer) => (text += c));
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', (c: string) => (text += c));
+    child.stderr.on('data', (c: string) => (text += c));
     child.on('close', (code) => resolve({ code, text }));
   });
   const line = out.text.split('\n').reverse().find((l) => l.startsWith('{'));

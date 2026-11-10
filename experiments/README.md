@@ -38,12 +38,14 @@ answer passes every step. For `csv-clean` that answer comes from an independentl
 | `library` | genesis with no nudge, but `.trod/library/` starts with the tools that a nudged run of the same task built (as if promoted and committed by an earlier session). It measures cross-session reuse. |
 | `scripts` | baseline tools only, but in `--mode sessions` the whole work dir carries over between steps, so scripts the agent wrote survive. |
 | `toolsmith` | genesis, after one dedicated session in the same run that builds general tools for the task's kind of work. |
-| `forged` | genesis with the library and notes that `trod forge` built once per task (or per `forgeKey`) with `--forge-model`. |
+| `forged` | genesis with the library and notes that `trod forge` built once per task (or per `forgeKey`) with `--forge-model`. In `--mode sessions` only the library carries over to later steps; the notes are in the first step only. |
 
 `--mode resume` (default) sends each step as a follow-up in the same session; `--mode sessions` starts a fresh session
-in a fresh checkout per step, as with ephemeral cloud containers. `--suite` runs a benchmark instead of the built-in
+in a fresh checkout per step, as with ephemeral cloud containers. Two arms differ: `toolsmith` always uses a fresh
+session and checkout per step, and `scripts` keeps its work dir in `sessions` mode. `--suite` runs a benchmark instead of the built-in
 tasks: `swe-django4`, `appworld:<split>`, `bird:test`, `sciworld:test`, `miniwob:test` or `miniwob:dev` (each has a
-folder here with its setup). `--as-user <name>` runs the sessions as an unprivileged user.
+folder here with its setup). `--as-user <name>` runs the sessions as an unprivileged user (it uses `runuser` and `chown`, so the runner itself
+must run as root).
 
 Every run is isolated: its own work dir, `HOME` and `CLAUDE_CONFIG_DIR`, and a clean environment (no synced plugins
 or user settings). It uses `--strict-mcp-config` and disables WebFetch/WebSearch/Task, has a per-step budget cap

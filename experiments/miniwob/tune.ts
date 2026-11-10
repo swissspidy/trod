@@ -175,8 +175,10 @@ async function propose(type: string, iteration: number, page: string, notes: str
       // Its own process group, so a timeout ends the whole tree (runuser, claude and whatever it started).
       const child = spawn(cmd as string, cargs as string[], { cwd: work, env: user ? undefined : e, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
       let text = '';
-      child.stdout.on('data', (c: Buffer) => (text += c));
-      child.stderr.on('data', (c: Buffer) => (text += c));
+      child.stdout.setEncoding('utf8');
+      child.stderr.setEncoding('utf8');
+      child.stdout.on('data', (c: string) => (text += c));
+      child.stderr.on('data', (c: string) => (text += c));
       const timer = setTimeout(() => {
         try {
           process.kill(-child.pid!, 'SIGKILL');

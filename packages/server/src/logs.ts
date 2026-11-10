@@ -54,11 +54,19 @@ export class CallLog {
   write(record: LogRecord): void {
     if (!this.enabled) return;
     try {
+      const line = JSON.stringify(record) + '\n';
       if (!this.dirReady) {
         mkdirSync(path.dirname(this.file), { recursive: true });
         this.dirReady = true;
       }
-      appendFileSync(this.file, JSON.stringify(record) + '\n');
+      try {
+        appendFileSync(this.file, line);
+      } catch (err) {
+        // The folder was removed while the server ran (a cleaned .trod/logs): make it again, once.
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+        mkdirSync(path.dirname(this.file), { recursive: true });
+        appendFileSync(this.file, line);
+      }
     } catch {
       // Logging must never break a tool call.
     }

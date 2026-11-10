@@ -148,8 +148,10 @@ async function propose(iteration: number, notes: string, digest: string): Promis
   const { stream, code } = await new Promise<{ stream: string; code: number | null }>((resolve, reject) => {
     const child = spawn(cmd as string, cargs as string[], { cwd: work, env: user ? undefined : env, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
     let text = '';
-    child.stdout.on('data', (c: Buffer) => (text += c));
-    child.stderr.on('data', (c: Buffer) => (text += c));
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', (c: string) => (text += c));
+    child.stderr.on('data', (c: string) => (text += c));
     const timer = setTimeout(() => {
       try {
         process.kill(-child.pid!, 'SIGKILL');

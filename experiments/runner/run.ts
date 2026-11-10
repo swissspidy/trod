@@ -252,8 +252,10 @@ async function newCheckout(task: Task, arm: Arm, work: string, baseUrl: string |
           env: cleanEnv(process.env.HOME ?? '/tmp', { TROD_ALLOW_EXEC: '1' }),
         });
         let text = '';
-        child.stdout.on('data', (c: Buffer) => (text += c));
-        child.stderr.on('data', (c: Buffer) => (text += c));
+        child.stdout.setEncoding('utf8');
+        child.stderr.setEncoding('utf8');
+        child.stdout.on('data', (c: string) => (text += c));
+        child.stderr.on('data', (c: string) => (text += c));
         child.on('close', () => resolve(text.trim()));
       });
       appendFileSync(path.join(path.dirname(work), 'promotions.log'), `before session ${i + 1}: ${name}: ${out}\n`);
@@ -311,8 +313,10 @@ async function doForge(task: Task): Promise<{ library: string; info: unknown }> 
       env: cleanEnv(home, { ...task.env?.({ work }) }),
     });
     let text = '';
-    child.stdout.on('data', (c: Buffer) => (text += c));
-    child.stderr.on('data', (c: Buffer) => (text += c));
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', (c: string) => (text += c));
+    child.stderr.on('data', (c: string) => (text += c));
     child.on('close', () => resolve(text));
   });
   server?.close();

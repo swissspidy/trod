@@ -85,8 +85,10 @@ async function grade(q: BirdQuestion, work: string): Promise<CheckResult> {
   const out = await new Promise<string>((resolve) => {
     const child = spawn('python3', [EVAL, db, gold, path.join(work, 'answer.sql')], { stdio: ['ignore', 'pipe', 'pipe'] });
     let text = '';
-    child.stdout.on('data', (c: Buffer) => (text += c));
-    child.stderr.on('data', (c: Buffer) => (text += c));
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', (c: string) => (text += c));
+    child.stderr.on('data', (c: string) => (text += c));
     child.on('close', () => resolve(text));
   });
   rmSync(tmp, { recursive: true, force: true });

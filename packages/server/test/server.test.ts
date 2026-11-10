@@ -181,6 +181,17 @@ describe('TrodServer', () => {
     expect((await call('trod_status')).text).toContain('Execution DISABLED');
   });
 
+  it('keeps logging after .trod/logs was removed while it ran', async () => {
+    const paths = tempProject();
+    writeTool(paths.toolsDir, 'echo_it', {});
+    const { call } = await connect(paths);
+    await call('echo_it', { x: 'a' });
+    rmSync(paths.logsDir, { recursive: true });
+    await call('echo_it', { x: 'b' });
+    const lines = readdirSync(paths.logsDir).flatMap((f) => readFileSync(path.join(paths.logsDir, f), 'utf8').trim().split('\n'));
+    expect(lines.some((l) => l.includes('"type":"call"') && l.includes('echo_it'))).toBe(true);
+  });
+
   it('writes JSONL logs for calls and registry events', async () => {
     const paths = tempProject();
     const { call, nextChange } = await connect(paths);

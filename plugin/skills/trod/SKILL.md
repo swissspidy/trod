@@ -101,7 +101,7 @@ intermediate data stays out of your context. `fs`, `fsp`, `path` and `projectDir
 
 ## Library tools
 
-Tools in `.trod/library/` were built in earlier sessions, and their examples passed when they were promoted.
+Tools in `.trod/library/` were built in earlier sessions; those with examples passed them when they were promoted.
 **Call them directly (`trod_run`); do not read their source first.** `trod_status` lists them with their descriptions. Only read the source when a call fails
 or returns something that looks wrong.
 
@@ -109,11 +109,12 @@ or returns something that looks wrong.
 
 `.trod/notes.md` holds verified notes about the project's environment (conventions, value meanings, traps), usually
 written by `trod forge` and loaded through `CLAUDE.md`. Follow them. If you find that a note is wrong, say so instead
-of silently working around it; `npx -y trod notes` runs their checks.
+of silently working around it; `npx -y trod notes` runs their checks (with a vendored trod: `node .trod/pkg/bin/trod notes`; inside the trod
+repository itself: `node plugin/bin/trod notes`).
 
 ## Rules
 
 - Tools run **outside Claude Code's sandbox and permission prompts**, in a subprocess with a timeout. Keep them inside
   the project directory and the hosts the task needs. Never read credentials the task did not give you.
 - Execution only works when the server has `TROD_ALLOW_EXEC=1`. If trod says execution is disabled, use Bash.
-- Promote a tool to the library (`npx -y trod promote <name>`) only when the user asks.
+- Promote a tool to the library (`npx -y trod promote <name>`, or the vendored or repository CLI as above) only when the user asks.

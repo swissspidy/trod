@@ -17355,11 +17355,18 @@ var CallLog = class {
   write(record2) {
     if (!this.enabled) return;
     try {
+      const line = JSON.stringify(record2) + "\n";
       if (!this.dirReady) {
         mkdirSync(path2.dirname(this.file), { recursive: true });
         this.dirReady = true;
       }
-      appendFileSync(this.file, JSON.stringify(record2) + "\n");
+      try {
+        appendFileSync(this.file, line);
+      } catch (err) {
+        if (err.code !== "ENOENT") throw err;
+        mkdirSync(path2.dirname(this.file), { recursive: true });
+        appendFileSync(this.file, line);
+      }
     } catch {
     }
   }

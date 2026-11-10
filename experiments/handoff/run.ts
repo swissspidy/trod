@@ -87,7 +87,8 @@ async function session(dir: string, work: string, name: string, model: string, p
   const { code, text } = await new Promise<{ code: number | null; text: string }>((resolve) => {
     const child = spawn(cmd as string, cargs as string[], { cwd: work, env: user ? undefined : e, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
     let buf = '';
-    child.stdout.on('data', (c: Buffer) => (buf += c));
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', (c: string) => (buf += c));
     child.stderr.on('data', () => {});
     const timer = setTimeout(() => {
       try {
