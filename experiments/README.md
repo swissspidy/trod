@@ -43,7 +43,7 @@ answer passes every step. For `csv-clean` that answer comes from an independentl
 `--mode resume` (default) sends each step as a follow-up in the same session; `--mode sessions` starts a fresh session
 in a fresh checkout per step, as with ephemeral cloud containers. Two arms differ: `toolsmith` always uses a fresh
 session and checkout per step, and `scripts` keeps its work dir in `sessions` mode. `--suite` runs a benchmark instead of the built-in
-tasks: `swe-django4`, `appworld:<split>`, `bird:test`, `sciworld:test`, `miniwob:test` or `miniwob:dev` (each has a
+tasks: `swe-django4`, `appworld:<split>`, `autobench:<split>`, `bird:test`, `sciworld:test`, `miniwob:test` or `miniwob:dev` (each has a
 folder here with its setup). `--as-user <name>` runs the sessions as an unprivileged user (it uses `runuser` and `chown`, so the runner itself
 must run as root).
 

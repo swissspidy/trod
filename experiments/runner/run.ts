@@ -24,6 +24,7 @@ import { parseArgs } from 'node:util';
 import { TASKS } from '../tasks/index.ts';
 import { sweTasks } from '../swe/swe.ts';
 import { appWorldTasks, datasetIds } from '../appworld/appworld.ts';
+import { autobenchIds, autobenchTasks } from '../autobench/autobench.ts';
 import { birdTasks, birdTestSample } from '../bird/bird.ts';
 import { miniwobTasks, mwSample } from '../miniwob/miniwob.ts';
 import { sciworldTasks, swTestSample } from '../sciworld/sciworld.ts';
@@ -80,8 +81,8 @@ if (!apiKey) {
 
 // A mistyped suite, arm or mode must not quietly run something else (the built-in tasks, a trod arm, resume mode).
 const SUITES = ['swe-django4', 'bird:test', 'sciworld:test', 'miniwob:test', 'miniwob:dev'];
-if (values.suite && !SUITES.includes(values.suite) && !values.suite.startsWith('appworld:')) {
-  console.error(`unknown --suite ${values.suite}: use one of ${SUITES.join(', ')} or appworld:<split> (no --suite runs the built-in tasks)`);
+if (values.suite && !SUITES.includes(values.suite) && !/^(appworld|autobench):/.test(values.suite)) {
+  console.error(`unknown --suite ${values.suite}: use one of ${SUITES.join(', ')}, appworld:<split> or autobench:<train|dev|test|pilot> (no --suite runs the built-in tasks)`);
   process.exit(1);
 }
 const ARMS: Arm[] = ['baseline', 'scripts', 'genesis', 'nudged', 'library', 'toolsmith', 'forged'];
@@ -101,7 +102,10 @@ const pool =
     ? sweTasks()
     : values.suite?.startsWith('appworld:')
       ? appWorldTasks(datasetIds(values.suite.slice('appworld:'.length)), path.basename(values.out ?? 'appworld'), process.env.AW_FORGE_TASK ?? '82e2fac_1')
-      : // bird:test: BIRD dev questions from the test split, BIRD_PER_DB (default 10) per database (experiments/bird).
+      : // autobench:<train|dev|test|pilot>: AutomationBench workflows, split in experiments/autobench.
+        values.suite?.startsWith('autobench:')
+        ? autobenchTasks(autobenchIds(values.suite.slice('autobench:'.length)))
+        : // bird:test: BIRD dev questions from the test split, BIRD_PER_DB (default 10) per database (experiments/bird).
         values.suite === 'bird:test'
         ? birdTasks(birdTestSample(Number(process.env.BIRD_PER_DB ?? 10)))
         : // sciworld:test: ScienceWorld test variations, SW_PER_TASK (default 2) per task type (experiments/sciworld).
