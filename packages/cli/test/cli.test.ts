@@ -62,6 +62,9 @@ describe('trod hook', () => {
     writeFileSync(path.join(dir, '.trod', 'tools', 'broken.mjs'), 'export default (( =>');
     const bad = await hookMessage(JSON.stringify({ tool_input: { file_path: path.join(dir, '.trod/tools/broken.mjs') } }), env);
     expect(bad).toMatch(/"broken" is NOT registered/);
+    // A file next to the tools that is not a tool (a README, a data file) is none of the hook's business.
+    writeFileSync(path.join(dir, '.trod', 'tools', 'README.md'), '# my tools');
+    expect(await hookMessage(JSON.stringify({ tool_input: { file_path: path.join(dir, '.trod/tools/README.md') } }), env)).toBeUndefined();
     expect(await hookMessage('not json', env)).toBeUndefined();
   });
 });

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { NOTES_IMPORT, NOTES_MAX_CHARS, trodPaths, verifyNotes } from '@trod/server';
-import { defaultServerPath, forge } from './forge.ts';
+import { defaultServerPath, forge, lastResultEvent } from './forge.ts';
 import { digestTranscript } from './learn.ts';
 import { TROD_SESSION_ENV } from './session-env.ts';
 
@@ -22,6 +22,8 @@ import { TROD_SESSION_ENV } from './session-env.ts';
 
 export const TUNE_CONFIG = path.join('.trod', 'tune.json');
 export const TUNE_DIR = path.join('.trod', 'tune');
+export const DEFAULT_TUNE_MODEL = 'claude-haiku-5-5';
+export const DEFAULT_TUNE_PROPOSER = 'claude-opus-5-5';
 /** The notes files a harness consists of: copied into each run's workspace and replaced when a candidate wins. */
 const HARNESS_FILES = ['notes.md', 'notes.checks.json', 'wiki', 'library'];
 
@@ -174,6 +176,8 @@ interface Ctx {
   scratch: string;
   /** Paths removed from every workspace (the tune config). */
   hide: string[];
+  /** The MCP config task sessions start trod from: outside the workspaces, so a check never sees it as a stray file. */
+  mcpConfig: string;
 }
 
 function sh(cmd: string, cwd: string, env: NodeJS.ProcessEnv, timeoutMs: number): { code: number | null; output: string } {
@@ -192,14 +196,13 @@ async function runTask(ctx: Ctx, harness: string, task: TuneTask, run: number, o
       const s = sh(task.setup, ws.dir, env, 10 * 60_000);
       if (s.code !== 0) return { task: task.id, run, pass: false, stream, error: `setup exited ${s.code}: ${s.output.trim().split('\n').at(-1) ?? ''}` };
     }
-    const mcp = path.join(ws.dir, '.trod', '.tune-mcp.json');
-    writeFileSync(mcp, JSON.stringify({ mcpServers: { trod: { command: process.execPath, args: [defaultServerPath()] } } }));
-    const args = ['-p', task.prompt, '--output-format', 'stream-json', '--verbose', '--mcp-config', mcp, '--strict-mcp-config', '--allowedTools', 'Bash,Read,Write,Edit,Glob,Grep,TodoWrite,mcp__trod__*', '--disallowedTools', 'WebFetch,WebSearch,Task,Agent', '--model', ctx.config.model, '--max-budget-usd', ctx.config.maxBudgetUsd ?? '2'];
+    const args = ['-p', task.prompt, '--output-format', 'stream-json', '--verbose', '--mcp-config', ctx.mcpConfig, '--strict-mcp-config', '--allowedTools', 'Bash,Read,Write,Edit,Glob,Grep,TodoWrite,mcp__trod__*', '--disallowedTools', 'WebFetch,WebSearch,Task,Agent', '--model', ctx.config.model, '--max-budget-usd', ctx.config.maxBudgetUsd ?? '2'];
     const { code, text, spawnError } = await new Promise<{ code: number | null; text: string; spawnError?: string }>((resolve) => {
       const child = spawn(ctx.claudeBin ?? ctx.env.TROD_CLAUDE_BIN ?? 'claude', args, { cwd: ws.dir, env, stdio: ['ignore', 'pipe', 'pipe'] });
       let buf = '';
-      child.stdout.on('data', (c: Buffer) => (buf += c.toString('utf8')));
-      child.stderr.on('data', () => {});
+      child.stdout.setEncoding('utf8');
+      child.stdout.on('data', (c: string) => (buf += c));
+      child.stderr.resume();
       const timer = setTimeout(() => child.kill('SIGKILL'), ctx.config.timeoutMinutes * 60_000);
       child.on('close', (c) => {
         clearTimeout(timer);
@@ -208,7 +211,7 @@ async function runTask(ctx: Ctx, harness: string, task: TuneTask, run: number, o
       child.on('error', (err) => resolve({ code: null, text: buf, spawnError: err.message }));
     });
     writeFileSync(stream, text);
-    const result = text.split('\n').filter((l) => l.includes('"type":"result"')).map((l) => JSON.parse(l)).at(-1) as { total_cost_usd?: number; is_error?: boolean } | undefined;
+    const result = lastResultEvent(text);
     if (code === null || !result) return { task: task.id, run, pass: false, stream, costUsd: result?.total_cost_usd, error: spawnError ? `could not start the session: ${spawnError}` : code === null ? 'session killed (timeout)' : 'session ended without a result' };
     const check = sh(task.check, ws.dir, env, 10 * 60_000);
     return { task: task.id, run, pass: check.code === 0, stream, costUsd: result.total_cost_usd };
@@ -269,7 +272,7 @@ async function propose(ctx: Ctx, harness: string, practice: RunResult[], tasks: 
       projectDir: ws.dir,
       brief: `Practice session digests: ${path.relative(ws.dir, sessions)}/ (FAIL-*.md failed, pass-*.md passed).`,
       prompt: TUNE_PROMPT(ctx.config.model, path.relative(ws.dir, sessions), scored.filter((r) => !r.pass).length, scored.length),
-      model: ctx.config.proposer ?? 'claude-opus-5-5',
+      model: ctx.config.proposer ?? DEFAULT_TUNE_PROPOSER,
       maxBudgetUsd: '5',
       linkNotes: false,
       claudeBin: ctx.claudeBin,
@@ -322,9 +325,11 @@ export interface TuneOptions {
 
 export async function tune(opts: TuneOptions): Promise<TuneResult> {
   const out = opts.out ?? (() => {});
-  const config = { model: 'claude-haiku-5-5', runs: 2, parallel: 3, timeoutMinutes: 15, ...opts.config };
+  const config = { model: DEFAULT_TUNE_MODEL, runs: 2, parallel: 3, timeoutMinutes: 15, ...opts.config };
   const margin = config.margin ?? 1;
-  const ctx: Ctx = { projectDir: opts.projectDir, out, claudeBin: opts.claudeBin, env: opts.env ?? process.env, config, scratch: mkdtempSync(path.join(tmpdir(), 'trod-tune-')), hide: hiddenPaths(opts.projectDir, opts.configFile) };
+  const scratch = mkdtempSync(path.join(tmpdir(), 'trod-tune-'));
+  const ctx: Ctx = { projectDir: opts.projectDir, out, claudeBin: opts.claudeBin, env: opts.env ?? process.env, config, scratch, hide: hiddenPaths(opts.projectDir, opts.configFile), mcpConfig: path.join(scratch, 'mcp.json') };
+  writeFileSync(ctx.mcpConfig, JSON.stringify({ mcpServers: { trod: { command: process.execPath, args: [defaultServerPath()] } } }));
   const { practice, validate } = splitTasks(config.tasks);
   const outDir = opts.outDir ?? path.join(opts.projectDir, TUNE_DIR, new Date().toISOString().replace(/[:.]/g, '-'));
   mkdirSync(outDir, { recursive: true });
@@ -392,6 +397,6 @@ export async function tune(opts: TuneOptions): Promise<TuneResult> {
   }
   const result = { iterations, accepted, outDir, costUsd: cost };
   writeFileSync(path.join(outDir, 'state.json'), JSON.stringify(result, null, 2));
-  out(`runs and digests: ${path.relative(opts.projectDir, outDir)} ($${cost.toFixed(2)})`);
+  out(`run transcripts, candidates and the decision: ${path.relative(opts.projectDir, outDir)} ($${cost.toFixed(2)})`);
   return result;
 }

@@ -11,7 +11,7 @@ export const DEFAULT_TIMEOUT_MS = 120_000;
 export const MAX_TIMEOUT_MS = 600_000;
 export const DEFAULT_MAX_OUTPUT_CHARS = 25_000;
 /** Hard cap on what is buffered from a subprocess, whatever the tool prints. */
-const MAX_CAPTURE_BYTES = 8 * 1024 * 1024;
+const MAX_CAPTURE_CHARS = 8 * 1024 * 1024;
 
 /**
  * Environment variables passed through to tool subprocesses. Everything else (API keys, tokens,
@@ -231,11 +231,13 @@ export function executeTool(opts: ExecuteOptions): Promise<RunResult> {
     let fd3 = '';
     let timedOut = false;
     let settled = false;
-    const cap = (buf: string, chunk: Buffer) => (buf.length < MAX_CAPTURE_BYTES ? buf + chunk.toString('utf8') : buf);
-    child.stdout!.on('data', (c: Buffer) => (stdout = cap(stdout, c)));
-    child.stderr!.on('data', (c: Buffer) => (stderr = cap(stderr, c)));
+    const cap = (buf: string, chunk: string) => (buf.length < MAX_CAPTURE_CHARS ? buf + chunk : buf);
     const resultPipe = child.stdio[3] as NodeJS.ReadableStream | null;
-    resultPipe?.on('data', (c: Buffer) => (fd3 = cap(fd3, c)));
+    // Decode as streams, not chunk by chunk: a multi-byte character can straddle two chunks.
+    for (const s of [child.stdout!, child.stderr!, resultPipe]) s?.setEncoding('utf8');
+    child.stdout!.on('data', (c: string) => (stdout = cap(stdout, c)));
+    child.stderr!.on('data', (c: string) => (stderr = cap(stderr, c)));
+    resultPipe?.on('data', (c: string) => (fd3 = cap(fd3, c)));
 
     const killTree = () => {
       try {

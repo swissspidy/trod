@@ -219,13 +219,13 @@ export function linkNotes(paths: TrodPaths): boolean {
   return true;
 }
 
-async function findTool(paths: TrodPaths, name: string, execAllowed: boolean, cache: Map<string, LoadedTool | undefined>): Promise<LoadedTool | undefined> {
+async function findTool(paths: TrodPaths, name: string, opts: { execAllowed: boolean; env?: NodeJS.ProcessEnv }, cache: Map<string, LoadedTool | undefined>): Promise<LoadedTool | undefined> {
   if (cache.has(name)) return cache.get(name);
   let found: LoadedTool | undefined;
   for (const [dir, source] of [[paths.libraryDir, 'library'], [paths.toolsDir, 'session']] as const) {
     const entry = listToolEntries(dir).find((e) => path.basename(e).replace(/\.mjs$/, '') === name);
     if (entry) {
-      found = await loadToolEntry(entry, source, { execAllowed });
+      found = await loadToolEntry(entry, source, opts);
       break;
     }
   }
@@ -246,7 +246,7 @@ export async function verifyNotes(paths: TrodPaths, opts: { execAllowed: boolean
       results.push({ claim: c.claim, tool: c.tool, ok: false, error: 'execution is disabled (TROD_ALLOW_EXEC is not 1)' });
       continue;
     }
-    const tool = await findTool(paths, c.tool, opts.execAllowed, cache);
+    const tool = await findTool(paths, c.tool, opts, cache);
     if (!tool?.ok || !tool.runner || !tool.runPath || !tool.def) {
       results.push({ claim: c.claim, tool: c.tool, ok: false, error: tool ? `tool is invalid: ${tool.errors.join('; ')}` : 'no such tool' });
       continue;

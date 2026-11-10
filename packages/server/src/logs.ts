@@ -43,6 +43,7 @@ export class CallLog {
   readonly file: string;
   /** False for a log that writes nothing (a server that has no workspace yet). */
   readonly enabled: boolean;
+  private dirReady = false;
 
   constructor(logsDir: string, startedAt = new Date(), enabled = true) {
     this.enabled = enabled;
@@ -53,7 +54,10 @@ export class CallLog {
   write(record: LogRecord): void {
     if (!this.enabled) return;
     try {
-      mkdirSync(path.dirname(this.file), { recursive: true });
+      if (!this.dirReady) {
+        mkdirSync(path.dirname(this.file), { recursive: true });
+        this.dirReady = true;
+      }
       appendFileSync(this.file, JSON.stringify(record) + '\n');
     } catch {
       // Logging must never break a tool call.

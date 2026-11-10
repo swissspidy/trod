@@ -79,6 +79,22 @@ describe('single-file tools', () => {
     expect(desc).toMatch(/Library tool, promoted from an earlier session\..*no need to read its source/s);
   });
 
+  it('promoting again keeps one stamp and replaces a folder version of the tool', async () => {
+    const paths = tempProject();
+    writeTool(paths.libraryDir, 'double_it', {});
+    writeTool(paths.toolsDir, 'placeholder', {});
+    writeFileSync(path.join(paths.toolsDir, 'double_it.mjs'), SRC);
+    const first = await promoteTool(paths, 'double_it', new Date('2026-11-07T00:00:00Z'), { execAllowed: true, env });
+    expect(first.replaced).toBe(true);
+    expect(existsSync(path.join(paths.libraryDir, 'double_it'))).toBe(false);
+    // Changed in a later session (the library file, stamp included, copied back) and promoted again.
+    writeFileSync(path.join(paths.toolsDir, 'double_it.mjs'), readFileSync(path.join(paths.libraryDir, 'double_it.mjs'), 'utf8'));
+    await promoteTool(paths, 'double_it', new Date('2026-11-09T00:00:00Z'), { execAllowed: true, env });
+    const source = readFileSync(path.join(paths.libraryDir, 'double_it.mjs'), 'utf8');
+    expect(source.match(/trod: promoted/g)).toHaveLength(1);
+    expect(source).toMatch(/trod: promoted 2026-11-09/);
+  });
+
   it('refuses to promote a tool whose examples fail', async () => {
     const paths = tempProject();
     writeTool(paths.toolsDir, 'placeholder', {});

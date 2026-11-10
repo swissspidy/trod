@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -118,10 +118,33 @@ export function defaultServerPath(): string {
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'server', 'trod-server.mjs');
 }
 
+/** The last `result` event of a `claude -p --output-format stream-json` stream; a torn line (a killed session) is skipped. */
+export function lastResultEvent(stream: string): { total_cost_usd?: number; num_turns?: number; usage?: Record<string, number>; is_error?: boolean } | undefined {
+  const lines = stream.split('\n');
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (!lines[i]!.includes('"type":"result"')) continue;
+    try {
+      return JSON.parse(lines[i]!);
+    } catch {
+      // torn: look further back
+    }
+  }
+  return undefined;
+}
+
 export async function forge(opts: ForgeOptions): Promise<ForgeResult> {
+  // The scratch folder (MCP config, practice wrappers, the stream unless --stream names a file) goes when the forge ends.
+  const scratch = mkdtempSync(path.join(tmpdir(), 'trod-forge-'));
+  try {
+    return await runForge(opts, scratch);
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+  }
+}
+
+async function runForge(opts: ForgeOptions, scratch: string): Promise<ForgeResult> {
   const out = opts.out ?? (() => {});
   const paths = trodPaths(opts.projectDir);
-  const scratch = mkdtempSync(path.join(tmpdir(), 'trod-forge-'));
   const baseEnv = opts.env ?? process.env;
   const practiceLog = path.join(scratch, 'practice.jsonl');
   if (opts.practice) writePracticeBins(path.join(scratch, 'bin'), practiceLog, opts.practice);
@@ -144,24 +167,31 @@ export async function forge(opts: ForgeOptions): Promise<ForgeResult> {
   const streamFile = opts.streamFile ?? path.join(scratch, 'forge.jsonl');
   mkdirSync(path.dirname(streamFile), { recursive: true });
   out(`forging tools in ${opts.projectDir}${opts.model ? ` with ${opts.model}` : ''} …`);
-  const exitCode = await new Promise<number | null>((resolve) => {
-    const child = spawn(opts.claudeBin ?? baseEnv.TROD_CLAUDE_BIN ?? 'claude', args, { cwd: opts.projectDir, env, stdio: ['ignore', 'pipe', 'inherit'] });
+  const claudeBin = opts.claudeBin ?? baseEnv.TROD_CLAUDE_BIN ?? 'claude';
+  const { exitCode, stream, spawnError } = await new Promise<{ exitCode: number | null; stream: string; spawnError?: string }>((resolve) => {
+    const child = spawn(claudeBin, args, { cwd: opts.projectDir, env, stdio: ['ignore', 'pipe', 'inherit'] });
     let buf = '';
-    child.stdout.on('data', (c: Buffer) => (buf += c.toString('utf8')));
+    child.stdout.setEncoding('utf8'); // decoded as a stream: a multi-byte character can straddle two chunks
+    child.stdout.on('data', (c: string) => (buf += c));
     const timer = setTimeout(() => child.kill('SIGKILL'), opts.timeoutMs ?? 30 * 60_000);
     child.on('close', (code) => {
       clearTimeout(timer);
-      writeFileSync(streamFile, buf);
-      resolve(code);
+      resolve({ exitCode: code, stream: buf });
+    });
+    child.on('error', (err) => {
+      clearTimeout(timer);
+      resolve({ exitCode: null, stream: buf, spawnError: err.message });
     });
   });
+  if (spawnError) {
+    // Nothing ran: leave the session tools and notes that are there alone.
+    out(`  could not start Claude Code (${claudeBin}): ${spawnError}. trod forge, learn and tune need the \`claude\` CLI (or TROD_CLAUDE_BIN).`);
+    return { exitCode: null, promoted: [], rejected: [], unverified: [] };
+  }
+  writeFileSync(streamFile, stream);
   const practice = opts.practice ? readPractice(practiceLog) : undefined;
   if (practice) out(`  practice: ${practice.passed}/${practice.attempts} attempt(s) passed${practice.corrupt ? ` (${practice.corrupt} unreadable log line(s) skipped)` : ''}`);
-  const result = readFileSync(streamFile, 'utf8')
-    .split('\n')
-    .filter((l) => l.includes('"type":"result"'))
-    .map((l) => JSON.parse(l))
-    .at(-1);
+  const result = lastResultEvent(stream);
 
   const promoted: string[] = [];
   const rejected: { name: string; reason: string }[] = [];

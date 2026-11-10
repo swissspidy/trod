@@ -146,9 +146,9 @@ describe('trod learn', () => {
     writeFileSync(outcomes, JSON.stringify({ good: true, bad: false }));
     const project = path.join(dir, 'project');
     mkdirSync(project);
-    // The fake learner records its prompt and writes notes.
+    // The fake learner records its prompt and the digests it was given, and writes notes.
     const fake = path.join(dir, 'fake-claude');
-    writeFileSync(fake, `#!/bin/sh\nprintf '%s' "$2" > ${JSON.stringify(path.join(dir, 'prompt.txt'))}\nmkdir -p .trod && printf '# Notes\\n- Enter does not submit; click Submit.\\n' > .trod/notes.md\nprintf '{"rules":[{"id":"submit","confirmed":1,"contradicted":1,"status":"new"}]}' > .trod/notes.evidence.json\necho '{"type":"result","subtype":"success","total_cost_usd":0.02,"num_turns":4}'\n`);
+    writeFileSync(fake, `#!/bin/sh\nprintf '%s' "$2" > ${JSON.stringify(path.join(dir, 'prompt.txt'))}\nls "$(printf '%s' "$2" | sed -n 's/.*condensed in \\([^ ]*\\): INDEX.*/\\1/p')" > ${JSON.stringify(path.join(dir, 'digests.txt'))}\nmkdir -p .trod && printf '# Notes\\n- Enter does not submit; click Submit.\\n' > .trod/notes.md\nprintf '{"rules":[{"id":"submit","confirmed":1,"contradicted":1,"status":"new"}]}' > .trod/notes.evidence.json\necho '{"type":"result","subtype":"success","total_cost_usd":0.02,"num_turns":4}'\n`);
     chmodSync(fake, 0o755);
     process.env.TROD_CLAUDE_BIN = fake;
     const lines: string[] = [];
@@ -159,7 +159,9 @@ describe('trod learn', () => {
     expect(prompt).toContain('You are distilling experience');
     expect(prompt).toContain('No brief: learn from the sessions');
     const sessionsDir = prompt.match(/condensed in (\S+): INDEX\.md/)![1]!;
-    expect(readdirSync(sessionsDir).map((f) => f.replace(/^\d+-/, '')).sort()).toEqual(['INDEX.md', 'fail.md', 'pass.md']);
+    expect(readFileSync(path.join(dir, 'digests.txt'), 'utf8').trim().split('\n').map((f) => f.replace(/^\d+-/, '')).sort()).toEqual(['INDEX.md', 'fail.md', 'pass.md']);
+    // The digests were for the learner only: gone once it finished.
+    expect(existsSync(path.dirname(sessionsDir))).toBe(false);
     expect(readFileSync(path.join(project, 'CLAUDE.md'), 'utf8')).toContain('@.trod/notes.md');
   });
 

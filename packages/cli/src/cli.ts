@@ -1,11 +1,11 @@
-import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { defaultServerPath, forge, type ForgeResult } from './forge.ts';
-import { acquireLearnLock, checkLedgerHistory, digestTranscript, findTranscripts, LEARN_PROMPT, LEDGER_FILE, readLearnState, readLedger, readOutcomes, summarizeLedger, transcriptDir, codexSessionsDir, codexTranscripts, writeDigests, writeLearnState, type SessionDigest } from './learn.ts';
+import { acquireLearnLock, checkLedgerHistory, digestTranscript, findTranscripts, LEARN_PROMPT, LEDGER_FILE, TROD_TASK, readLearnState, readLedger, readOutcomes, summarizeLedger, transcriptDir, codexSessionsDir, codexTranscripts, writeDigests, writeLearnState, type SessionDigest } from './learn.ts';
 import { tmpdir } from 'node:os';
 import { defaultPackageRoot, init, installClaudeHooks, installedHookCommand, packageVersion } from './init.ts';
 import { buildHoldoutReport, buildReport, formatReport, notesSince, sessionMetrics, type SessionMetrics } from './report.ts';
 import { notesHook, sessionDelivery } from './delivery.ts';
-import { readTuneConfig, splitTasks, tune, TUNE_CONFIG } from './tune.ts';
+import { DEFAULT_TUNE_MODEL, DEFAULT_TUNE_PROPOSER, readTuneConfig, splitTasks, tune, TUNE_CONFIG } from './tune.ts';
 import { sessionEndHook, setAutoLearn } from './autolearn.ts';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
@@ -31,9 +31,12 @@ Usage:
                            from before the notes were linked with those after: turns, tool calls, failed calls,
                            follow-up prompts, tokens, duration; plus the evidence ledger's summary
   trod stats [--json]      Summarize tool usage across .trod/logs/*.jsonl
-  trod check               Validate every tool folder (static checks, no execution)
+  trod check               Validate every tool without running its examples (single-file tools are imported to
+                           read their meta, which needs TROD_ALLOW_EXEC=1)
   trod list                List session and library tools
-  trod hook                PostToolUse hook: report whether a just-written tool is valid (JSON on stdin)
+  trod hook                The command behind trod's Claude Code hooks (JSON on stdin): PostToolUse reports whether a
+                           just-written tool is valid, SessionStart and UserPromptSubmit deliver the notes (hooks
+                           delivery), SessionEnd counts sessions for trod learn --auto
   trod verify [--json]     Re-run every library tool's examples and every note check against the current
                            environment; exit 1 if any tool or note is stale (run it in CI or on a schedule)
   trod notes [--link]      Show .trod/notes.md's status and run its checks; --link adds @.trod/notes.md to CLAUDE.md
@@ -43,14 +46,16 @@ Usage:
                            sessions (--holdout, default 0.1) gets no notes, so trod report can compare. import: the
                            CLAUDE.md import (default)
   trod forge --brief <text|@file> [--model <id>] [--no-link] [--practice <cmd> [--reset <cmd>]]
-                           Run a dedicated tool-building session (headless Claude Code), promote every tool whose
-                           examples pass to .trod/library, check the notes it wrote and link them into CLAUDE.md.
+                           Run a dedicated tool-building session (headless Claude Code), promote every valid tool
+                           whose examples do not fail to .trod/library (tools without examples are promoted as
+                           unverified), check the notes it wrote and link them into CLAUDE.md.
                            --practice: a shell command whose exit code 0 means the current attempt succeeded (e.g.
                            a test suite, a grader); the forge practises against it before writing notes, and its
                            notes are linked only if it passed at least once. --reset starts a fresh attempt.
   trod learn --auto <n|off>
                            Learn by itself: trod's SessionEnd hook starts \`trod learn\` in the background once n
-                           sessions have ended since the last run (at most once per 6 hours; log in .trod/logs/)
+                           sessions have ended since the last run (at most once per 6 hours, each run capped at
+                           $2; log in .trod/logs/auto-learn.log)
   trod learn [--from <dir|file>]... [--outcomes <file>] [--limit <n>] [--all] [--brief <text|@file>] [--model <id>]
                            Distil notes from sessions that already happened: condenses Claude Code's transcripts of
                            this project (default: ~/.claude/projects/<project>/) and Codex's sessions in it
@@ -72,7 +77,11 @@ Usage:
                            more held-out validation runs than the current notes. --dry-run shows the split and run counts.
 
 Options:
-  --timeout <minutes>      forge and learn: stop the session after this long (default 30)
+  --timeout <minutes>      forge and learn: stop the session after this long (default 30); tune: per task (default 15)
+  --budget <usd>           forge, learn and tune: spend cap per session (Claude Code's --max-budget-usd)
+  --stream <file>          forge and learn: keep the session's stream-json output in this file
+  --json                   Machine-readable output (report, stats, verify, notes, forge, learn, tune)
+  --version                Print trod's version
   --dir <path>             Project directory (default: TROD_PROJECT_DIR, CLAUDE_PROJECT_DIR or cwd)
   --logs <path>            Logs directory for stats (default: <dir>/.trod/logs)
 `;
@@ -239,7 +248,7 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
           const runs = config.runs ?? 2;
           out(`practice (${practice.length}): ${practice.map((t) => t.id).join(', ')}`);
           out(`validate (${validate.length}): ${validate.map((t) => t.id).join(', ')}`);
-          out(`per iteration: ${practice.length * runs} practice run(s), 1 proposer session, ${2 * validate.length * runs} validation run(s); model ${config.model ?? 'claude-haiku-5-5'}, proposer ${config.proposer ?? 'claude-opus-5-5'}`);
+          out(`per iteration: ${practice.length * runs} practice run(s), 1 proposer session, ${2 * validate.length * runs} validation run(s); model ${config.model ?? DEFAULT_TUNE_MODEL}, proposer ${config.proposer ?? DEFAULT_TUNE_PROPOSER}`);
           return 0;
         }
       } catch (e) {
@@ -275,6 +284,7 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
         out('learn: another trod learn run is in progress for this project; nothing to do');
         return 0;
       }
+      let digestsDir: string | undefined;
       try {
         // Newest first; digest only until the limit is reached, skipping empty transcripts, trod's own forge and
         // learn sessions, and (unless --all) sessions an earlier run learned from.
@@ -290,7 +300,7 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
             continue;
           }
           const d = digestTranscript(file, { outcome: outcomes?.get(path.basename(file, '.jsonl')) });
-          if (d && !d.learnRun && !/^You are (a toolsmith|distilling experience)/.test(d.task)) picked.push(d);
+          if (d && !d.learnRun && !TROD_TASK.test(d.task)) picked.push(d);
         }
         if (!picked.length) {
           // An explicit --from that finds no transcript at all is a mistake; anything else is a quiet scheduled run.
@@ -307,7 +317,8 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
           const had = delivery.get(d.id);
           if (had) d.text = d.text.replace(/^(# Session [^\n]*\n)/, `$1\nNotes: ${had.holdout ? 'HOLDOUT (this session ran without notes or wiki pages)' : `${had.notes ? '.trod/notes.md loaded' : '.trod/notes.md not delivered (none yet)'}${had.pages.length ? `; wiki pages added: ${had.pages.join(', ')}` : ''}`}\n`);
         }
-        const dir = mkdtempSync(path.join(tmpdir(), 'trod-learn-'));
+        digestsDir = mkdtempSync(path.join(tmpdir(), 'trod-learn-'));
+        const dir = digestsDir;
         const counts = writeDigests(path.join(dir, 'sessions'), picked);
         out(`learning from ${picked.length} session(s) (${counts.pass} passed, ${counts.fail} failed, ${counts.unknown} unknown)${files.length > picked.length && picked.length === limit ? `, the ${limit} most recent` : ''}`);
         const brief = values.brief ? (values.brief.startsWith('@') ? readFileSync(values.brief.slice(1), 'utf8') : values.brief) : "No brief: learn from the sessions and the project's files.";
@@ -336,6 +347,8 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
         if (res.exitCode === 0) writeLearnState(paths.projectDir, picked.map((d) => d.id));
         return code;
       } finally {
+        // The digests were for the learner session only.
+        if (digestsDir) rmSync(digestsDir, { recursive: true, force: true });
         release();
       }
     }
@@ -562,6 +575,14 @@ export async function hookMessage(raw: string, env: NodeJS.ProcessEnv = process.
   const [, projectDir, kind, first] = m as unknown as [string, string, string, string];
   const source = kind === 'library' ? 'library' : 'session';
   const entry = path.join(projectDir, '.trod', kind, first);
+  // Only tool entries: <name>.mjs, or a folder. A README or data file written next to them is not a broken tool.
+  let isDir = false;
+  try {
+    isDir = statSync(entry).isDirectory();
+  } catch {
+    // gone already
+  }
+  if (first.startsWith('.') || (!isDir && !first.endsWith('.mjs'))) return undefined;
   const execAllowed = env.TROD_ALLOW_EXEC === '1';
   const tool = await loadToolEntry(entry, source, { execAllowed, env });
   if (tool.ok) await runToolExamples(tool, { projectDir, execAllowed, env });
