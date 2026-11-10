@@ -89,7 +89,7 @@ p code,li code,td code{font-size:.92em;background:var(--surface-2);padding:1px 5
 </div>
 
 <h2>Where it shines</h2>
-<p>Forged knowledge pays in proportion to how much of tomorrow's work today's lessons cover. Across twelve rounds of paired experiments, each with fresh test cases the forge never saw:</p>
+<p>Forged knowledge pays in proportion to how much of tomorrow's work today's lessons cover. Across sixteen rounds of experiments, each with fresh test cases the forge never saw:</p>
 <div class="chart" role="figure" aria-label="Share of tasks Haiku solved alone and with forged notes (a forged tool library for SWE-bench), per benchmark">
   <div class="legend"><span><i class="sw" style="background:var(--series-2)"></i>Haiku alone</span><span><i class="sw" style="background:var(--series-1)"></i>Haiku with forged notes (SWE-bench: forged tool library)</span></div>
   <div id="rows"></div>
@@ -125,7 +125,7 @@ p code,li code,td code{font-size:.92em;background:var(--surface-2);padding:1px 5
 <p>Learning from experience is not a new idea. What trod adds is a forge you can run, gates that hold back notes whose checks fail or that never passed your success check, and published measurements of when it helps.</p>
 <div class="scroll"><table>
   <tr><th></th><th>Who writes the knowledge</th><th>Verified?</th><th>Learns by practice?</th><th>Measured gains</th></tr>
-  <tr class="us"><td>trod</td><td class="y">A dedicated forge session (any model), from probing, practice or past sessions</td><td class="y">Tool examples, note checks, <code>trod verify</code></td><td class="y">Yes, against your success check</td><td class="y">12 paired rounds, positive and negative</td></tr>
+  <tr class="us"><td>trod</td><td class="y">A dedicated forge session (any model), from probing, practice or past sessions</td><td class="y">Tool examples, note checks, <code>trod verify</code></td><td class="y">Yes, against your success check</td><td class="y">16 rounds, positive and negative</td></tr>
   <tr><td><code>CLAUDE.md</code>, auto memory</td><td>You, or the agent as it goes</td><td class="n">No</td><td class="n">No</td><td class="n">n/a</td></tr>
   <tr><td>Cline Memory Bank</td><td>The agent, on request, as markdown files</td><td class="n">No</td><td class="n">No</td><td class="n">n/a</td></tr>
   <tr><td>Agent Skills (<code>SKILL.md</code>)</td><td>An author, by hand</td><td class="n">No</td><td class="n">No</td><td class="n">n/a; complementary: trod produces the know-how a skill would package</td></tr>

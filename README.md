@@ -96,7 +96,7 @@ Tool code runs outside Claude Code's permission prompts, so execution is off unl
   transcripts, notes, wikis and a small injected layer, organized by offline "dreaming". trod is a shippable instance
   of the same lessons: a small injected layer of validated rules, written by an offline forge.
 - **Research (Voyager, ExpeL, Agent Workflow Memory):** the same idea of learning reusable skills from experience,
-  packaged here for Claude Code with twelve rounds of published, paired evaluations.
+  packaged here for Claude Code with sixteen rounds of published evaluations.
 
 ## More
 

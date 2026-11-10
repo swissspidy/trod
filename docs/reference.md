@@ -94,7 +94,7 @@ when neither `TROD_PROJECT_DIR` nor `CLAUDE_PROJECT_DIR` is set, the server asks
 MCP roots and moves to the first one; until then it creates nothing in the home directory, and `trod_status` names
 the directory it uses. If Antigravity does not answer with a root, set `TROD_PROJECT_DIR` for the server. Notes reach
 Antigravity through `.agents/rules/trod-notes.md`, an always-on rule that inlines `.trod/notes.md`; `trod init
---antigravity`, `trod forge`, `trod learn` and `trod notes --link` write it in projects with an `.agents/` folder (in
+--antigravity`, `trod forge`, `trod learn` and `trod notes --link` write it in projects with an `.agents/mcp_config.json` or an `.agents/rules/` folder (in
 a workspace that only uses the plugin, run `npx trod init --antigravity` or create `.agents/rules/` first; for notes that
 already exist, then run `trod notes --link`).
 
@@ -147,14 +147,16 @@ put the skill's text (`plugin/skills/trod/SKILL.md`) into the client's rules fil
 
 **Execution is off by default.** Tool code runs in a subprocess of the server, outside Claude Code's
 permission prompts and Bash sandbox. trod only runs tools when `TROD_ALLOW_EXEC=1` is set in its environment,
-which is meant for ephemeral cloud containers. See [ADR 0001](adr/0001-tool-execution-and-safety.md).
+which is meant for ephemeral cloud containers. Without it, folder tools are listed but refuse to run, and
+single-file tools (`<name>.mjs`) are not registered at all: reading their `meta` means importing the file. See
+[ADR 0001](adr/0001-tool-execution-and-safety.md).
 
 ## CLI and lifecycle
 
 - New tools land in `.trod/tools/` (ignored by git): session tools.
 - `trod promote <name>` moves one to `.trod/library/` (committed). The library loads at startup.
 - `trod forge --brief @env.md [--model claude-opus-5-5]` runs a dedicated tool-building session (headless Claude
-  Code) against an environment and promotes every tool whose examples pass: build the library once with a strong
+  Code) against an environment and promotes every valid tool whose examples do not fail (one without examples is promoted as unverified): build the library once with a strong
   model, use it in every later session. The forge also writes `.trod/notes.md` (conventions a newcomer gets wrong)
   with checks in `.trod/notes.checks.json`, and links the notes into `CLAUDE.md` (`@.trod/notes.md`).
 - `trod forge --brief @env.md --practice '<check>' [--reset '<cmd>']` lets the forge **practise** first. The check
@@ -179,7 +181,12 @@ which is meant for ephemeral cloud containers. See [ADR 0001](adr/0001-tool-exec
 - `trod verify` re-runs every library tool's examples and every note check: run it in CI to catch a drifted
   environment. `trod notes` shows the notes' status.
 - `trod stats` summarizes `.trod/logs/*.jsonl`: tools created, called, reused, errors.
-- `trod check` validates every tool folder without running anything.
+- `trod check` validates every tool without running its examples (single-file tools are imported to read their
+  `meta`, which needs `TROD_ALLOW_EXEC=1`); `trod list` lists them.
+- Options shared by several commands: `--dir <path>` (the project; default `TROD_PROJECT_DIR`, `CLAUDE_PROJECT_DIR`
+  or the nearest folder with a `.trod/`), `--json`, and for the commands that run a session (forge, learn, tune)
+  `--model <id>`, `--timeout <minutes>` (default 30; tune: 15 per task), `--budget <usd>` (a spend cap per session)
+  and `--stream <file>` (keep the session's stream-json output; forge and learn). `trod --version` prints the version.
 
 The CLI is `npx trod <command>`, or bundled at `plugin/bin/trod` in this repository (`node plugin/bin/trod stats`).
 
@@ -216,10 +223,10 @@ starts in a fresh checkout with no history to learn from. Options:
 scheduler. trod's SessionEnd hook (installed by `trod init` and the plugin) records each session that ends in
 `.trod/state/inbox.jsonl`. Once 10 have ended since the last learning run, the hook starts `trod learn` in the
 background, detached so the ending session is not held up, and logs to `.trod/logs/auto-learn.log`. It is the same
-incremental run, so the diff still waits for review. At most one automatic run starts per 6 hours (`cooldownHours` in
-`.trod/config.json`), none starts while another learning run holds the lock, and sessions trod starts itself (forge,
+incremental run, so the diff still waits for review. At most one automatic run starts per 6 hours (`autoLearn.cooldownHours`
+in `.trod/config.json`), none starts while another learning run holds the lock, and sessions trod starts itself (forge,
 learn, tune) never count. `trod learn --auto off` turns it off. Each run costs a learner session (about $0.20–0.50 in
-our runs) and is capped at $2, since nobody is watching it (`budgetUsd` in `.trod/config.json`). Commit `.trod/config.json` to turn it on for everyone working in the repository, or leave it uncommitted to
+our runs) and is capped at $2, since nobody is watching it (`autoLearn.budgetUsd` in `.trod/config.json`). Commit `.trod/config.json` to turn it on for everyone working in the repository, or leave it uncommitted to
 keep it on your machine only.
 
 The `learn` skill (`/trod:learn`, or `trod-learn` in projects set up with `trod init`) runs `trod learn` and
@@ -247,8 +254,8 @@ context and gets the notes again. The switch is refused while any notes check fa
 installed before anything else changes. A pinned `npx -y trod@<version> hook` from an older trod moves to the current
 version. A vendored copy in `.trod/pkg` must be updated with `trod init --vendor` first.
 
-The switch removes the `@.trod/notes.md` import from `CLAUDE.md` (forge and learn no longer add it) and installs the
-three hooks in `.claude/settings.json`; `trod init` and the plugin install them too, and they do nothing until the
+The switch removes the `@.trod/notes.md` import from `CLAUDE.md` (forge and learn no longer add it) and installs
+trod's four hooks in `.claude/settings.json`; `trod init` and the plugin install them too, and they do nothing until the
 project chooses hooks delivery. `trod notes --delivery import` switches back. Checked with Claude Code and Haiku: the
 model answered from the injected notes and the page its prompt matched, without a tool call. Codex and Antigravity keep
 their copy and rule (they have no equivalent hooks for this yet).
@@ -269,7 +276,10 @@ instead. List tasks in `.trod/tune.json`:
 ```
 
 Each task has a `prompt` (what a user would type), a `check` (a shell command run in the task's workspace afterwards;
-exit 0 means done) and optionally a `setup` command and a `split`. Then `npx trod tune` runs a loop:
+exit 0 means done) and optionally a `setup` command and a `split`; ids use letters, digits, `.`, `_` and `-`, and
+there must be at least two tasks. Next to `tasks` the file can set what the flags set: `model`, `proposer`, `runs`,
+`margin`, `iterations`, `parallel` (sessions at a time, default 3), `timeoutMinutes` and `maxBudgetUsd`. Then
+`npx trod tune` runs a loop:
 
 1. **Practice.** A model (`--model`, default Haiku) runs each practice task `runs` times. Every run gets a throwaway
    copy of the project carrying the current notes: in a git repository, the files of HEAD in a fresh repository with
@@ -283,8 +293,8 @@ exit 0 means done) and optionally a `setup` command and a `split`. Then `npx tro
    replaces the project's notes only if it passes at least `--margin` (default 1) more runs; otherwise nothing changes.
 
 Tasks without a `split` are divided between the two sets by a stable hash of their id. `--iterations` repeats the
-loop on the winning notes, and `--dry-run` shows the split and how many sessions an iteration costs. Runs, digests
-and the decision go to `.trod/tune/<time>/` (ignored by git). The project's notes change only when a candidate wins,
+loop on the winning notes, and `--dry-run` shows the split and how many sessions an iteration costs. Run transcripts,
+candidates and the decision go to `.trod/tune/<time>/` (ignored by git). The project's notes change only when a candidate wins,
 and nothing is committed.
 
 Validation is the point. On AppWorld, three plausible rewrites from Opus were each rejected because they did no
@@ -316,6 +326,7 @@ sessions are split by date, not by whether they actually saw the notes.
 | `TROD_MAX_OUTPUT_CHARS` | 25000 | longer outputs are truncated with a marker |
 | `TROD_ENV_PASSTHROUGH` | empty | comma-separated extra variables tools may see |
 | `TROD_SESSION_ID` | `CLAUDE_CODE_SESSION_ID` | session id for logs |
+| `TROD_CLAUDE_BIN` | `claude` | the Claude Code executable `trod forge`, `trod learn` and `trod tune` start |
 
 ## Development
 

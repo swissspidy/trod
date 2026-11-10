@@ -33,7 +33,7 @@ Development milestones before the first npm release; their changes ship in 0.1.0
   (including sessions started from the mobile app): `.mcp.json`, `.claude/settings.json`, the skill, `.gitignore`.
 - `trod mcp`: start the server on stdio for any MCP client; `trod --version`.
 - Packaged for npm as `trod` (`npx trod init`) and for the MCP Registry as `io.github.swissspidy/trod`; both go live
-  with the first tagged release (see [docs/distribution.md](docs/distribution.md)).
+  with the first tagged release (see [docs/distribution.md](https://github.com/swissspidy/trod/blob/main/docs/distribution.md)).
 
 ### Milestone "0.4.0"
 

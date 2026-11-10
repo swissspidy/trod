@@ -16627,7 +16627,7 @@ function init(opts) {
   }
   addIgnores(dir, res);
   if (opts.allowExec) res.notes.push("TROD_ALLOW_EXEC=1 is set in .mcp.json: tool code runs outside Claude Code's permission prompts. Fine for ephemeral cloud containers; think twice on your own machine.");
-  else res.notes.push("Tools are registered but not executed until TROD_ALLOW_EXEC=1 is set (re-run with --allow-exec, or set it in your cloud environment's variables).");
+  else res.notes.push("Tools do not run until TROD_ALLOW_EXEC=1 is set, and single-file tools are not even registered (re-run with --allow-exec, or set it in your cloud environment's variables).");
   return res;
 }
 function initAntigravity(opts, root, spec, res) {
@@ -16651,7 +16651,7 @@ function initAntigravity(opts, root, spec, res) {
   addIgnores(dir, res);
   res.notes.push("trod forge and trod learn add .agents/rules/trod-notes.md, which loads .trod/notes.md into every Antigravity conversation.");
   if (opts.allowExec) res.notes.push("TROD_ALLOW_EXEC=1 is set in .agents/mcp_config.json: tool code runs outside the terminal sandbox. Antigravity still asks before each MCP tool call unless you allow it.");
-  else res.notes.push("Tools are registered but not executed until TROD_ALLOW_EXEC=1 is set (re-run with --allow-exec).");
+  else res.notes.push("Tools do not run until TROD_ALLOW_EXEC=1 is set, and single-file tools are not even registered (re-run with --allow-exec).");
   return res;
 }
 var isTrodHook = (h) => h.type === "command" && typeof h.command === "string" && /^(npx -y trod(@\S+)? hook|node "[^"]*\/bin\/trod" hook)$/.test(h.command.trim());
@@ -16734,7 +16734,7 @@ function initCodex(opts, root, spec, res) {
   res.notes.push("trod forge, trod learn and trod notes --link keep a copy of .trod/notes.md in a block of AGENTS.md (Codex cannot import a file).");
   res.notes.push("Run Codex from the repository root or a folder inside it; trod finds the project by walking up to the nearest .trod/ folder.");
   if (opts.allowExec) res.notes.push("TROD_ALLOW_EXEC=1 is set in .codex/config.toml: tool code runs outside Codex's sandbox. Codex still applies its approval settings to MCP tool calls.");
-  else res.notes.push("Tools are registered but not executed until TROD_ALLOW_EXEC=1 is set (re-run with --allow-exec).");
+  else res.notes.push("Tools do not run until TROD_ALLOW_EXEC=1 is set, and single-file tools are not even registered (re-run with --allow-exec).");
   if (opts.autoApprove) res.notes.push(`default_tools_approval_mode = "approve" is set for trod: Codex runs every trod tool, trod_eval's arbitrary code included, without asking.`);
   else res.notes.push("codex exec (approval policy never) refuses trod's tool calls until you approve them: rerun with --auto-approve to approve them all.");
   res.notes.push("trod forge and trod learn still run Claude Code (the `claude` CLI) as their engine; trod learn also reads your Codex sessions.");

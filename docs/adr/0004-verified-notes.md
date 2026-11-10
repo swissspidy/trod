@@ -53,3 +53,10 @@ notes: practice against a success signal. `trod forge --practice '<check>'` expo
 not linked. The check is a plain shell command (exit code 0 = success), which covers test suites, graders and smoke
 tests without trod knowing the environment. The forge can still write a wrong rule after a pass; the gate only
 guarantees that something in the notes was seen to work, which is why the notes stay short and rule-shaped.
+
+## Addendum: other ways notes are delivered
+
+Decision 3 describes the default. Since then: `trod notes --delivery hooks` has trod's own hooks inject the notes
+(and matching wiki pages) instead of the `CLAUDE.md` import, with a random holdout that `trod report` compares
+against; Antigravity gets them through the `.agents/rules/trod-notes.md` rule; Codex gets a copy in a block of
+`AGENTS.md`. See the reference.

@@ -3,7 +3,7 @@
 Round 11 showed that notes learned from transcripts improve when sessions run with them and `trod learn` runs
 again (68% → 83% → 88%). This round tests the two features built to make that loop run on its own:
 
-- **Incremental `trod learn`.** It learns only from sessions since its last run (`.trod/learn.json`), and exits
+- **Incremental `trod learn`.** It learns only from sessions since its last run (`.trod/state/learn.json`), and exits
   without a session when nothing is new, so it can run on a schedule.
 - **An evidence ledger.** Each run checks every existing rule against the new sessions, which ran with the notes
   loaded, and keeps `.trod/notes.evidence.json`: per rule, how often sessions confirmed or contradicted it, and
