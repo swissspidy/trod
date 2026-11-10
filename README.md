@@ -42,6 +42,10 @@ were linked: turns, failed tool calls, follow-up prompts, tokens ([is it helping
 `npx trod notes --delivery hooks` makes that comparison randomized: trod's hooks load the notes (and only the wiki
 pages a prompt calls for), and leave them out of 10% of sessions ([hooks delivery](docs/reference.md#hooks-delivery-only-the-rules-that-apply-and-a-holdout)).
 
+If you can check "done" with a command, `npx trod tune` measures instead of guessing: list tasks and checks in
+`.trod/tune.json`, and it keeps rewritten notes only when they pass more held-out tasks
+([tuning notes](docs/reference.md#tuning-notes-against-your-own-tasks)).
+
 To study something new instead, write `env.md` (a few lines on the API, tooling or workflow) and forge:
 
 ```sh
