@@ -82,7 +82,7 @@ if (!apiKey) {
 // A mistyped suite, arm or mode must not quietly run something else (the built-in tasks, a trod arm, resume mode).
 const SUITES = ['swe-django4', 'bird:test', 'sciworld:test', 'miniwob:test', 'miniwob:dev'];
 if (values.suite && !SUITES.includes(values.suite) && !/^(appworld|autobench):/.test(values.suite)) {
-  console.error(`unknown --suite ${values.suite}: use one of ${SUITES.join(', ')}, appworld:<split> or autobench:<train|dev|test|pilot> (no --suite runs the built-in tasks)`);
+  console.error(`unknown --suite ${values.suite}: use one of ${SUITES.join(', ')}, appworld:<split> or autobench:<train|learn|dev|test|pilot> (no --suite runs the built-in tasks)`);
   process.exit(1);
 }
 const ARMS: Arm[] = ['baseline', 'scripts', 'genesis', 'nudged', 'library', 'toolsmith', 'forged'];
@@ -102,7 +102,7 @@ const pool =
     ? sweTasks()
     : values.suite?.startsWith('appworld:')
       ? appWorldTasks(datasetIds(values.suite.slice('appworld:'.length)), path.basename(values.out ?? 'appworld'), process.env.AW_FORGE_TASK ?? '82e2fac_1')
-      : // autobench:<train|dev|test|pilot>: AutomationBench workflows, split in experiments/autobench.
+      : // autobench:<train|learn|dev|test|pilot>: AutomationBench workflows, split in experiments/autobench.
         values.suite?.startsWith('autobench:')
         ? autobenchTasks(autobenchIds(values.suite.slice('autobench:'.length)))
         : // bird:test: BIRD dev questions from the test split, BIRD_PER_DB (default 10) per database (experiments/bird).
