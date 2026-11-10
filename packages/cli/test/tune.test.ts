@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { main } from '../src/cli.ts';
-import { makeWorkspace, readTuneConfig, splitTasks, tune, type TuneConfig } from '../src/tune.ts';
+import { hiddenPaths, makeWorkspace, readTuneConfig, splitTasks, tune, type TuneConfig } from '../src/tune.ts';
 
 const tmp = () => mkdtempSync(path.join(tmpdir(), 'trod-tune-'));
 
@@ -102,6 +102,21 @@ describe('tune config', () => {
     expect(git(ws.dir, 'show', 'HEAD:.trod/tune.json').status).not.toBe(0);
     ws.remove();
     expect(existsSync(ws.dir)).toBe(false);
+  });
+
+  it('hides a custom config inside the project, even one the harness would bring back', () => {
+    const dir = project();
+    expect(hiddenPaths(dir, path.join(dir, '..tasks.json'))).toEqual(['.trod/tune.json', '..tasks.json']);
+    expect(hiddenPaths(dir, path.join(dir, 'sub', 'tasks.json'))).toContain(path.join('sub', 'tasks.json'));
+    expect(hiddenPaths(dir, path.join(path.dirname(dir), 'elsewhere.json'))).toEqual(['.trod/tune.json']);
+    const harness = path.join(tmp(), 'h');
+    mkdirSync(path.join(harness, 'wiki'), { recursive: true });
+    writeFileSync(path.join(harness, 'wiki', 'tasks.json'), '{}');
+    writeFileSync(path.join(harness, 'wiki', 'page.md'), '# page\n');
+    const ws = makeWorkspace(dir, harness, path.join(tmp(), 'scratch'), hiddenPaths(dir, path.join(dir, '.trod', 'wiki', 'tasks.json')));
+    expect(existsSync(path.join(ws.dir, '.trod', 'wiki', 'tasks.json'))).toBe(false);
+    expect(existsSync(path.join(ws.dir, '.trod', 'wiki', 'page.md'))).toBe(true);
+    ws.remove();
   });
 });
 

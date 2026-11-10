@@ -17094,10 +17094,10 @@ function makeWorkspace(projectDir, harness, scratch, hide2 = [TUNE_CONFIG]) {
     const skip = /* @__PURE__ */ new Set([".git", "node_modules"]);
     cpSync2(projectDir, dir, { recursive: true, filter: (src) => !skip.has(path11.basename(src)) && !src.startsWith(path11.join(projectDir, TUNE_DIR)) && !src.startsWith(path11.resolve(scratch)) });
   }
-  for (const h of hide2) rmSync2(path11.join(dir, h), { recursive: true, force: true });
   const trodDir = path11.join(dir, ".trod");
   for (const f of HARNESS_FILES) rmSync2(path11.join(trodDir, f), { recursive: true, force: true });
   snapshotHarness(harness, trodDir);
+  for (const h of hide2) rmSync2(path11.join(dir, h), { recursive: true, force: true });
   const claudeMd = path11.join(dir, "CLAUDE.md");
   const text = existsSync10(claudeMd) ? readFileSync10(claudeMd, "utf8") : "";
   if (existsSync10(path11.join(trodDir, "notes.md")) && !text.split("\n").some((l) => l.trim() === NOTES_IMPORT)) writeFileSync7(claudeMd, `${text.trimEnd()}${text ? "\n\n" : ""}${NOTES_IMPORT}
@@ -17109,6 +17109,14 @@ function makeWorkspace(projectDir, harness, scratch, hide2 = [TUNE_CONFIG]) {
     g("-c", "user.name=trod", "-c", "user.email=trod@localhost", "commit", "-q", "-m", "base");
   }
   return { dir, remove };
+}
+function hiddenPaths(projectDir, configFile) {
+  const hide2 = [TUNE_CONFIG];
+  if (configFile) {
+    const rel = path11.relative(projectDir, path11.resolve(configFile));
+    if (rel && rel !== ".." && !rel.startsWith(`..${path11.sep}`) && !path11.isAbsolute(rel)) hide2.push(rel);
+  }
+  return hide2;
 }
 function sh(cmd, cwd, env, timeoutMs) {
   const r = spawnSync("sh", ["-c", cmd], { cwd, env, encoding: "utf8", timeout: timeoutMs, maxBuffer: 16 * 1024 * 1024 });
@@ -17226,11 +17234,7 @@ async function tune(opts) {
   });
   const config2 = { model: "claude-haiku-5-5", runs: 2, parallel: 3, timeoutMinutes: 15, ...opts.config };
   const margin = config2.margin ?? 1;
-  const ctx = { projectDir: opts.projectDir, out, claudeBin: opts.claudeBin, env: opts.env ?? process.env, config: config2, scratch: mkdtempSync2(path11.join(tmpdir2(), "trod-tune-")), hide: [TUNE_CONFIG] };
-  if (opts.configFile) {
-    const rel = path11.relative(opts.projectDir, path11.resolve(opts.configFile));
-    if (rel && !rel.startsWith("..") && !path11.isAbsolute(rel)) ctx.hide.push(rel);
-  }
+  const ctx = { projectDir: opts.projectDir, out, claudeBin: opts.claudeBin, env: opts.env ?? process.env, config: config2, scratch: mkdtempSync2(path11.join(tmpdir2(), "trod-tune-")), hide: hiddenPaths(opts.projectDir, opts.configFile) };
   const { practice, validate: validate2 } = splitTasks(config2.tasks);
   const outDir = opts.outDir ?? path11.join(opts.projectDir, TUNE_DIR, (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-"));
   mkdirSync8(outDir, { recursive: true });
