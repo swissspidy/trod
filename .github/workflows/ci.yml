@@ -34,8 +34,11 @@ jobs:
       - run: pnpm build
       - name: Bundles are up to date
         run: |
-          if ! git diff --exit-code -- plugin/; then
-            echo "::error::plugin/ bundles are stale. Run pnpm build and commit them."
+          # pnpm build also copies the Antigravity/Codex skills to skills/ at the repository root.
+          if [ -n "$(git status --porcelain -- plugin skills)" ]; then
+            git status --short -- plugin skills
+            git diff -- plugin skills | head -n 200
+            echo "::error::plugin/ or skills/ is stale. Run pnpm build and commit the result."
             exit 1
           fi
       - run: pnpm test

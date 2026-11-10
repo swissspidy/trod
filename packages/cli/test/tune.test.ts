@@ -36,7 +36,8 @@ function project(): string {
   return dir;
 }
 
-const tasks = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `t${i}`, prompt: `Do task ${i}.`, check: 'test -f done.txt', split: (i % 2 ? 'validate' : 'practice') as 'practice' | 'validate' }));
+// The check also fails if trod left a file of its own in the workspace.
+const tasks = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `t${i}`, prompt: `Do task ${i}.`, check: 'test -f done.txt && test ! -e .trod/.tune-mcp.json', split: (i % 2 ? 'validate' : 'practice') as 'practice' | 'validate' }));
 
 describe('tune config', () => {
   it('rejects configs that cannot be tuned against, with a message that says what to fix', () => {

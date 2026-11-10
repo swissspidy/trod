@@ -40,12 +40,22 @@ export interface BirdQuestion {
 const rank = (q: BirdQuestion) => createHash('sha1').update(`bird-${q.question_id}`).digest('hex');
 
 /** All dev questions split per database into train (first 40% by hash) and test. */
+let split: { train: BirdQuestion[]; test: BirdQuestion[] } | undefined;
+/** Read, hashed and sorted once per process: every task's setup asks for it. */
 export function birdSplit(): { train: BirdQuestion[]; test: BirdQuestion[] } {
+  return (split ??= computeSplit());
+}
+
+function computeSplit(): { train: BirdQuestion[]; test: BirdQuestion[] } {
   const file = path.join(BIRD_HOME, 'data', 'dev.json');
   if (!existsSync(file)) return { train: [], test: [] };
   const all = JSON.parse(readFileSync(file, 'utf8')) as BirdQuestion[];
   const byDb = new Map<string, BirdQuestion[]>();
-  for (const q of all) byDb.set(q.db_id, [...(byDb.get(q.db_id) ?? []), q]);
+  for (const q of all) {
+    const list = byDb.get(q.db_id);
+    if (list) list.push(q);
+    else byDb.set(q.db_id, [q]);
+  }
   const train: BirdQuestion[] = [];
   const test: BirdQuestion[] = [];
   for (const qs of byDb.values()) {
@@ -75,8 +85,10 @@ async function grade(q: BirdQuestion, work: string): Promise<CheckResult> {
   const out = await new Promise<string>((resolve) => {
     const child = spawn('python3', [EVAL, db, gold, path.join(work, 'answer.sql')], { stdio: ['ignore', 'pipe', 'pipe'] });
     let text = '';
-    child.stdout.on('data', (c: Buffer) => (text += c));
-    child.stderr.on('data', (c: Buffer) => (text += c));
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', (c: string) => (text += c));
+    child.stderr.on('data', (c: string) => (text += c));
     child.on('close', () => resolve(text));
   });
   rmSync(tmp, { recursive: true, force: true });

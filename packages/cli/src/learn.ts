@@ -37,13 +37,18 @@ export function codexSessionsDir(codexHome = process.env.CODEX_HOME || path.join
 }
 
 /** The first line of a Codex rollout file is its session_meta, which names the folder the session ran in. */
+let headBuf: Buffer | undefined;
 function codexSessionCwd(file: string): string | undefined {
   try {
-    // Read only the start: rollouts can be large, and there can be thousands of them.
+    // Read only the start, into one shared buffer: rollouts can be large, and there can be thousands of them.
+    const buf = (headBuf ??= Buffer.allocUnsafe(256 * 1024));
     const fd = openSync(file, 'r');
-    const buf = Buffer.alloc(256 * 1024);
-    const n = readSync(fd, buf, 0, buf.length, 0);
-    closeSync(fd);
+    let n: number;
+    try {
+      n = readSync(fd, buf, 0, buf.length, 0);
+    } finally {
+      closeSync(fd);
+    }
     const head = buf.subarray(0, n).toString('utf8');
     const e = JSON.parse(head.slice(0, head.indexOf('\n') >= 0 ? head.indexOf('\n') : undefined)) as { type?: string; payload?: { cwd?: string } };
     return e.type === 'session_meta' ? e.payload?.cwd : undefined;
@@ -78,23 +83,27 @@ export function codexTranscripts(projectDir: string, sessionsDir = codexSessions
  * first. Directories reached twice (overlapping sources, symlink cycles) are walked once.
  */
 export function findTranscripts(sources: string[]): string[] {
-  const found = new Map<string, string>(); // real path -> path as found
+  const found = new Map<string, { file: string; mtimeMs: number }>(); // real path -> path as found, and its age
   const seenDirs = new Set<string>();
   const walk = (p: string) => {
     if (!existsSync(p)) return;
     const real = realpathSync(p);
-    if (statSync(real).isDirectory()) {
+    const stat = statSync(real);
+    if (stat.isDirectory()) {
       if (seenDirs.has(real)) return;
       seenDirs.add(real);
       for (const e of readdirSync(real).sort()) walk(path.join(p, e));
-    } else if (p.endsWith('.jsonl') && !found.has(real)) found.set(real, p);
+    } else if (p.endsWith('.jsonl') && !found.has(real)) found.set(real, { file: p, mtimeMs: stat.mtimeMs });
   };
   for (const s of sources) walk(s);
-  return [...found.keys()].sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs).map((r) => found.get(r)!);
+  return [...found.values()].sort((a, b) => b.mtimeMs - a.mtimeMs).map((f) => f.file);
 }
 
+/** The first prompt of a session trod started itself (forge, learn, tune): such sessions are never learned from or reported. */
+export const TROD_TASK = /^You are (a toolsmith|distilling experience|tuning notes)/;
+
 /** Text that Claude Code wraps around slash commands, shell escapes and reminders, not typed by the user. */
-const WRAPPER = /^<(command-[a-z]+|local-command-[a-z]+|system-reminder|bash-(input|stdout|stderr)|task-notification|user-memory-input)>/;
+export const CLAUDE_WRAPPER = /^<(command-[a-z]+|local-command-[a-z]+|system-reminder|bash-(input|stdout|stderr)|task-notification|user-memory-input)>/;
 
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)} …[${s.length - n} more chars]` : s);
 
@@ -138,7 +147,7 @@ export function digestTranscript(file: string, opts: { outcome?: Outcome; task?:
           steps.push(`${c.is_error ? 'ERROR' : 'RESULT'}: ${clip(textOf(c.content).trim(), 700)}`);
         } else if (c?.type === 'text') {
           const t = (c.text ?? '').trim();
-          if (!t || WRAPPER.test(t)) continue;
+          if (!t || CLAUDE_WRAPPER.test(t)) continue;
           if (!task) task = t;
           else steps.push(`USER: ${clip(t, 600)}`);
         }
@@ -182,7 +191,7 @@ function assembleDigest(file: string, d: { task: string; steps: string[]; toolCa
 }
 
 /** Text Codex puts in user messages that the user did not type (environment, AGENTS.md, skills, turn context). */
-const CODEX_WRAPPER = /^(<(environment_context|user_instructions|skills_instructions|turn_aborted|user_shell_command|subagent_notification|permissions instructions|apps_instructions|collaboration_mode|multi_agent_[a-z_]+)>|# AGENTS\.md instructions)/;
+export const CODEX_WRAPPER = /^(<(environment_context|user_instructions|skills_instructions|turn_aborted|user_shell_command|subagent_notification|permissions instructions|apps_instructions|collaboration_mode|multi_agent_[a-z_]+)>|# AGENTS\.md instructions)/;
 
 type CodexItem = { type?: string; role?: string; content?: { type?: string; text?: string }[]; name?: string; arguments?: string; input?: string; call_id?: string; output?: unknown };
 
@@ -336,10 +345,30 @@ export function readLearnState(projectDir: string): LearnState {
   }
 }
 
-function ensureStateDir(projectDir: string): void {
+/** Creates .trod/state/ with the .gitignore that keeps it out of commits. Everything that writes state calls this. */
+export function ensureStateDir(projectDir: string): void {
   const dir = path.join(projectDir, LEARN_STATE_DIR);
   mkdirSync(dir, { recursive: true });
-  if (!existsSync(path.join(dir, '.gitignore'))) writeFileSync(path.join(dir, '.gitignore'), '# machine-local trod state (written by trod learn)\n*\n');
+  if (!existsSync(path.join(dir, '.gitignore'))) writeFileSync(path.join(dir, '.gitignore'), '# machine-local trod state (learned sessions, locks, per-session notes delivery)\n*\n');
+}
+
+function pidAlive(pid: number): boolean {
+  if (!(pid > 0)) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code === 'EPERM';
+  }
+}
+
+/** True while a live `trod learn` run holds the project's lock. */
+export function learnLockHeld(projectDir: string): boolean {
+  try {
+    return pidAlive(Number(readFileSync(path.join(projectDir, LEARN_LOCK_FILE), 'utf8')));
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -370,16 +399,12 @@ export function acquireLearnLock(projectDir: string): (() => void) | undefined {
         }
       };
     } catch {
-      const pid = Number(readFileSync(lock, 'utf8'));
-      let alive = false;
+      if (learnLockHeld(projectDir)) return undefined;
       try {
-        if (pid > 0) process.kill(pid, 0);
-        alive = pid > 0;
-      } catch (err) {
-        alive = (err as NodeJS.ErrnoException).code === 'EPERM';
+        unlinkSync(lock); // stale: its run died
+      } catch {
+        // released meanwhile
       }
-      if (alive) return undefined;
-      unlinkSync(lock); // stale: its run died
     }
   }
   return undefined;

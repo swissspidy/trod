@@ -30,9 +30,10 @@ interface Usage {
   lastError?: string;
 }
 
-/** The one permanent tool. Its definition never changes, so the prompt cache stays warm. */
-// Both permanent tools set _meta anthropic/alwaysLoad: they are always in the prompt, even with tool search on.
-// They are fixed from the start, so they never invalidate the prompt cache.
+/**
+ * The three permanent tools (trod_status, trod_run, trod_eval) set _meta anthropic/alwaysLoad: they are always in the
+ * prompt, even with tool search on. Their definitions never change, so they never invalidate the prompt cache.
+ */
 export const STATUS_TOOL: Tool = {
   name: 'trod_status',
   description:
@@ -70,7 +71,6 @@ export const RUN_TOOL: Tool = {
   },
   _meta: { 'anthropic/alwaysLoad': true },
 };
-
 
 /** Shown in the system prompt. Enough to build and call a tool without loading the skill. */
 export const SERVER_INSTRUCTIONS = `trod turns a file into a tool you can call. When you are about to write a helper script you will run more than once (a repeated lookup, an authenticated or paginated request, a parser, a browser step), write it as a trod tool instead: same effort, cheaper and safer to call.
@@ -112,11 +112,6 @@ function signature(schema: Record<string, unknown>): string {
     .join(', ');
 }
 
-/**
- * Library cards: what the committed library offers, with its evidence (examples that passed, usage in earlier
- * sessions), written into the instructions at startup so a fresh session knows what it can rely on before its first
- * turn. Fixed for the session, so it does not disturb the prompt cache.
- */
 /** Short instructions used when a library exists, so the cards get most of Claude Code's instruction budget. */
 export const LIBRARY_INSTRUCTIONS = `trod: tools for this project. Call a tool with trod_run {"tool": "<name>", "input": {…}}, or call several and compute the answer in ONE call with trod_eval {"code": "const r = await tools.<name>({…}); return …"} (only the returned value comes back; fs, fsp, path, projectDir are available). New tools: write .trod/tools/<name>.mjs (export const meta = { description, whenToUse, inputSchema }; export default async (input, ctx) => result).`;
 
@@ -126,6 +121,11 @@ export const LIBRARY_INSTRUCTIONS = `trod: tools for this project. Call a tool w
  */
 export const INSTRUCTIONS_BUDGET = 3800;
 
+/**
+ * Library cards: what the committed library offers, with its evidence (examples that passed, usage in earlier
+ * sessions), written into the instructions at startup so a fresh session knows what it can rely on before its first
+ * turn. Fixed for the session, so it does not disturb the prompt cache.
+ */
 export function libraryCards(tools: LoadedTool[], stats: Map<string, { calls: number; errors: number; sessions: number }>, maxChars = INSTRUCTIONS_BUDGET - LIBRARY_INSTRUCTIONS.length): string {
   const lib = tools.filter((t) => t.source === 'library' && t.ok && t.def).sort((a, b) => a.def!.name.localeCompare(b.def!.name));
   if (!lib.length) return '';
@@ -210,9 +210,12 @@ export class TrodServer {
   async start(): Promise<void> {
     await this.load('start');
     // Library cards go into the instructions the client receives at initialize (the server connects after start()).
-    const stats = new Map(computeStats(readLogs(this.paths.logsDir)).tools.map((t) => [t.tool, t]));
-    const cards = libraryCards([...this.registry.active.values()], stats);
-    if (cards) (this.server as unknown as { _instructions?: string })._instructions = LIBRARY_INSTRUCTIONS + cards;
+    const library = [...this.registry.active.values()].filter((t) => t.source === 'library');
+    if (library.length) {
+      // Reading every log is only worth it when there are cards to put the usage on.
+      const stats = new Map(computeStats(readLogs(this.paths.logsDir)).tools.map((t) => [t.tool, t]));
+      (this.server as unknown as { _instructions?: string })._instructions = LIBRARY_INSTRUCTIONS + libraryCards(library, stats);
+    }
     this.watch();
   }
 
@@ -300,8 +303,9 @@ export class TrodServer {
 
   private watch(): void {
     const onEvent = (_event: string, file: string | Buffer | null) => {
+      // Only the tool folders matter; logs, state, notes, wiki pages and tune runs change far more often.
       const f = String(file ?? '');
-      if (f.startsWith('logs') || f.startsWith('state')) return;
+      if (f && !f.startsWith('tools') && !f.startsWith('library')) return;
       this.schedule();
     };
     try {
@@ -361,12 +365,11 @@ export class TrodServer {
       return this.callTool(target, input);
     }
 
-    let tool = this.registry.active.get(name);
-    // The agent may call a tool right after writing it, before the watcher fired.
-    if (!tool && this.registry.fingerprint() !== this.lastFingerprint) {
-      await this.refresh();
-      tool = this.registry.active.get(name);
-    }
+    // The agent may call a tool right after writing or changing it: before the watcher fired, or while the rescan it
+    // started is still running the tool's examples. Either way the call gets the version that is on disk.
+    if (this.registry.fingerprint() !== this.lastFingerprint) await this.refresh();
+    else await this.registry.idle();
+    const tool = this.registry.active.get(name);
     if (!tool) {
       const invalid = [...this.registry.folders.values()].find((t) => t.folder === name && !t.ok);
       const text = invalid
@@ -442,6 +445,7 @@ export class TrodServer {
     if (!code.trim()) return { isError: true, content: [{ type: 'text', text: 'trod_eval: "code" is required.' }] };
     if (!this.execAllowed) return { isError: true, content: [{ type: 'text', text: 'trod: tool execution is disabled (TROD_ALLOW_EXEC is not 1).' }] };
     if (this.registry.fingerprint() !== this.lastFingerprint) await this.refresh();
+    else await this.registry.idle();
     const tools = [...this.registry.active.values()].map((t) => ({ name: t.def!.name, runner: t.runner, runPath: t.runPath, dir: t.dir }));
     const res = await executeTool({
       script: EVAL_RUNNER,
@@ -513,7 +517,7 @@ export class TrodServer {
       lines.push('', 'invalid (not registered):');
       for (const t of invalid) lines.push(`- ${t.source}/${t.folder}:`, ...t.errors.map((e) => `    - ${e}`));
     }
-    if (!all.length) lines.push('', 'No tools yet. Create .trod/tools/<name>/tool.json and run.mjs (or run.sh); see the trod skill.');
+    if (!all.length) lines.push('', 'No tools yet. Write .trod/tools/<name>.mjs (export const meta = { description, whenToUse, inputSchema }; export default async (input, ctx) => result); see the trod skill.');
     return lines.join('\n');
   }
 

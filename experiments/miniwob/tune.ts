@@ -5,7 +5,7 @@
  *   2. For each type that failed or got partial credit there, a proposer (Opus) practises live train episodes, seeded
  *      with the type's current page and digests of the failed and passed train sessions, and rewrites that type's page.
  *   3. Haiku runs the parent and the candidate on the same held-out dev seeds (validation). A type's new page is kept
- *      only if it solves more, or as many with more reward; otherwise the parent's page stays.
+ *      only if it solves more, or as many with clearly more reward (+0.05); otherwise the parent's page stays.
  * Test seeds (0+) are only used by the final test, outside this script. Resumable: state in <out>/state.json.
  *
  *   node experiments/miniwob/tune.ts --start results-12/learned --types a,b --iterations 3 --as-user agent --out results/runs/mw-tune
@@ -175,8 +175,10 @@ async function propose(type: string, iteration: number, page: string, notes: str
       // Its own process group, so a timeout ends the whole tree (runuser, claude and whatever it started).
       const child = spawn(cmd as string, cargs as string[], { cwd: work, env: user ? undefined : e, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
       let text = '';
-      child.stdout.on('data', (c: Buffer) => (text += c));
-      child.stderr.on('data', (c: Buffer) => (text += c));
+      child.stdout.setEncoding('utf8');
+      child.stderr.setEncoding('utf8');
+      child.stdout.on('data', (c: string) => (text += c));
+      child.stderr.on('data', (c: string) => (text += c));
       const timer = setTimeout(() => {
         try {
           process.kill(-child.pid!, 'SIGKILL');

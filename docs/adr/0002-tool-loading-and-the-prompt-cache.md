@@ -40,8 +40,8 @@ step was the problem.
 5. **The server instructions carry the format.** They are part of the system prompt, so the agent can build a
    tool without loading the skill. The skill keeps the longer guidance.
 6. **Library trust.** `trod promote` runs the tool's examples and refuses on failure. The description of a
-   library tool says it came from an earlier session and that its examples passed, so it can be called without
-   reading its source. In round 1, reading the source was most of the cost of reusing a library tool.
+   library tool says it came from an earlier session, so it can be called without reading its source (examples
+   are checked at promotion and by `trod verify`, not at startup: ADR 0003). In round 1, reading the source was most of the cost of reusing a library tool.
 
 ## Consequences
 

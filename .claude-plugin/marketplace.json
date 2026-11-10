@@ -5,7 +5,7 @@
     {
       "name": "trod",
       "source": "./plugin",
-      "description": "Genesis server: files in .trod/tools become live MCP tools mid-session."
+      "description": "Self-morphing tools: files in .trod/tools become live MCP tools mid-session."
     }
   ]
 }

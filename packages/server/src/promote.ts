@@ -33,20 +33,25 @@ export async function promoteTool(
   if (!loaded.ok) throw new Error(`"${name}" is invalid and cannot be promoted:\n- ${loaded.errors.join('\n- ')}`);
 
   mkdirSync(paths.libraryDir, { recursive: true });
-  const replaced = existsSync(to);
+  // The library may hold the tool in the other form (<name>/ vs <name>.mjs): both would make it invalid.
+  const other = path.join(paths.libraryDir, single ? name : `${name}.mjs`);
+  const replaced = existsSync(to) || existsSync(other);
   // Staged outside the library so the watcher never sees a half-copied tool.
   const staging = path.join(paths.trodDir, `.promote-${name}-${process.pid}${single ? '.mjs' : ''}`);
   rmSync(staging, { recursive: true, force: true });
   cpSync(from, staging, { recursive: true });
   if (single) {
-    writeFileSync(staging, `${readFileSync(staging, 'utf8').trimEnd()}\n// trod: promoted ${now.toISOString()}\n`);
+    // One stamp: a tool promoted again (changed in a session, then re-promoted) replaces its earlier one.
+    const source = readFileSync(staging, 'utf8').replace(/\n\/\/ trod: promoted [^\n]*(?=\n|$)/g, '');
+    writeFileSync(staging, `${source.trimEnd()}\n// trod: promoted ${now.toISOString()}\n`);
   } else {
     const jsonPath = path.join(staging, 'tool.json');
     const def = JSON.parse(readFileSync(jsonPath, 'utf8'));
     def.provenance = { ...def.provenance, promotedAt: now.toISOString() };
     writeFileSync(jsonPath, JSON.stringify(def, null, 2) + '\n');
   }
-  if (replaced) rmSync(to, { recursive: true, force: true });
+  rmSync(to, { recursive: true, force: true });
+  rmSync(other, { recursive: true, force: true });
   renameSync(staging, to);
   rmSync(from, { recursive: true, force: true });
   return { name, from, to, replaced, examplesPassed: loaded.examples?.passed ?? 0 };

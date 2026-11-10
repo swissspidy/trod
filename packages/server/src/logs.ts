@@ -43,6 +43,7 @@ export class CallLog {
   readonly file: string;
   /** False for a log that writes nothing (a server that has no workspace yet). */
   readonly enabled: boolean;
+  private dirReady = false;
 
   constructor(logsDir: string, startedAt = new Date(), enabled = true) {
     this.enabled = enabled;
@@ -53,8 +54,19 @@ export class CallLog {
   write(record: LogRecord): void {
     if (!this.enabled) return;
     try {
-      mkdirSync(path.dirname(this.file), { recursive: true });
-      appendFileSync(this.file, JSON.stringify(record) + '\n');
+      const line = JSON.stringify(record) + '\n';
+      if (!this.dirReady) {
+        mkdirSync(path.dirname(this.file), { recursive: true });
+        this.dirReady = true;
+      }
+      try {
+        appendFileSync(this.file, line);
+      } catch (err) {
+        // The folder was removed while the server ran (a cleaned .trod/logs): make it again, once.
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+        mkdirSync(path.dirname(this.file), { recursive: true });
+        appendFileSync(this.file, line);
+      }
     } catch {
       // Logging must never break a tool call.
     }

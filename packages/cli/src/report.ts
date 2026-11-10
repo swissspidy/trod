@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { codexFailedCalls, codexOutput, codexUnmatchedFailures, LEARN_RUN_MARKER } from './learn.ts';
+import { CLAUDE_WRAPPER, CODEX_WRAPPER, codexFailedCalls, codexOutput, codexUnmatchedFailures, LEARN_RUN_MARKER, TROD_TASK } from './learn.ts';
 
 /**
  * `trod report`: is trod helping? Compares this project's sessions from before the notes were linked with the ones
@@ -26,10 +26,6 @@ export interface SessionMetrics {
   /** A trod forge or learn session, or one that ran trod learn: left out of the report. */
   trodRun: boolean;
 }
-
-const TROD_TASK = /^You are (a toolsmith|distilling experience)/;
-const CLAUDE_WRAPPER = /^<(command-[a-z]+|local-command-[a-z]+|system-reminder|bash-(input|stdout|stderr)|task-notification|user-memory-input)>/;
-const CODEX_WRAPPER = /^(<(environment_context|user_instructions|skills_instructions|turn_aborted|user_shell_command|subagent_notification|permissions instructions|apps_instructions|collaboration_mode|multi_agent_[a-z_]+)>|# AGENTS\.md instructions)/;
 
 function lines(file: string): Record<string, unknown>[] {
   const out: Record<string, unknown>[] = [];

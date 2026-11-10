@@ -21,12 +21,9 @@ export interface RegistryChange {
   listChanged: boolean;
 }
 
-export function describeForClient(def: ToolDefinition, tool?: Pick<LoadedTool, 'source' | 'examples'>): string {
+export function describeForClient(def: ToolDefinition, tool?: Pick<LoadedTool, 'source'>): string {
   let text = `${def.description.trim()}\n\nWhen to use: ${def.whenToUse.trim()}`;
-  if (tool?.source === 'library') {
-    const verified = '';
-    text += `\n\nLibrary tool, promoted from an earlier session.${verified} Call it directly; there is no need to read its source.`;
-  }
+  if (tool?.source === 'library') text += '\n\nLibrary tool, promoted from an earlier session. Call it directly; there is no need to read its source.';
   return text;
 }
 
@@ -83,6 +80,11 @@ export class Registry {
     return parts.join('|');
   }
 
+  /** Resolves when no rescan is running: a call that arrives during one waits for the tool's new version. */
+  idle(): Promise<void> {
+    return this.chain.then(() => undefined);
+  }
+
   /** Rescans both roots. Calls are serialized; each returns what changed since the previous one. */
   reload(): Promise<RegistryChange> {
     const run = this.chain.then(() => this.doReload());
@@ -118,13 +120,9 @@ export class Registry {
     for (const [source] of roots) {
       for (const tool of folders.values()) {
         if (tool.source !== source || !tool.ok || !tool.def) continue;
-        const shadowed = active.get(tool.def.name);
-        if (shadowed) {
-          tool.warnings = [
-            ...tool.warnings.filter((w) => !w.startsWith('shadows')),
-            `shadows the library tool of the same name until it is promoted or removed`,
-          ];
-        }
+        // Tools are cached between scans: drop the warning of an earlier scan, the library tool may be gone.
+        tool.warnings = tool.warnings.filter((w) => !w.startsWith('shadows'));
+        if (active.has(tool.def.name)) tool.warnings.push('shadows the library tool of the same name until it is promoted or removed');
         active.set(tool.def.name, tool);
       }
     }
@@ -153,7 +151,7 @@ export class Registry {
   private async loadCached(dir: string, source: ToolSource): Promise<LoadedTool> {
     const cacheKey = `${source}:${dir}`;
     const cached = this.cache.get(cacheKey);
-    if (cached && cached.hash === hashTool(dir)) return cached;
+    if (cached?.hash === hashTool(dir)) return cached;
     const fresh = await loadToolEntry(dir, source, { execAllowed: this.opts.execAllowed, env: this.opts.env });
     // Library tools were verified (examples passed) when they were promoted. Re-running their examples here would
     // delay startup, and Claude Code starts the session without a server that is not ready within a few seconds.

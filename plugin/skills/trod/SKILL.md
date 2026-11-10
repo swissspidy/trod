@@ -63,8 +63,8 @@ export default async function run(input, ctx) {
 }
 ```
 
-- The name comes from the file name: lowercase letters, digits and underscores, 2–48 chars (`trod_status` is
-  reserved).
+- The name comes from the file name: lowercase letters, digits and underscores, 2–48 chars (`trod_status`,
+  `trod_run` and `trod_eval` are reserved).
 - `description` says what the tool returns; `whenToUse` says when to pick it. Both show up in your tool list.
 - Inputs are validated against `inputSchema` before the tool runs.
 - Throw an `Error` with a clear message on bad input or a failed request; trod returns it as a tool error.
@@ -101,19 +101,20 @@ intermediate data stays out of your context. `fs`, `fsp`, `path` and `projectDir
 
 ## Library tools
 
-Tools in `.trod/library/` were built and promoted in earlier sessions, and their examples pass at startup. Their
-description says so. **Call them directly (`trod_run`); do not read their source first.** `trod_status` lists them with their descriptions. Only read the source when a call fails
+Tools in `.trod/library/` were built in earlier sessions; those with examples passed them when they were promoted.
+**Call them directly (`trod_run`); do not read their source first.** `trod_status` lists them with their descriptions. Only read the source when a call fails
 or returns something that looks wrong.
 
 ## Project notes
 
 `.trod/notes.md` holds verified notes about the project's environment (conventions, value meanings, traps), usually
 written by `trod forge` and loaded through `CLAUDE.md`. Follow them. If you find that a note is wrong, say so instead
-of silently working around it; `node plugin/bin/trod notes` runs their checks.
+of silently working around it; `npx -y trod notes` runs their checks (with a vendored trod: `node .trod/pkg/bin/trod notes`; inside the trod
+repository itself: `node plugin/bin/trod notes`).
 
 ## Rules
 
 - Tools run **outside Claude Code's sandbox and permission prompts**, in a subprocess with a timeout. Keep them inside
   the project directory and the hosts the task needs. Never read credentials the task did not give you.
 - Execution only works when the server has `TROD_ALLOW_EXEC=1`. If trod says execution is disabled, use Bash.
-- Promote a tool to the library (`node plugin/bin/trod promote <name>`) only when the user asks.
+- Promote a tool to the library (`npx -y trod promote <name>`, or the vendored or repository CLI as above) only when the user asks.

@@ -75,7 +75,7 @@ describe('notes delivered by hooks', () => {
     // A compaction seconds after the start is a new context, not a duplicate hook.
     expect(notesHook(paths, { hook_event_name: 'SessionStart', session_id: s, source: 'clear' }, new Date(t0.getTime() + 62_000))).toContain('Use pnpm');
     // The per-session state stays out of git.
-    expect(readFileSync(path.join(paths.trodDir, 'state', '.gitignore'), 'utf8')).toBe('*\n');
+    expect(readFileSync(path.join(paths.trodDir, 'state', '.gitignore'), 'utf8')).toMatch(/^\*$/m);
   });
 
   it('gives the holdout nothing, and logs that it was the holdout', () => {

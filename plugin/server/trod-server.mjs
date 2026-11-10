@@ -17076,7 +17076,7 @@ import { spawn } from "node:child_process";
 var DEFAULT_TIMEOUT_MS = 12e4;
 var MAX_TIMEOUT_MS = 6e5;
 var DEFAULT_MAX_OUTPUT_CHARS = 25e3;
-var MAX_CAPTURE_BYTES = 8 * 1024 * 1024;
+var MAX_CAPTURE_CHARS = 8 * 1024 * 1024;
 var ENV_ALLOWLIST = /* @__PURE__ */ new Set([
   "PATH",
   "HOME",
@@ -17245,10 +17245,11 @@ function executeTool(opts) {
     let fd3 = "";
     let timedOut = false;
     let settled = false;
-    const cap = (buf, chunk) => buf.length < MAX_CAPTURE_BYTES ? buf + chunk.toString("utf8") : buf;
+    const cap = (buf, chunk) => buf.length < MAX_CAPTURE_CHARS ? buf + chunk : buf;
+    const resultPipe = child.stdio[3];
+    for (const s of [child.stdout, child.stderr, resultPipe]) s?.setEncoding("utf8");
     child.stdout.on("data", (c) => stdout = cap(stdout, c));
     child.stderr.on("data", (c) => stderr = cap(stderr, c));
-    const resultPipe = child.stdio[3];
     resultPipe?.on("data", (c) => fd3 = cap(fd3, c));
     const killTree = () => {
       try {
@@ -17345,6 +17346,7 @@ var CallLog = class {
   file;
   /** False for a log that writes nothing (a server that has no workspace yet). */
   enabled;
+  dirReady = false;
   constructor(logsDir, startedAt = /* @__PURE__ */ new Date(), enabled = true) {
     this.enabled = enabled;
     const stamp = startedAt.toISOString().replace(/[:.]/g, "-");
@@ -17353,8 +17355,18 @@ var CallLog = class {
   write(record2) {
     if (!this.enabled) return;
     try {
-      mkdirSync(path2.dirname(this.file), { recursive: true });
-      appendFileSync(this.file, JSON.stringify(record2) + "\n");
+      const line = JSON.stringify(record2) + "\n";
+      if (!this.dirReady) {
+        mkdirSync(path2.dirname(this.file), { recursive: true });
+        this.dirReady = true;
+      }
+      try {
+        appendFileSync(this.file, line);
+      } catch (err) {
+        if (err.code !== "ENOENT") throw err;
+        mkdirSync(path2.dirname(this.file), { recursive: true });
+        appendFileSync(this.file, line);
+      }
     } catch {
     }
   }
@@ -17661,12 +17673,7 @@ function describeForClient(def, tool) {
   let text = `${def.description.trim()}
 
 When to use: ${def.whenToUse.trim()}`;
-  if (tool?.source === "library") {
-    const verified = "";
-    text += `
-
-Library tool, promoted from an earlier session.${verified} Call it directly; there is no need to read its source.`;
-  }
+  if (tool?.source === "library") text += "\n\nLibrary tool, promoted from an earlier session. Call it directly; there is no need to read its source.";
   return text;
 }
 function listingSignature(tools) {
@@ -17710,6 +17717,10 @@ var Registry = class {
     }
     return parts.join("|");
   }
+  /** Resolves when no rescan is running: a call that arrives during one waits for the tool's new version. */
+  idle() {
+    return this.chain.then(() => void 0);
+  }
   /** Rescans both roots. Calls are serialized; each returns what changed since the previous one. */
   reload() {
     const run = this.chain.then(() => this.doReload());
@@ -17741,13 +17752,8 @@ var Registry = class {
     for (const [source] of roots) {
       for (const tool of folders.values()) {
         if (tool.source !== source || !tool.ok || !tool.def) continue;
-        const shadowed = active.get(tool.def.name);
-        if (shadowed) {
-          tool.warnings = [
-            ...tool.warnings.filter((w) => !w.startsWith("shadows")),
-            `shadows the library tool of the same name until it is promoted or removed`
-          ];
-        }
+        tool.warnings = tool.warnings.filter((w) => !w.startsWith("shadows"));
+        if (active.has(tool.def.name)) tool.warnings.push("shadows the library tool of the same name until it is promoted or removed");
         active.set(tool.def.name, tool);
       }
     }
@@ -17773,7 +17779,7 @@ var Registry = class {
   async loadCached(dir, source) {
     const cacheKey = `${source}:${dir}`;
     const cached2 = this.cache.get(cacheKey);
-    if (cached2 && cached2.hash === hashTool(dir)) return cached2;
+    if (cached2?.hash === hashTool(dir)) return cached2;
     const fresh = await loadToolEntry(dir, source, { execAllowed: this.opts.execAllowed, env: this.opts.env });
     if (fresh.ok && source !== "library") await this.runExamples(fresh);
     this.cache.set(cacheKey, fresh);
@@ -17942,9 +17948,11 @@ var TrodServer = class {
   }
   async start() {
     await this.load("start");
-    const stats = new Map(computeStats(readLogs(this.paths.logsDir)).tools.map((t) => [t.tool, t]));
-    const cards = libraryCards([...this.registry.active.values()], stats);
-    if (cards) this.server._instructions = LIBRARY_INSTRUCTIONS + cards;
+    const library = [...this.registry.active.values()].filter((t) => t.source === "library");
+    if (library.length) {
+      const stats = new Map(computeStats(readLogs(this.paths.logsDir)).tools.map((t) => [t.tool, t]));
+      this.server._instructions = LIBRARY_INSTRUCTIONS + libraryCards(library, stats);
+    }
     this.watch();
   }
   async load(event) {
@@ -18024,7 +18032,7 @@ var TrodServer = class {
   watch() {
     const onEvent = (_event, file) => {
       const f = String(file ?? "");
-      if (f.startsWith("logs") || f.startsWith("state")) return;
+      if (f && !f.startsWith("tools") && !f.startsWith("library")) return;
       this.schedule();
     };
     try {
@@ -18077,11 +18085,9 @@ var TrodServer = class {
       const input = args.input && typeof args.input === "object" ? args.input : {};
       return this.callTool(target, input);
     }
-    let tool = this.registry.active.get(name);
-    if (!tool && this.registry.fingerprint() !== this.lastFingerprint) {
-      await this.refresh();
-      tool = this.registry.active.get(name);
-    }
+    if (this.registry.fingerprint() !== this.lastFingerprint) await this.refresh();
+    else await this.registry.idle();
+    const tool = this.registry.active.get(name);
     if (!tool) {
       const invalid = [...this.registry.folders.values()].find((t) => t.folder === name && !t.ok);
       const text2 = invalid ? `trod: tool "${name}" is not registered because it failed validation:
@@ -18151,6 +18157,7 @@ var TrodServer = class {
     if (!code.trim()) return { isError: true, content: [{ type: "text", text: 'trod_eval: "code" is required.' }] };
     if (!this.execAllowed) return { isError: true, content: [{ type: "text", text: "trod: tool execution is disabled (TROD_ALLOW_EXEC is not 1)." }] };
     if (this.registry.fingerprint() !== this.lastFingerprint) await this.refresh();
+    else await this.registry.idle();
     const tools = [...this.registry.active.values()].map((t) => ({ name: t.def.name, runner: t.runner, runPath: t.runPath, dir: t.dir }));
     const res = await executeTool({
       script: EVAL_RUNNER,
@@ -18218,7 +18225,7 @@ var TrodServer = class {
       lines.push("", "invalid (not registered):");
       for (const t of invalid) lines.push(`- ${t.source}/${t.folder}:`, ...t.errors.map((e) => `    - ${e}`));
     }
-    if (!all.length) lines.push("", "No tools yet. Create .trod/tools/<name>/tool.json and run.mjs (or run.sh); see the trod skill.");
+    if (!all.length) lines.push("", "No tools yet. Write .trod/tools/<name>.mjs (export const meta = { description, whenToUse, inputSchema }; export default async (input, ctx) => result); see the trod skill.");
     return lines.join("\n");
   }
   async close() {

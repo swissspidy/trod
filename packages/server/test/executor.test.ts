@@ -26,6 +26,16 @@ describe('executeTool (run.mjs)', () => {
     expect(res.text).not.toContain('noise');
   });
 
+  it('keeps multi-byte characters whole in large results and printed output', async () => {
+    // Far more than one pipe chunk, with 2-, 3- and 4-byte characters at every offset.
+    const res = await run('mjs', 'export default async () => "aé€😀".repeat(60000);', {}, { maxOutputChars: 10_000_000 });
+    expect(res.ok).toBe(true);
+    expect(res.value).toBe('aé€😀'.repeat(60000));
+    const printed = await run('sh', 'i=0; while [ $i -lt 3000 ]; do printf "é€😀é€😀é€😀é€😀é€😀é€😀é€😀é€😀é€😀é€😀x"; i=$((i+1)); done', {}, { maxOutputChars: 10_000_000 });
+    expect(printed.text).not.toContain('\uFFFD');
+    expect(printed.text.length).toBe(3000 * 41);
+  });
+
   it('runs in the project directory', async () => {
     const res = await run('mjs', 'export default async () => process.cwd();');
     expect(res.ok).toBe(true);

@@ -1,8 +1,8 @@
 import { spawn } from 'node:child_process';
-import { appendFileSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { readTrodConfig, writeTrodConfig, type TrodPaths } from '@trod/server';
-import { LEARN_STATE_DIR, readLearnState } from './learn.ts';
+import { ensureStateDir, learnLockHeld, LEARN_STATE_DIR, readLearnState } from './learn.ts';
 import { TROD_SESSION_ENV } from './session-env.ts';
 
 export { TROD_SESSION_ENV };
@@ -69,30 +69,12 @@ function readInbox(paths: TrodPaths): InboxEntry[] {
   return out;
 }
 
-function ensureState(paths: TrodPaths): void {
-  const dir = path.join(paths.projectDir, LEARN_STATE_DIR);
-  mkdirSync(dir, { recursive: true });
-  if (!existsSync(path.join(dir, '.gitignore'))) writeFileSync(path.join(dir, '.gitignore'), '# machine-local trod state (written by trod learn)\n*\n');
-}
-
 /** Sessions that ended after the last learning run and that it has not learned from. */
 export function pendingSessions(paths: TrodPaths): string[] {
   const state = readLearnState(paths.projectDir);
   const learned = new Set(state.sessions);
   const since = state.lastRun ? Date.parse(state.lastRun) : 0;
   return [...new Set(readInbox(paths).filter((e) => Date.parse(e.endedAt) > since && !learned.has(e.session)).map((e) => e.session))];
-}
-
-function learnLocked(paths: TrodPaths): boolean {
-  const lock = path.join(paths.projectDir, LEARN_STATE_DIR, 'learn.lock');
-  if (!existsSync(lock)) return false;
-  const pid = Number(readFileSync(lock, 'utf8'));
-  try {
-    if (pid > 0) process.kill(pid, 0);
-    return pid > 0;
-  } catch (err) {
-    return (err as NodeJS.ErrnoException).code === 'EPERM';
-  }
 }
 
 /** Starts `trod learn` detached from the hook, with its output in .trod/logs/auto-learn.log. */
@@ -106,6 +88,7 @@ export function spawnLearn(paths: TrodPaths, cli = process.argv[1]!, env: NodeJS
   delete childEnv.CLAUDECODE;
   const child = spawn(process.execPath, [cli, 'learn', '--dir', paths.projectDir, '--budget', budget], { cwd: paths.projectDir, env: childEnv, detached: true, stdio: ['ignore', fd, fd] });
   child.unref();
+  closeSync(fd); // the child has its own copy
 }
 
 export interface SessionEndResult {
@@ -124,7 +107,7 @@ export function sessionEndHook(paths: TrodPaths, payload: { session_id?: string;
   if (!config) return { recorded: false, pending: 0, started: false, reason: 'automatic learning is off' };
   if (env[TROD_SESSION_ENV]) return { recorded: false, pending: 0, started: false, reason: `a session trod started (${env[TROD_SESSION_ENV]})` };
   if (!payload.session_id) return { recorded: false, pending: 0, started: false, reason: 'no session id' };
-  ensureState(paths);
+  ensureStateDir(paths.projectDir);
   appendFileSync(path.join(paths.projectDir, INBOX_FILE), `${JSON.stringify({ session: payload.session_id, transcript: payload.transcript_path, endedAt: now.toISOString() })}\n`);
   const pending = pendingSessions(paths).length;
   if (pending < config.after) return { recorded: true, pending, started: false, reason: `${pending}/${config.after} sessions since the last learning run` };
@@ -137,7 +120,7 @@ export function sessionEndHook(paths: TrodPaths, payload: { session_id?: string;
   }
   const cooldown = (config.cooldownHours ?? 6) * 3_600_000;
   if (now.getTime() - last < cooldown) return { recorded: true, pending, started: false, reason: 'cooldown since the last automatic run' };
-  if (learnLocked(paths)) return { recorded: true, pending, started: false, reason: 'a learning run is in progress' };
+  if (learnLockHeld(paths.projectDir)) return { recorded: true, pending, started: false, reason: 'a learning run is in progress' };
   writeFileSync(stateFile, JSON.stringify({ lastStarted: now.toISOString(), pending }));
   start(paths);
   return { recorded: true, pending, started: true };

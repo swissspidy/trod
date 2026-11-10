@@ -27,4 +27,5 @@ Tool code runs in a subprocess, outside Claude Code's permission prompts, so tro
 ## CLI
 
 `trod forge --brief @env.md [--practice '<check>' [--reset '<cmd>']]`, `trod verify`, `trod notes [--link]`,
-`trod promote <name>`, `trod stats`, `trod check`, `trod list`. Run `npx trod --help` for details.
+`trod learn [--auto <n>]`, `trod tune`, `trod report`, `trod promote <name>`, `trod stats`, `trod check`, `trod list`.
+Run `npx trod --help` for details.

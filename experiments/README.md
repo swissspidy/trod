@@ -4,7 +4,8 @@ Headless `claude -p` sessions on tasks with machine-checkable outcomes, with and
 
 ## Tasks
 
-Ten tasks in [`tasks/`](tasks/). Each fixture is generated deterministically, so every arm and seed sees the
+Thirteen tasks in [`tasks/`](tasks/): the ten below, and three added in later rounds (`code-qa`, `ticket-triage`
+and `inventory-api`; see their files). Each fixture is generated deterministically, so every arm and seed sees the
 same data. Results are checked against expected outcomes that the agent cannot see (they are stored outside its
 working directory). The eight repetitive tasks are **3-step sessions**: the first prompt does the work for a batch
 of items. Two follow-up prompts in the same session (`claude -p --resume`) then ask for the same kind of work again,
@@ -35,6 +36,16 @@ answer passes every step. For `csv-clean` that answer comes from an independentl
 | `genesis` | the same, plus the trod server (`--mcp-config`) and the trod skill (`--plugin-dir plugin`), `TROD_ALLOW_EXEC=1`. The agent decides whether to build tools. |
 | `nudged` | genesis, plus an appended system prompt that **requires** building repeated operations as trod tools instead of Bash-run scripts. It measures what tool building costs when it happens. |
 | `library` | genesis with no nudge, but `.trod/library/` starts with the tools that a nudged run of the same task built (as if promoted and committed by an earlier session). It measures cross-session reuse. |
+| `scripts` | baseline tools only, but in `--mode sessions` the whole work dir carries over between steps, so scripts the agent wrote survive. |
+| `toolsmith` | genesis, after one dedicated session in the same run that builds general tools for the task's kind of work. |
+| `forged` | genesis with the library and notes that `trod forge` built once per task (or per `forgeKey`) with `--forge-model`. In `--mode sessions` only the library carries over to later steps; the notes are in the first step only. |
+
+`--mode resume` (default) sends each step as a follow-up in the same session; `--mode sessions` starts a fresh session
+in a fresh checkout per step, as with ephemeral cloud containers. Two arms differ: `toolsmith` always uses a fresh
+session and checkout per step, and `scripts` keeps its work dir in `sessions` mode. `--suite` runs a benchmark instead of the built-in
+tasks: `swe-django4`, `appworld:<split>`, `bird:test`, `sciworld:test`, `miniwob:test` or `miniwob:dev` (each has a
+folder here with its setup). `--as-user <name>` runs the sessions as an unprivileged user (it uses `runuser` and `chown`, so the runner itself
+must run as root).
 
 Every run is isolated: its own work dir, `HOME` and `CLAUDE_CONFIG_DIR`, and a clean environment (no synced plugins
 or user settings). It uses `--strict-mcp-config` and disables WebFetch/WebSearch/Task, has a per-step budget cap

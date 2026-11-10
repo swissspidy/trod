@@ -44,7 +44,7 @@ async function connect(paths: TrodPaths, env: NodeJS.ProcessEnv = { TROD_ALLOW_E
 }
 
 describe('TrodServer', () => {
-  it('starts with only the two permanent tools', async () => {
+  it('starts with only the three permanent tools', async () => {
     const { names, call } = await connect(tempProject());
     expect(await names()).toEqual(['trod_status', 'trod_run', 'trod_eval']);
     expect((await call('trod_status')).text).toContain('No tools yet');
@@ -129,6 +129,35 @@ describe('TrodServer', () => {
     expect(res.isError).toBe(false);
   });
 
+  it('runs the new version of a tool changed just before the call, also while its rescan is still running', async () => {
+    const paths = tempProject();
+    const trod = new TrodServer({ paths, env: { TROD_ALLOW_EXEC: '1', PATH: process.env.PATH }, debounceMs: 10_000, pollMs: 0 });
+    servers.push(trod);
+    writeTool(paths.toolsDir, 'ver', {}, { mjs: 'export default async () => "one";' });
+    await trod.start();
+    // Changed, not yet rescanned (the watcher is debounced away).
+    writeTool(paths.toolsDir, 'ver', {}, { mjs: 'export default async () => "two!";' });
+    expect((await trod.callTool('ver', {})).content).toEqual([{ type: 'text', text: 'two!' }]);
+    // Changed, and the rescan is under way: its example takes a moment, and the call must wait for it.
+    writeTool(paths.toolsDir, 'ver', { examples: [{ input: {} }] }, { mjs: 'export default async () => { await new Promise((r) => setTimeout(r, 300)); return "three"; };' });
+    const rescan = trod.refresh();
+    expect((await trod.callTool('ver', {})).content).toEqual([{ type: 'text', text: 'three' }]);
+    await rescan;
+  });
+
+  it('drops the shadow warning once the library tool is gone', async () => {
+    const paths = tempProject();
+    writeTool(paths.libraryDir, 'shared', {});
+    writeTool(paths.toolsDir, 'shared', {});
+    const trod = new TrodServer({ paths, env: { TROD_ALLOW_EXEC: '1', PATH: process.env.PATH }, pollMs: 0 });
+    servers.push(trod);
+    await trod.start();
+    expect(trod.status('shared')).toMatch(/shadows the library tool/);
+    rmSync(path.join(paths.libraryDir, 'shared'), { recursive: true });
+    await trod.refresh();
+    expect(trod.status('shared')).not.toMatch(/shadows the library tool/);
+  });
+
   it('loads the library at startup and lets a session tool shadow it', async () => {
     const paths = tempProject();
     writeTool(paths.libraryDir, 'shared', {}, { mjs: 'export default async () => "library";' });
@@ -150,6 +179,17 @@ describe('TrodServer', () => {
     expect(res.isError).toBe(true);
     expect(res.text).toContain('TROD_ALLOW_EXEC=1');
     expect((await call('trod_status')).text).toContain('Execution DISABLED');
+  });
+
+  it('keeps logging after .trod/logs was removed while it ran', async () => {
+    const paths = tempProject();
+    writeTool(paths.toolsDir, 'echo_it', {});
+    const { call } = await connect(paths);
+    await call('echo_it', { x: 'a' });
+    rmSync(paths.logsDir, { recursive: true });
+    await call('echo_it', { x: 'b' });
+    const lines = readdirSync(paths.logsDir).flatMap((f) => readFileSync(path.join(paths.logsDir, f), 'utf8').trim().split('\n'));
+    expect(lines.some((l) => l.includes('"type":"call"') && l.includes('echo_it'))).toBe(true);
   });
 
   it('writes JSONL logs for calls and registry events', async () => {

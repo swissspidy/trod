@@ -12,7 +12,7 @@ How trod reaches users, what is ready, and what needs the repository owner.
 | Per repository, no network at start | `npx trod init --vendor --allow-exec` (server and CLI copied into `.trod/pkg/`; `git add -f .trod/pkg` if `bin/` is gitignored) | ready; needs the npm release |
 | Antigravity plugin (every workspace) | `agy plugin install https://github.com/swissspidy/trod` (repository root: `.antigravity-plugin/plugin.json`, `mcp_config.json`, `skills/`) | ready; runs the bundled server, no npm release needed; tested with an Antigravity-like MCP client, not yet in Antigravity |
 | Antigravity, per repository | `npx trod init --antigravity --allow-exec` (`.agents/mcp_config.json`, skill, notes rule) | ready; needs the npm release |
-| Codex, per repository | `npx trod init --codex --allow-exec` (`.codex/config.toml`, `.agents/skills/`, notes block in `AGENTS.md`; the project must be trusted) | ready; needs the npm release; config and server start tested with the Codex CLI, no model run |
+| Codex, per repository | `npx trod init --codex --allow-exec` (`.codex/config.toml`, `.agents/skills/`, notes block in `AGENTS.md`; the project must be trusted) | ready; needs the npm release; tested with the Codex CLI 0.167 and gpt-5-mini (see the reference) |
 | Codex plugin (every project) | `codex plugin marketplace add swissspidy/trod`, `codex plugin add trod@trod` (`plugin/.codex-plugin/plugin.json`) | installs (tested); its server runs the npm package, so it needs the release; plugin servers untested (need a signed-in Codex) |
 | Antigravity Marketplace | submit through the partner intake form (`agy plugin validate --strict` first) | owner step |
 | Any other MCP client (Cursor, VS Code, ...) | `npx -y trod mcp`, `TROD_ALLOW_EXEC=1` (project from cwd, `TROD_PROJECT_DIR` or MCP roots) | ready; needs the npm release; untested in those clients |
@@ -39,7 +39,7 @@ is 0.1.0.
 
 ## Why it is worth distributing
 
-The evidence across twelve rounds (see the README) supports one product claim and rules out another:
+The evidence across sixteen rounds (see the README) supports one product claim and rules out another:
 
 - **Supported:** knowledge forged once and reused pays off where an environment holds knowledge a model cannot
   guess and that recurs across tasks. Forged notes took Haiku from 52% to 89% (ScienceWorld) and from 68% to 90%

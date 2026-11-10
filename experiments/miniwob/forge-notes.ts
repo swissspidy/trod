@@ -62,11 +62,20 @@ async function forge(task: string): Promise<void> {
     const e = env(home, work);
     const [cmd, cargs] = user ? ['runuser', ['-u', user, '--', 'env', '-i', ...Object.entries(e).map(([k, v]) => `${k}=${v}`), 'claude', ...args]] : ['claude', args];
     [stream, exitCode] = await new Promise<[string, number | null]>((resolve, reject) => {
-      const child = spawn(cmd as string, cargs as string[], { cwd: work, env: user ? undefined : e, stdio: ['ignore', 'pipe', 'pipe'] });
+      const child = spawn(cmd as string, cargs as string[], { cwd: work, env: user ? undefined : e, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
       let text = '';
-      child.stdout.on('data', (c: Buffer) => (text += c));
-      child.stderr.on('data', (c: Buffer) => (text += c));
-      const timer = setTimeout(() => child.kill('SIGKILL'), 1800_000);
+      child.stdout.setEncoding('utf8');
+      child.stderr.setEncoding('utf8');
+      child.stdout.on('data', (c: string) => (text += c));
+      child.stderr.on('data', (c: string) => (text += c));
+      // The whole process group: with --as-user, killing runuser alone leaves the session running.
+      const timer = setTimeout(() => {
+        try {
+          process.kill(-child.pid!, 'SIGKILL');
+        } catch {
+          child.kill('SIGKILL');
+        }
+      }, 1800_000);
       child.on('error', (err) => {
         clearTimeout(timer);
         reject(err);

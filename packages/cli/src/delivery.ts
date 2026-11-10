@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmdirSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { notesPaths, readTrodConfig, type TrodPaths } from '@trod/server';
+import { ensureStateDir } from './learn.ts';
 
 /**
  * Notes delivered by hooks (`.trod/config.json` with `"delivery": "hooks"`), for Claude Code:
@@ -83,10 +84,8 @@ function readState(paths: TrodPaths, session: string): SessionState | undefined 
 
 function writeState(paths: TrodPaths, session: string, state: SessionState): void {
   const file = stateFile(paths, session);
+  ensureStateDir(paths.projectDir); // .trod/state/ ignores itself
   mkdirSync(path.dirname(file), { recursive: true });
-  // .trod/state/ ignores itself (trod learn writes the .gitignore); make sure it does here too.
-  const ignore = path.join(paths.trodDir, 'state', '.gitignore');
-  if (!existsSync(ignore)) writeFileSync(ignore, '*\n');
   writeFileSync(file, JSON.stringify(state));
 }
 
