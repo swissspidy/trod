@@ -81,25 +81,37 @@ async function runBatch(harness: string, types: string[], offset: number, per: n
   const args = ['experiments/runner/run.ts', '--suite', 'miniwob:dev', '--arms', 'baseline', '--seeds', '1', '--model', values.model!, '--parallel', values.parallel!, '--out', out];
   if (values['as-user']) args.push('--as-user', values['as-user']);
   const env = { ...process.env, MW_LEARNED: harness, MW_TASKS: types.join(','), MW_PER_TASK: String(per), MW_SEED_OFFSET: String(offset), ANTHROPIC_API_KEY: apiKey };
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn('node', args, { cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'] });
-    let tail = '';
-    child.stdout.on('data', (c: Buffer) => writeFileSync(`${out}.log`, c, { flag: 'a' }));
-    child.stderr.on('data', (c: Buffer) => (tail = (tail + c).slice(-2000)));
-    child.on('error', reject);
-    child.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`runner exited ${code}: ${tail}`))));
-  });
-  const runs: Run[] = [];
-  for (const t of types) {
-    for (let i = 0; i < per; i++) {
-      const seed = SEEDS.dev + offset + i;
-      const dir = path.join(out, `${t}-s${seed}`, 'baseline-s1');
-      const file = path.join(dir, 'result.json');
-      if (!existsSync(file)) continue; // infra failure: result.infra.json
-      const r = JSON.parse(readFileSync(file, 'utf8')) as { check: { pass: boolean; score: number; infra?: boolean }; costUsd?: number };
-      if (r.check.infra) continue; // an older runner saved these as results
-      runs.push({ type: t, seed, pass: r.check.pass, score: r.check.score, stream: path.join(dir, 'stream-1.jsonl') });
+  const once = () =>
+    new Promise<void>((resolve, reject) => {
+      const child = spawn('node', args, { cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'] });
+      let tail = '';
+      child.stdout.on('data', (c: Buffer) => writeFileSync(`${out}.log`, c, { flag: 'a' }));
+      child.stderr.on('data', (c: Buffer) => (tail = (tail + c).slice(-2000)));
+      child.on('error', reject);
+      child.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`runner exited ${code}: ${tail}`))));
+    });
+  const read = (): Run[] => {
+    const runs: Run[] = [];
+    for (const t of types) {
+      for (let i = 0; i < per; i++) {
+        const seed = SEEDS.dev + offset + i;
+        const dir = path.join(out, `${t}-s${seed}`, 'baseline-s1');
+        const file = path.join(dir, 'result.json');
+        if (!existsSync(file)) continue; // infra failure: result.infra.json
+        const r = JSON.parse(readFileSync(file, 'utf8')) as { check: { pass: boolean; score: number; infra?: boolean }; costUsd?: number };
+        if (r.check.infra) continue; // an older runner saved these as results
+        runs.push({ type: t, seed, pass: r.check.pass, score: r.check.score, stream: path.join(dir, 'stream-1.jsonl') });
+      }
     }
+    return runs;
+  };
+  // The runner skips finished episodes and retries those that failed for infrastructure reasons: run it up to three
+  // times, so one hiccup does not leave a batch incomplete (an incomplete validation rejects its candidate).
+  let runs: Run[] = [];
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await once();
+    runs = read();
+    if (runs.length >= types.length * per) break;
   }
   return runs;
 }

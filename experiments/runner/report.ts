@@ -219,11 +219,13 @@ export function renderHtml(agg: ReturnType<typeof aggregate>, meta: { model: str
     .map((x) => `<tr><td>${esc(ARM_LABEL[x.arm])}</td>${x.steps.map((v) => `<td>$${fmt(v, 3)}</td>`).join('')}</tr>`)
     .join('')}</tbody></table>`;
   const legend = `<div class="legend">${ARMS.map((a, i) => (cells.some((c) => c.arm === a) ? `<span><i class="sw s${i + 1}"></i>${esc(ARM_LABEL[a])}</span>` : '')).join('')}</div>`;
+  const anyRepetitive = overall.some((o) => o.repetitive.n > 0);
   const tile = (o: (typeof overall)[number]) => {
-    // Benchmark suites have no multi-step ("repetitive") tasks: their headline is all runs.
-    const h = o.repetitive.n ? o.repetitive : o.all;
+    // Benchmark suites have no multi-step ("repetitive") tasks: their headline is all runs. Chosen once for the
+    // report, so every tile shows the same population.
+    const h = anyRepetitive ? o.repetitive : o.all;
     return `<div class="tile"><div class="tl"><i class="sw s${ARMS.indexOf(o.arm) + 1}"></i>${esc(ARM_LABEL[o.arm])}</div>
-<div class="big">${h.n ? `${Math.round(h.tokens / 1000)}k` : '–'}</div><div class="sub">mean tokens per ${o.repetitive.n ? 'repetitive session' : 'run'} · score ${fmt(h.meanScore)} · pass ${pct(h.passRate)} · ${Math.round(h.tokensPerScore / 1000)}k tokens per full score · $${fmt(h.costUsd, 3)} · ${fmt(h.turns, 1)} turns · ${fmt(h.wallS, 0)} s</div>
+<div class="big">${h.n ? `${Math.round(h.tokens / 1000)}k` : '–'}</div><div class="sub">mean tokens per ${anyRepetitive ? 'repetitive session' : 'run'} · score ${fmt(h.meanScore)} · pass ${pct(h.passRate)} · ${Math.round(h.tokensPerScore / 1000)}k tokens per full score · $${fmt(h.costUsd, 3)} · ${fmt(h.turns, 1)} turns · ${fmt(h.wallS, 0)} s</div>
 <div class="sub">controls: ${o.control.n ? `$${fmt(o.control.costUsd, 3)} · pass ${pct(o.control.passRate)}` : 'no runs'}${o.arm === 'baseline' ? '' : ` · tools built in ${o.all.runsWithTools}/${o.all.n} runs (${o.all.toolsCreated} tools, ${o.all.trodCalls} calls)`}</div></div>`;
   };
   const table = `<table><thead><tr><th>task</th><th>arm</th><th>n</th><th>pass</th><th>score</th><th>cost $</th><th>tokens</th><th>out tokens</th><th>turns</th><th>wall s</th><th>tools</th><th>trod calls</th><th>calls/tool</th><th>creation share</th></tr></thead><tbody>${cells
