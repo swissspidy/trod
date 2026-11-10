@@ -78,6 +78,23 @@ if (!apiKey) {
   process.exit(1);
 }
 
+// A mistyped suite, arm or mode must not quietly run something else (the built-in tasks, a trod arm, resume mode).
+const SUITES = ['swe-django4', 'bird:test', 'sciworld:test', 'miniwob:test', 'miniwob:dev'];
+if (values.suite && !SUITES.includes(values.suite) && !values.suite.startsWith('appworld:')) {
+  console.error(`unknown --suite ${values.suite}: use one of ${SUITES.join(', ')} or appworld:<split> (no --suite runs the built-in tasks)`);
+  process.exit(1);
+}
+const ARMS: Arm[] = ['baseline', 'scripts', 'genesis', 'nudged', 'library', 'toolsmith', 'forged'];
+const badArms = values.arms!.split(',').filter((a) => !ARMS.includes(a as Arm));
+if (badArms.length) {
+  console.error(`unknown --arms ${badArms.join(', ')}: use ${ARMS.join(', ')}`);
+  process.exit(1);
+}
+if (values.mode !== 'resume' && values.mode !== 'sessions') {
+  console.error(`unknown --mode ${values.mode}: use resume or sessions`);
+  process.exit(1);
+}
+
 // appworld:<split>: AppWorld tasks (experiments/appworld); the forge builds tools against a train-split task.
 const pool =
   values.suite === 'swe-django4'
@@ -95,7 +112,7 @@ const pool =
             ? miniwobTasks(mwSample(values.suite.slice('miniwob:'.length) as 'test' | 'dev', Number(process.env.MW_PER_TASK ?? 2)))
             : TASKS;
 if (values.suite && !pool.length) {
-  console.error(`suite ${values.suite}: no instances (run experiments/swe/setup.sh, or set SWE_HOME)`);
+  console.error(`suite ${values.suite}: no instances (the benchmark is not set up here: see the suite's folder under experiments/ for its setup and home variable)`);
   process.exit(1);
 }
 const wanted = values.tasks?.split(',') ?? (values.sample ? (JSON.parse(readFileSync(values.sample, 'utf8')) as string[]) : undefined);
@@ -144,12 +161,14 @@ function cleanEnv(home: string, extra: Record<string, string>): Record<string, s
 /** spawn(), as --as-user when set: `runuser -u <user> -- env -i K=V… cmd args` (the env is passed explicitly). */
 function spawnAs(cmd: string, args: string[], opts: { cwd?: string; env: Record<string, string> }) {
   const user = values['as-user'];
-  if (!user) return spawn(cmd, args, { ...opts, stdio: ['ignore', 'pipe', 'pipe'] });
+  // Detached (a process group of its own) either way, so a timeout can kill the whole tree: killing runuser alone
+  // leaves the session it started running, and the caller waiting for its pipes to close.
+  if (!user) return spawn(cmd, args, { ...opts, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
   const env = { ...opts.env, TMPDIR: path.join(opts.env.HOME!, 'tmp') };
   mkdirSync(env.TMPDIR, { recursive: true });
   chownTree(opts.env.HOME!);
   const vars = Object.entries(env).map(([k, v]) => `${k}=${v}`);
-  return spawn('runuser', ['-u', user, '--', 'env', '-i', ...vars, cmd, ...args], { cwd: opts.cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+  return spawn('runuser', ['-u', user, '--', 'env', '-i', ...vars, cmd, ...args], { cwd: opts.cwd, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
 }
 
 /** Gives a directory tree to --as-user (no-op without it). */
@@ -185,7 +204,11 @@ function runClaude(args: string[], cwd: string, env: Record<string, string>, str
     let timedOut = false;
     const timer = setTimeout(() => {
       timedOut = true;
-      child.kill('SIGKILL');
+      try {
+        process.kill(-child.pid!, 'SIGKILL');
+      } catch {
+        child.kill('SIGKILL');
+      }
     }, timeoutMs);
     child.on('close', (code) => {
       clearTimeout(timer);
@@ -296,14 +319,17 @@ async function doForge(task: Task): Promise<{ library: string; info: unknown }> 
   writeFileSync(path.join(dir, 'forge.log'), output);
   const json = output.slice(output.indexOf('{\n'));
   let info: Record<string, unknown> = {};
+  let parsed = true;
   try {
     info = JSON.parse(json);
   } catch {
+    parsed = false;
     info = { error: 'could not parse forge output; see forge.log' };
   }
   info.wallMs = Date.now() - t0;
   info.model = values['forge-model'];
-  writeFileSync(done, JSON.stringify(info, null, 2));
+  // Only a forge that reported its result counts as done; a broken one is retried by the next invocation.
+  writeFileSync(parsed ? done : path.join(dir, 'forge.error.json'), JSON.stringify(info, null, 2));
   console.log(`forged ${task.forgeKey ?? task.id}: ${JSON.stringify((info as { promoted?: string[] }).promoted ?? [])}`);
   return { library, info };
 }
@@ -313,6 +339,9 @@ async function runOne(task: Task, arm: Arm, seed: number): Promise<RunRecord> {
   const runDir = path.join(outDir, task.id, `${arm}-s${seed}`);
   const work = path.join(runDir, 'work');
   const home = path.join(runDir, 'home');
+  // A retry (after an infra result or a crash) starts clean: transcripts, streams and logs of the earlier attempt
+  // would be counted into this one's metrics.
+  rmSync(runDir, { recursive: true, force: true });
   mkdirSync(work, { recursive: true });
   mkdirSync(path.join(home, '.claude'), { recursive: true });
   // Skip first-run onboarding in the isolated config.

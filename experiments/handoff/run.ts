@@ -123,7 +123,11 @@ interface Record_ {
 async function runOne(inst: Instance, arm: string): Promise<Record_> {
   const dir = path.join(OUT, inst.instance_id, arm);
   const resFile = path.join(dir, 'result.json');
-  if (existsSync(resFile)) return JSON.parse(readFileSync(resFile, 'utf8'));
+  // A finished run is kept; one that failed for infrastructure reasons is run again.
+  if (existsSync(resFile)) {
+    const saved = JSON.parse(readFileSync(resFile, 'utf8')) as Record_;
+    if (!saved.infra) return saved;
+  }
   rmSync(dir, { recursive: true, force: true });
   const work = path.join(dir, 'work');
   mkdirSync(work, { recursive: true });

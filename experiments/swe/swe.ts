@@ -138,7 +138,9 @@ export async function grade(env: SweEnv, inst: Instance, work: string): Promise<
   // checkout is deleted after the run, and the patch is enough to regrade (export the base commit, apply, grade).
   try {
     sh('git', ['add', '-A'], { cwd: work });
-    writeFileSync(path.join(path.dirname(work), 'agent.patch'), execFileSync('git', ['diff', '--cached', 'HEAD', '--binary'], { cwd: work, maxBuffer: 256 * 1024 * 1024 }));
+    // Against the checkout's first commit (the exported base), not HEAD: the agent may have committed its changes.
+    const base = execFileSync('git', ['rev-list', '--max-parents=0', 'HEAD'], { cwd: work, encoding: 'utf8' }).trim().split('\n').at(-1)!;
+    writeFileSync(path.join(path.dirname(work), 'agent.patch'), execFileSync('git', ['diff', '--cached', base, '--binary'], { cwd: work, maxBuffer: 256 * 1024 * 1024 }));
   } catch {
     // not a git checkout (e.g. a unit test); nothing to save
   }

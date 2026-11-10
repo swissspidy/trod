@@ -8,7 +8,7 @@
  * Only train-split questions are shown; test questions never enter the forge.
  */
 import { spawn, spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { BIRD_HOME, birdSplit } from './bird.ts';
@@ -37,7 +37,9 @@ async function forge(db: string, questions: { question: string; evidence: string
   const dir = path.join(out, db);
   const work = path.join(dir, 'work');
   const home = path.join(dir, 'home');
-  if (existsSync(path.join(dir, 'result.json'))) return;
+  // Skip only databases that already succeeded: a failed attempt is retried.
+  const done = path.join(dir, 'result.json');
+  if (existsSync(done) && (JSON.parse(readFileSync(done, 'utf8')) as { ok?: boolean }).ok) return;
   mkdirSync(work, { recursive: true });
   mkdirSync(path.join(home, '.claude'), { recursive: true });
   mkdirSync(path.join(home, 'tmp'), { recursive: true });
@@ -52,23 +54,36 @@ async function forge(db: string, questions: { question: string; evidence: string
   const e = env(home);
   const [cmd, cargs] = user ? ['runuser', ['-u', user, '--', 'env', '-i', ...Object.entries(e).map(([k, v]) => `${k}=${v}`), 'claude', ...args]] : ['claude', args];
   const t0 = Date.now();
-  const stream = await new Promise<string>((resolve) => {
-    const child = spawn(cmd as string, cargs as string[], { cwd: work, env: user ? undefined : e, stdio: ['ignore', 'pipe', 'pipe'] });
+  rmSync(path.join(work, 'NOTES.md'), { force: true });
+  const [stream, exitCode] = await new Promise<[string, number | null]>((resolve) => {
+    const child = spawn(cmd as string, cargs as string[], { cwd: work, env: user ? undefined : e, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
     let text = '';
     child.stdout.on('data', (c: Buffer) => (text += c));
     child.stderr.on('data', (c: Buffer) => (text += c));
-    const timer = setTimeout(() => child.kill('SIGKILL'), 1800_000);
-    child.on('close', () => {
+    // The whole process group: with --as-user, killing runuser alone leaves the session running.
+      const timer = setTimeout(() => {
+        try {
+          process.kill(-child.pid!, 'SIGKILL');
+        } catch {
+          child.kill('SIGKILL');
+        }
+      }, 1800_000);
+    child.on('error', (err) => {
       clearTimeout(timer);
-      resolve(text);
+      resolve([`${text}\nspawn error: ${err.message}`, null]);
+    });
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      resolve([text, code]);
     });
   });
   writeFileSync(path.join(dir, 'stream.jsonl'), stream);
   const res = stream.split('\n').filter((l) => l.includes('"type":"result"')).map((l) => JSON.parse(l)).at(-1) ?? {};
   const notes = path.join(work, 'NOTES.md');
-  const ok = existsSync(notes);
+  // Publish only notes from a session that finished cleanly (as sciworld/forge-notes.ts does).
+  const ok = exitCode === 0 && res.subtype === 'success' && !res.is_error && existsSync(notes);
   if (ok) copyFileSync(notes, path.join(NOTES_DIR, `${db}.md`));
-  const info = { db, ok, chars: ok ? statSync(notes).size : 0, costUsd: res.total_cost_usd ?? 0, turns: res.num_turns ?? 0, wallMs: Date.now() - t0, trainQuestions: questions.length, model: values.model };
+  const info = { db, ok, exitCode, chars: ok ? statSync(notes).size : 0, costUsd: res.total_cost_usd ?? 0, turns: res.num_turns ?? 0, wallMs: Date.now() - t0, trainQuestions: questions.length, model: values.model };
   writeFileSync(path.join(dir, 'result.json'), JSON.stringify(info, null, 2));
   console.log(JSON.stringify(info));
 }

@@ -16,7 +16,7 @@ import { DJANGO4, exportCommit, grade, loadInstances } from './swe.ts';
 const { values, positionals } = parseArgs({ allowPositionals: true, options: { parallel: { type: 'string', default: '4' }, 'dry-run': { type: 'boolean', default: false }, regrade: { type: 'boolean', default: false }, force: { type: 'boolean', default: false } } });
 const root = positionals[0] ? path.resolve(positionals[0]) : undefined;
 if (!root || !existsSync(root)) {
-  console.error('usage: node experiments/swe/compact.ts <runs root> [--parallel 4] [--dry-run]');
+  console.error('usage: node experiments/swe/compact.ts <runs root> [--parallel 4] [--dry-run] [--regrade] [--force]');
   process.exit(1);
 }
 const instances = new Map(loadInstances().map((i) => [i.instance_id, i]));
@@ -84,14 +84,13 @@ await Promise.all(
       }
       // The agent's changes (tracked and untracked), before grading touches the test files again.
       execFileSync('git', ['add', '-A'], { cwd: work });
-      const patch = execFileSync('git', ['diff', '--cached', 'HEAD', '--binary'], { cwd: work, maxBuffer: 256 * 1024 * 1024 }).toString();
-      const fromPatch = work.endsWith('regrade-work');
+      // Against the checkout's first commit, so changes the agent committed are in the patch too.
+      const base = execFileSync('git', ['rev-list', '--max-parents=0', 'HEAD'], { cwd: work, encoding: 'utf8' }).trim().split('\n').at(-1)!;
+      const patch = execFileSync('git', ['diff', '--cached', base, '--binary'], { cwd: work, maxBuffer: 256 * 1024 * 1024 }).toString();
       const check = await grade(DJANGO4, inst, work);
-      // grade() itself saves agent.patch next to the checkout; for a regrade keep the original one.
-      if (fromPatch) writeFileSync(path.join(dir, 'agent.patch'), patch);
       if (check.pass !== record.check.pass) changed++;
       console.log(`${check.pass === record.check.pass ? 'same' : 'CHANGED'} ${path.relative(root, dir)}: ${record.check.pass ? 'resolved' : 'unresolved'} -> ${check.pass ? 'resolved' : 'unresolved'}${check.infra ? ' (infra)' : ''}`);
-      if (dry) continue;
+      // grade() saves agent.patch next to the checkout it graded; keep the one taken before grading.
       writeFileSync(path.join(dir, 'agent.patch'), patch);
       const steps = record.steps.map((s) => ({ ...s, check }));
       writeFileSync(resultFile, JSON.stringify({ ...record, steps, check, regraded: 'regraded with the reviewed grader; checkout replaced by agent.patch' }, null, 2));

@@ -40,9 +40,12 @@ for t in env.get_task_names():
     out[t] = {"train": env.get_variations_train(), "dev": env.get_variations_dev(), "test": env.get_variations_test()}
 print(json.dumps(out))`;
   const res = spawnSync(PYTHON, ['-c', code], { encoding: 'utf8', maxBuffer: 1 << 26 });
-  const line = res.stdout.trim().split('\n').at(-1) ?? '{}';
+  // Cache only a probe that worked: an empty file here would make every later run fail on JSON.parse.
+  if (res.status !== 0 || !res.stdout?.trim()) throw new Error(`could not list ScienceWorld variations (exit ${res.status}): ${(res.stderr || res.error?.message || '').slice(-500)}`);
+  const line = res.stdout.trim().split('\n').at(-1)!;
+  const parsed = JSON.parse(line) as Variations;
   writeFileSync(cache, line);
-  return JSON.parse(line) as Variations;
+  return parsed;
 }
 
 /** The first `perTask` test variations of every task type. */
@@ -99,7 +102,13 @@ export async function startSw(task: string, variation: number): Promise<SwEnv> {
 }
 
 async function score(env: SwEnv): Promise<CheckResult> {
-  const res = await fetch(`${env.baseUrl}/score`, { method: 'POST', headers: { 'x-score-token': env.token } });
+  let res: Response;
+  try {
+    res = await fetch(`${env.baseUrl}/score`, { method: 'POST', headers: { 'x-score-token': env.token } });
+  } catch (e) {
+    // The environment is gone: not the agent's failure (as miniwob.ts treats it).
+    return { pass: false, score: 0, infra: true, details: `infra: score request failed (${(e as Error).message})` };
+  }
   if (!res.ok) return { pass: false, score: 0, infra: true, details: `infra: score failed (${res.status})` };
   const r = (await res.json()) as { score: number; done: boolean; moves: number };
   return { pass: r.score >= 100, score: Math.max(0, r.score) / 100, details: `score ${r.score}/100 after ${r.moves} actions${r.done ? '' : ' (not ended)'}` };
