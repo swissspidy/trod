@@ -122,7 +122,7 @@ describe('trod notes --delivery', () => {
     expect(claude).not.toContain('Project notes (trod)');
     expect(claude).toContain('Use tabs.');
     const hooks = JSON.parse(readFileSync(path.join(dir, '.claude', 'settings.json'), 'utf8')).hooks;
-    expect(Object.keys(hooks).sort()).toEqual(['PostToolUse', 'SessionStart', 'UserPromptSubmit']);
+    expect(Object.keys(hooks).sort()).toEqual(['PostToolUse', 'SessionEnd', 'SessionStart', 'UserPromptSubmit']);
     expect(hooks.SessionStart[0].hooks[0].command).toMatch(/^npx -y trod(@\S+)? hook$/);
     // forge and learn link notes: with hooks delivery that adds no import, and the notes count as delivered.
     expect(linkNotes(trodPaths(dir))).toBe(false);
@@ -163,7 +163,7 @@ describe('trod notes --delivery', () => {
     const dir = tmp();
     expect(await main(['init', '--dir', dir], () => {})).toBe(0);
     const hooks = JSON.parse(readFileSync(path.join(dir, '.claude', 'settings.json'), 'utf8')).hooks;
-    expect(Object.keys(hooks).sort()).toEqual(['PostToolUse', 'SessionStart', 'UserPromptSubmit']);
+    expect(Object.keys(hooks).sort()).toEqual(['PostToolUse', 'SessionEnd', 'SessionStart', 'UserPromptSubmit']);
     expect(existsSync(path.join(dir, '.trod', 'config.json'))).toBe(false);
   });
 });

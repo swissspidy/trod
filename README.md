@@ -34,8 +34,9 @@ npx trod learn                    # distil notes from Claude Code's transcripts 
 `trod learn` compares sessions that failed with ones that worked and writes rules (plus a page per kind of task when
 there are many). On MiniWoB++ it took Haiku from 68% to 81–83% from 120 old sessions, to 88% after one more
 round of sessions and learning, and to 91% after a third ([rounds 11](results-11/README.md) and [12](results-12/README.md)). Run it on a schedule where your sessions
-happen (a Claude Code Desktop scheduled task with `/trod:learn` from the plugin or `/trod-learn` after `trod init`,
-cron, or an Antigravity Automation): each run
+happen (`npx trod learn --auto 10` starts it from trod's hooks after every 10 sessions; or a Claude Code Desktop
+scheduled task with `/trod:learn` from the plugin or `/trod-learn` after `trod init`, cron, or an Antigravity
+Automation): each run
 learns only from new sessions, checks every existing rule against them, and leaves a diff to review
 ([keep learning](docs/reference.md#keep-learning)). `npx trod report` shows how sessions changed since the notes
 were linked: turns, failed tool calls, follow-up prompts, tokens ([is it helping?](docs/reference.md#is-it-helping)).

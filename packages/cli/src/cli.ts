@@ -6,6 +6,7 @@ import { defaultPackageRoot, init, installClaudeHooks, installedHookCommand, pac
 import { buildHoldoutReport, buildReport, formatReport, notesSince, sessionMetrics, type SessionMetrics } from './report.ts';
 import { notesHook, sessionDelivery } from './delivery.ts';
 import { readTuneConfig, splitTasks, tune, TUNE_CONFIG } from './tune.ts';
+import { sessionEndHook, setAutoLearn } from './autolearn.ts';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
@@ -47,6 +48,9 @@ Usage:
                            --practice: a shell command whose exit code 0 means the current attempt succeeded (e.g.
                            a test suite, a grader); the forge practises against it before writing notes, and its
                            notes are linked only if it passed at least once. --reset starts a fresh attempt.
+  trod learn --auto <n|off>
+                           Learn by itself: trod's SessionEnd hook starts \`trod learn\` in the background once n
+                           sessions have ended since the last run (at most once per 6 hours; log in .trod/logs/)
   trod learn [--from <dir|file>]... [--outcomes <file>] [--limit <n>] [--all] [--brief <text|@file>] [--model <id>]
                            Distil notes from sessions that already happened: condenses Claude Code's transcripts of
                            this project (default: ~/.claude/projects/<project>/) and Codex's sessions in it
@@ -111,6 +115,7 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       proposer: { type: 'string' },
       parallel: { type: 'string' },
       'dry-run': { type: 'boolean', default: false },
+      auto: { type: 'string' },
     },
   });
   const [command, ...rest] = positionals;
@@ -247,6 +252,11 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       return res.iterations.some((it) => it.practice.runs > it.practice.errors) ? 0 : 1;
     }
     case 'learn': {
+      if (values.auto !== undefined) {
+        const r = setAutoLearn(paths, values.auto);
+        out(r.ok ? r.message : `trod learn: ${r.message}`);
+        return r.ok ? 0 : 1;
+      }
       if (values.reset && !values.practice) {
         out('trod learn: --reset needs --practice');
         return 1;
@@ -388,6 +398,14 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
         // not JSON: nothing to do
       }
       const event = payload.hook_event_name ?? 'PostToolUse';
+      if (event === 'SessionEnd') {
+        try {
+          sessionEndHook(values.dir ? paths : trodPaths(resolveProjectDir(process.env, payload.cwd ?? process.cwd())), payload as { session_id?: string; transcript_path?: string });
+        } catch (err) {
+          process.stderr.write(`trod hook: ${(err as Error).message}\n`);
+        }
+        return 0;
+      }
       if (event === 'SessionStart' || event === 'UserPromptSubmit') {
         const hookPaths = values.dir ? paths : trodPaths(resolveProjectDir(process.env, payload.cwd ?? process.cwd()));
         let context: string | undefined;

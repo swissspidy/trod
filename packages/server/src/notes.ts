@@ -90,6 +90,8 @@ export interface TrodConfig {
   delivery?: 'import' | 'hooks';
   /** With hooks: the share of sessions that get no notes at all (a holdout for `trod report`), 0..0.5. Default 0.1. */
   holdout?: number;
+  /** `trod learn --auto <n>`: trod's SessionEnd hook starts a learning run after n finished sessions. */
+  autoLearn?: { after: number; cooldownHours?: number };
 }
 export const CONFIG_FILE = 'config.json';
 

@@ -6,6 +6,7 @@ import path from 'node:path';
 import { NOTES_IMPORT, NOTES_MAX_CHARS, trodPaths, verifyNotes } from '@trod/server';
 import { defaultServerPath, forge } from './forge.ts';
 import { digestTranscript } from './learn.ts';
+import { TROD_SESSION_ENV } from './session-env.ts';
 
 /**
  * `trod tune`: validated notes tuning (results-13 and results-15 as a command). The project defines tasks with checks
@@ -173,7 +174,7 @@ async function runTask(ctx: Ctx, harness: string, task: TuneTask, run: number, o
   const stream = path.join(outDir, `${task.id}-${run}.jsonl`);
   const ws = makeWorkspace(ctx.projectDir, harness, ctx.scratch, ctx.hide);
   try {
-    const env: NodeJS.ProcessEnv = { ...ctx.env, TROD_ALLOW_EXEC: '1', TROD_PROJECT_DIR: ws.dir };
+    const env: NodeJS.ProcessEnv = { ...ctx.env, [TROD_SESSION_ENV]: 'tune', TROD_ALLOW_EXEC: '1', TROD_PROJECT_DIR: ws.dir };
     delete env.CLAUDECODE;
     if (task.setup) {
       const s = sh(task.setup, ws.dir, env, 10 * 60_000);
@@ -260,7 +261,7 @@ async function propose(ctx: Ctx, harness: string, practice: RunResult[], tasks: 
       maxBudgetUsd: '5',
       linkNotes: false,
       claudeBin: ctx.claudeBin,
-      env: ctx.env,
+      env: { ...ctx.env, [TROD_SESSION_ENV]: 'tune' },
       streamFile: path.join(dir, 'proposer.jsonl'),
       out: ctx.out,
     });

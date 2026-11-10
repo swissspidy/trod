@@ -3263,8 +3263,8 @@ var require_utils = __commonJS({
       }
       return ind;
     }
-    function removeDotSegments(path13) {
-      let input = path13;
+    function removeDotSegments(path14) {
+      let input = path14;
       const output = [];
       let nextSlash = -1;
       let len = 0;
@@ -3338,11 +3338,11 @@ var require_utils = __commonJS({
       }
       return output.join("");
     }
-    function removeDotSegmentsRelative(path13) {
-      if (path13 === "" || path13[0] === "/") {
-        return removeDotSegments(path13);
+    function removeDotSegmentsRelative(path14) {
+      if (path14 === "" || path14[0] === "/") {
+        return removeDotSegments(path14);
       }
-      const segments = path13.split("/");
+      const segments = path14.split("/");
       const last = segments.length - 1;
       const output = [];
       let trailingDirectory = false;
@@ -3705,8 +3705,8 @@ var require_schemes = __commonJS({
       }
       if (wsComponent.resourceName) {
         const queryIndex = wsComponent.resourceName.indexOf("?");
-        const path13 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
-        wsComponent.path = path13 && path13 !== "/" ? path13 : void 0;
+        const path14 = queryIndex === -1 ? wsComponent.resourceName : wsComponent.resourceName.slice(0, queryIndex);
+        wsComponent.path = path14 && path14 !== "/" ? path14 : void 0;
         wsComponent.query = queryIndex === -1 ? void 0 : wsComponent.resourceName.slice(queryIndex + 1);
         wsComponent.resourceName = void 0;
       }
@@ -7257,7 +7257,7 @@ var require_dist = __commonJS({
 });
 
 // packages/cli/src/cli.ts
-import { existsSync as existsSync11, mkdtempSync as mkdtempSync3, readdirSync as readdirSync6, readFileSync as readFileSync11, writeFileSync as writeFileSync8 } from "node:fs";
+import { existsSync as existsSync12, mkdtempSync as mkdtempSync3, readdirSync as readdirSync6, readFileSync as readFileSync12, writeFileSync as writeFileSync9 } from "node:fs";
 
 // packages/cli/src/forge.ts
 import { spawn as spawn2 } from "node:child_process";
@@ -7265,6 +7265,9 @@ import { chmodSync, existsSync as existsSync6, mkdirSync as mkdirSync4, mkdtempS
 import { tmpdir } from "node:os";
 import path6 from "node:path";
 import { fileURLToPath } from "node:url";
+
+// packages/cli/src/session-env.ts
+var TROD_SESSION_ENV = "TROD_SESSION_KIND";
 
 // packages/server/src/executor.ts
 import { spawn } from "node:child_process";
@@ -8047,10 +8050,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path13) {
-  if (!path13)
+function getElementAtPath(obj, path14) {
+  if (!path14)
     return obj;
-  return path13.reduce((acc, key) => acc?.[key], obj);
+  return path14.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -8390,11 +8393,11 @@ function explicitlyAborted(x, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path13, issues) {
+function prefixIssues(path14, issues) {
   return issues.map((iss) => {
     var _a3;
     (_a3 = iss).path ?? (_a3.path = []);
-    iss.path.unshift(path13);
+    iss.path.unshift(path14);
     return iss;
   });
 }
@@ -8852,16 +8855,16 @@ function flattenError(error2, mapper = (issue2) => issue2.message) {
 }
 function formatError(error2, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error3, path13 = []) => {
+  const processError = (error3, path14 = []) => {
     for (const issue2 of error3.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path13, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path14, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path13, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path14, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path13, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path14, ...issue2.path]);
       } else {
-        const fullpath = [...path13, ...issue2.path];
+        const fullpath = [...path14, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -16056,7 +16059,7 @@ async function forge(opts) {
   const baseEnv = opts.env ?? process.env;
   const practiceLog = path6.join(scratch, "practice.jsonl");
   if (opts.practice) writePracticeBins(path6.join(scratch, "bin"), practiceLog, opts.practice);
-  const env = { ...baseEnv, TROD_ALLOW_EXEC: "1", TROD_PROJECT_DIR: opts.projectDir, ...opts.practice ? { PATH: `${path6.join(scratch, "bin")}${path6.delimiter}${baseEnv.PATH ?? ""}` } : {} };
+  const env = { ...baseEnv, [TROD_SESSION_ENV]: baseEnv[TROD_SESSION_ENV] ?? "forge", TROD_ALLOW_EXEC: "1", TROD_PROJECT_DIR: opts.projectDir, ...opts.practice ? { PATH: `${path6.join(scratch, "bin")}${path6.delimiter}${baseEnv.PATH ?? ""}` } : {} };
   delete env.CLAUDECODE;
   const mcpConfig = path6.join(scratch, "mcp.json");
   writeFileSync3(mcpConfig, JSON.stringify({ mcpServers: { trod: { command: process.execPath, args: [opts.server ?? defaultServerPath()] } } }));
@@ -16612,7 +16615,7 @@ function installClaudeHooks(dir, hookCommand, res, opts = {}) {
   const settings = readJson(settingsFile);
   if (opts.approveMcp) settings.enableAllProjectMcpServers = true;
   const hooks = settings.hooks ?? {};
-  const wanted = [["PostToolUse", "Write|Edit|MultiEdit"], ["SessionStart", void 0], ["UserPromptSubmit", void 0]];
+  const wanted = [["PostToolUse", "Write|Edit|MultiEdit"], ["SessionStart", void 0], ["UserPromptSubmit", void 0], ["SessionEnd", void 0]];
   for (const [event, matcher] of wanted) {
     const kept = (hooks[event] ?? []).map((g) => ({ ...g, hooks: g.hooks.filter((h) => !isTrodHook(h)) })).filter((g) => g.hooks.length > 0);
     kept.push({ ...matcher ? { matcher } : {}, hooks: [{ type: "command", command: hookCommand, timeout: event === "PostToolUse" ? 60 : 15 }] });
@@ -17115,7 +17118,7 @@ async function runTask(ctx, harness, task, run, outDir) {
   const stream = path11.join(outDir, `${task.id}-${run}.jsonl`);
   const ws = makeWorkspace(ctx.projectDir, harness, ctx.scratch, ctx.hide);
   try {
-    const env = { ...ctx.env, TROD_ALLOW_EXEC: "1", TROD_PROJECT_DIR: ws.dir };
+    const env = { ...ctx.env, [TROD_SESSION_ENV]: "tune", TROD_ALLOW_EXEC: "1", TROD_PROJECT_DIR: ws.dir };
     delete env.CLAUDECODE;
     if (task.setup) {
       const s = sh(task.setup, ws.dir, env, 10 * 6e4);
@@ -17201,7 +17204,7 @@ ${d?.text ?? "(no transcript)"}
       maxBudgetUsd: "5",
       linkNotes: false,
       claudeBin: ctx.claudeBin,
-      env: ctx.env,
+      env: { ...ctx.env, [TROD_SESSION_ENV]: "tune" },
       streamFile: path11.join(dir, "proposer.jsonl"),
       out: ctx.out
     });
@@ -17298,9 +17301,103 @@ async function tune(opts) {
   return result;
 }
 
+// packages/cli/src/autolearn.ts
+import { spawn as spawn4 } from "node:child_process";
+import { appendFileSync as appendFileSync4, existsSync as existsSync11, mkdirSync as mkdirSync9, openSync as openSync2, readFileSync as readFileSync11, writeFileSync as writeFileSync8 } from "node:fs";
+import path12 from "node:path";
+var INBOX_FILE = path12.join(LEARN_STATE_DIR, "inbox.jsonl");
+var AUTO_STATE_FILE = path12.join(LEARN_STATE_DIR, "auto-learn.json");
+var AUTO_LOG = path12.join(".trod", "logs", "auto-learn.log");
+function autoLearnConfig(paths) {
+  const a = readTrodConfig(paths).autoLearn;
+  return a && Number.isInteger(a.after) && a.after >= 1 ? a : void 0;
+}
+function setAutoLearn(paths, value) {
+  const config2 = readTrodConfig(paths);
+  if (value === "off") {
+    const { autoLearn: _, ...rest } = config2;
+    writeTrodConfig(paths, rest);
+    return { ok: true, message: "automatic learning is off" };
+  }
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 1) return { ok: false, message: '--auto takes a number of sessions (e.g. 10) or "off"' };
+  writeTrodConfig(paths, { ...config2, autoLearn: { after: n, cooldownHours: config2.autoLearn?.cooldownHours ?? 6 } });
+  return { ok: true, message: `automatic learning is on: trod's SessionEnd hook starts \`trod learn\` in the background after every ${n} finished session(s) (at most once per 6 hours; log: ${AUTO_LOG}). It needs trod's hooks (trod init or the plugin). Commit .trod/config.json to turn it on for everyone, or keep it local.` };
+}
+function readInbox(paths) {
+  const file = path12.join(paths.projectDir, INBOX_FILE);
+  if (!existsSync11(file)) return [];
+  const out = [];
+  for (const line of readFileSync11(file, "utf8").split("\n")) {
+    if (!line.trim()) continue;
+    try {
+      out.push(JSON.parse(line));
+    } catch {
+    }
+  }
+  return out;
+}
+function ensureState(paths) {
+  const dir = path12.join(paths.projectDir, LEARN_STATE_DIR);
+  mkdirSync9(dir, { recursive: true });
+  if (!existsSync11(path12.join(dir, ".gitignore"))) writeFileSync8(path12.join(dir, ".gitignore"), "# machine-local trod state (written by trod learn)\n*\n");
+}
+function pendingSessions(paths) {
+  const state = readLearnState(paths.projectDir);
+  const learned = new Set(state.sessions);
+  const since = state.lastRun ? Date.parse(state.lastRun) : 0;
+  return [...new Set(readInbox(paths).filter((e) => Date.parse(e.endedAt) > since && !learned.has(e.session)).map((e) => e.session))];
+}
+function learnLocked(paths) {
+  const lock = path12.join(paths.projectDir, LEARN_STATE_DIR, "learn.lock");
+  if (!existsSync11(lock)) return false;
+  const pid = Number(readFileSync11(lock, "utf8"));
+  try {
+    if (pid > 0) process.kill(pid, 0);
+    return pid > 0;
+  } catch (err) {
+    return err.code === "EPERM";
+  }
+}
+function spawnLearn(paths, cli = process.argv[1], env = process.env) {
+  const log2 = path12.join(paths.projectDir, AUTO_LOG);
+  mkdirSync9(path12.dirname(log2), { recursive: true });
+  appendFileSync4(log2, `
+=== ${(/* @__PURE__ */ new Date()).toISOString()} automatic trod learn ===
+`);
+  const fd = openSync2(log2, "a");
+  const childEnv = { ...env, [TROD_SESSION_ENV]: "learn" };
+  delete childEnv.CLAUDECODE;
+  const child = spawn4(process.execPath, [cli, "learn", "--dir", paths.projectDir], { cwd: paths.projectDir, env: childEnv, detached: true, stdio: ["ignore", fd, fd] });
+  child.unref();
+}
+function sessionEndHook(paths, payload, start = (p) => spawnLearn(p), now = /* @__PURE__ */ new Date(), env = process.env) {
+  const config2 = autoLearnConfig(paths);
+  if (!config2) return { recorded: false, pending: 0, started: false, reason: "automatic learning is off" };
+  if (env[TROD_SESSION_ENV]) return { recorded: false, pending: 0, started: false, reason: `a session trod started (${env[TROD_SESSION_ENV]})` };
+  if (!payload.session_id) return { recorded: false, pending: 0, started: false, reason: "no session id" };
+  ensureState(paths);
+  appendFileSync4(path12.join(paths.projectDir, INBOX_FILE), `${JSON.stringify({ session: payload.session_id, transcript: payload.transcript_path, endedAt: now.toISOString() })}
+`);
+  const pending = pendingSessions(paths).length;
+  if (pending < config2.after) return { recorded: true, pending, started: false, reason: `${pending}/${config2.after} sessions since the last learning run` };
+  const stateFile2 = path12.join(paths.projectDir, AUTO_STATE_FILE);
+  let last = 0;
+  try {
+    last = Date.parse(JSON.parse(readFileSync11(stateFile2, "utf8")).lastStarted ?? "") || 0;
+  } catch {
+  }
+  const cooldown = (config2.cooldownHours ?? 6) * 36e5;
+  if (now.getTime() - last < cooldown) return { recorded: true, pending, started: false, reason: "cooldown since the last automatic run" };
+  if (learnLocked(paths)) return { recorded: true, pending, started: false, reason: "a learning run is in progress" };
+  writeFileSync8(stateFile2, JSON.stringify({ lastStarted: now.toISOString(), pending }));
+  start(paths);
+  return { recorded: true, pending, started: true };
+}
+
 // packages/cli/src/cli.ts
 import { pathToFileURL } from "node:url";
-import path12 from "node:path";
+import path13 from "node:path";
 import { parseArgs } from "node:util";
 var USAGE = `trod: self-morphing tools for Claude Code
 
@@ -17338,6 +17435,9 @@ Usage:
                            --practice: a shell command whose exit code 0 means the current attempt succeeded (e.g.
                            a test suite, a grader); the forge practises against it before writing notes, and its
                            notes are linked only if it passed at least once. --reset starts a fresh attempt.
+  trod learn --auto <n|off>
+                           Learn by itself: trod's SessionEnd hook starts \`trod learn\` in the background once n
+                           sessions have ended since the last run (at most once per 6 hours; log in .trod/logs/)
   trod learn [--from <dir|file>]... [--outcomes <file>] [--limit <n>] [--all] [--brief <text|@file>] [--model <id>]
                            Distil notes from sessions that already happened: condenses Claude Code's transcripts of
                            this project (default: ~/.claude/projects/<project>/) and Codex's sessions in it
@@ -17400,7 +17500,8 @@ async function main(argv, out = console.log) {
       margin: { type: "string" },
       proposer: { type: "string" },
       parallel: { type: "string" },
-      "dry-run": { type: "boolean", default: false }
+      "dry-run": { type: "boolean", default: false },
+      auto: { type: "string" }
     }
   });
   const [command, ...rest] = positionals;
@@ -17424,7 +17525,7 @@ async function main(argv, out = console.log) {
     out("trod: --timeout must be a positive number of minutes (at most 35791)");
     return 1;
   }
-  const paths = trodPaths(values.dir ? path12.resolve(values.dir) : resolveProjectDir());
+  const paths = trodPaths(values.dir ? path13.resolve(values.dir) : resolveProjectDir());
   switch (command) {
     case "mcp": {
       await import(pathToFileURL(values.server ?? defaultServerPath()).href);
@@ -17452,12 +17553,12 @@ async function main(argv, out = console.log) {
         return 1;
       }
       const res = await promoteTool(paths, name);
-      out(`promoted ${name} -> ${path12.relative(paths.projectDir, res.to)}${res.replaced ? " (replaced the previous library version)" : ""}${res.examplesPassed ? `, ${res.examplesPassed} example(s) passed` : ""}`);
+      out(`promoted ${name} -> ${path13.relative(paths.projectDir, res.to)}${res.replaced ? " (replaced the previous library version)" : ""}${res.examplesPassed ? `, ${res.examplesPassed} example(s) passed` : ""}`);
       out("Commit .trod/library/ so later sessions load it.");
       return 0;
     }
     case "report": {
-      const sources = values.from?.length ? values.from.map((f) => path12.resolve(f)) : [transcriptDir(paths.projectDir), ...codexTranscripts(paths.projectDir)];
+      const sources = values.from?.length ? values.from.map((f) => path13.resolve(f)) : [transcriptDir(paths.projectDir), ...codexTranscripts(paths.projectDir)];
       const sessions = findTranscripts(sources).map((f) => sessionMetrics(f)).filter((m) => m !== void 0);
       const delivery = sessionDelivery(paths);
       const logged = sessions.filter((s) => delivery.has(s.id));
@@ -17468,7 +17569,7 @@ async function main(argv, out = console.log) {
       return 0;
     }
     case "stats": {
-      const stats = computeStats(readLogs(values.logs ? path12.resolve(values.logs) : paths.logsDir));
+      const stats = computeStats(readLogs(values.logs ? path13.resolve(values.logs) : paths.logsDir));
       out(values.json ? JSON.stringify(stats, null, 2) : formatStats(stats));
       return 0;
     }
@@ -17490,7 +17591,7 @@ async function main(argv, out = console.log) {
         out("trod forge: --brief is required (text, or @path/to/brief.md)");
         return 1;
       }
-      const brief = values.brief.startsWith("@") ? readFileSync11(values.brief.slice(1), "utf8") : values.brief;
+      const brief = values.brief.startsWith("@") ? readFileSync12(values.brief.slice(1), "utf8") : values.brief;
       if (values.reset && !values.practice) {
         out("trod forge: --reset needs --practice");
         return 1;
@@ -17500,7 +17601,7 @@ async function main(argv, out = console.log) {
       return forgeExit("forge", res, values.json, out);
     }
     case "tune": {
-      const file = values.config ? path12.resolve(values.config) : path12.join(paths.projectDir, TUNE_CONFIG);
+      const file = values.config ? path13.resolve(values.config) : path13.join(paths.projectDir, TUNE_CONFIG);
       let config2;
       try {
         config2 = readTuneConfig(file);
@@ -17531,11 +17632,16 @@ async function main(argv, out = console.log) {
       return res.iterations.some((it) => it.practice.runs > it.practice.errors) ? 0 : 1;
     }
     case "learn": {
+      if (values.auto !== void 0) {
+        const r = setAutoLearn(paths, values.auto);
+        out(r.ok ? r.message : `trod learn: ${r.message}`);
+        return r.ok ? 0 : 1;
+      }
       if (values.reset && !values.practice) {
         out("trod learn: --reset needs --practice");
         return 1;
       }
-      const sources = values.from?.length ? values.from.map((f) => path12.resolve(f)) : [transcriptDir(paths.projectDir), ...codexTranscripts(paths.projectDir)];
+      const sources = values.from?.length ? values.from.map((f) => path13.resolve(f)) : [transcriptDir(paths.projectDir), ...codexTranscripts(paths.projectDir)];
       const outcomes = values.outcomes ? readOutcomes(values.outcomes) : void 0;
       const limit = values.limit ? Number(values.limit) : 200;
       if (!Number.isInteger(limit) || limit < 1) {
@@ -17555,11 +17661,11 @@ async function main(argv, out = console.log) {
         let skipped = 0;
         for (const file of files) {
           if (picked.length >= limit) break;
-          if (seen.has(path12.basename(file, ".jsonl"))) {
+          if (seen.has(path13.basename(file, ".jsonl"))) {
             skipped++;
             continue;
           }
-          const d = digestTranscript(file, { outcome: outcomes?.get(path12.basename(file, ".jsonl")) });
+          const d = digestTranscript(file, { outcome: outcomes?.get(path13.basename(file, ".jsonl")) });
           if (d && !d.learnRun && !/^You are (a toolsmith|distilling experience)/.test(d.task)) picked.push(d);
         }
         if (!picked.length) {
@@ -17577,14 +17683,14 @@ async function main(argv, out = console.log) {
 Notes: ${had.holdout ? "HOLDOUT (this session ran without notes or wiki pages)" : `${had.notes ? ".trod/notes.md loaded" : ".trod/notes.md not delivered (none yet)"}${had.pages.length ? `; wiki pages added: ${had.pages.join(", ")}` : ""}`}
 `);
         }
-        const dir = mkdtempSync3(path12.join(tmpdir3(), "trod-learn-"));
-        const counts = writeDigests(path12.join(dir, "sessions"), picked);
+        const dir = mkdtempSync3(path13.join(tmpdir3(), "trod-learn-"));
+        const counts = writeDigests(path13.join(dir, "sessions"), picked);
         out(`learning from ${picked.length} session(s) (${counts.pass} passed, ${counts.fail} failed, ${counts.unknown} unknown)${files.length > picked.length && picked.length === limit ? `, the ${limit} most recent` : ""}`);
-        const brief = values.brief ? values.brief.startsWith("@") ? readFileSync11(values.brief.slice(1), "utf8") : values.brief : "No brief: learn from the sessions and the project's files.";
+        const brief = values.brief ? values.brief.startsWith("@") ? readFileSync12(values.brief.slice(1), "utf8") : values.brief : "No brief: learn from the sessions and the project's files.";
         const practice = values.practice ? { check: values.practice, reset: values.reset } : void 0;
         const before = snapshot(paths.projectDir);
         const ledgerBefore = readLedger(paths.projectDir).rules;
-        const res = await forge({ projectDir: paths.projectDir, brief, model: values.model, server: values.server, maxBudgetUsd: values.budget, timeoutMs: values.timeout ? Number(values.timeout) * 6e4 : void 0, streamFile: values.stream, out, linkNotes: !values["no-link"], practice, prompt: LEARN_PROMPT(path12.join(dir, "sessions"), counts, values.all ? void 0 : state, values.all) });
+        const res = await forge({ projectDir: paths.projectDir, brief, model: values.model, server: values.server, maxBudgetUsd: values.budget, timeoutMs: values.timeout ? Number(values.timeout) * 6e4 : void 0, streamFile: values.stream, out, linkNotes: !values["no-link"], practice, prompt: LEARN_PROMPT(path13.join(dir, "sessions"), counts, values.all ? void 0 : state, values.all) });
         if (!res.promoted.length && snapshot(paths.projectDir) === before) {
           out("learn: the learner changed nothing in .trod/notes.md, .trod/wiki/ or the evidence ledger");
           forgeExit("learn", res, values.json, out);
@@ -17659,6 +17765,15 @@ Notes: ${had.holdout ? "HOLDOUT (this session ran without notes or wiki pages)" 
       } catch {
       }
       const event = payload.hook_event_name ?? "PostToolUse";
+      if (event === "SessionEnd") {
+        try {
+          sessionEndHook(values.dir ? paths : trodPaths(resolveProjectDir(process.env, payload.cwd ?? process.cwd())), payload);
+        } catch (err) {
+          process.stderr.write(`trod hook: ${err.message}
+`);
+        }
+        return 0;
+      }
       if (event === "SessionStart" || event === "UserPromptSubmit") {
         const hookPaths = values.dir ? paths : trodPaths(resolveProjectDir(process.env, payload.cwd ?? process.cwd()));
         let context;
@@ -17683,11 +17798,11 @@ ${USAGE}`);
   }
 }
 function snapshot(projectDir) {
-  const read = (f) => existsSync11(f) ? readFileSync11(f, "utf8") : "";
-  const wiki = path12.join(projectDir, ".trod", "wiki");
-  const pages = existsSync11(wiki) ? readdirSync6(wiki).sort().map((f) => `${f}
-${read(path12.join(wiki, f))}`) : [];
-  return [read(path12.join(projectDir, ".trod", "notes.md")), read(path12.join(projectDir, LEDGER_FILE)), ...pages].join("\n\0");
+  const read = (f) => existsSync12(f) ? readFileSync12(f, "utf8") : "";
+  const wiki = path13.join(projectDir, ".trod", "wiki");
+  const pages = existsSync12(wiki) ? readdirSync6(wiki).sort().map((f) => `${f}
+${read(path13.join(wiki, f))}`) : [];
+  return [read(path13.join(projectDir, ".trod", "notes.md")), read(path13.join(projectDir, LEDGER_FILE)), ...pages].join("\n\0");
 }
 function forgeExit(command, res, json, out) {
   out(`${command}: ${res.promoted.length} tool(s) promoted${res.unverified.length ? ` (${res.unverified.length} without examples)` : ""}, ${res.rejected.length} rejected${res.notes ? `, notes ${res.notes.linked ? "linked" : "not linked"}` : ", no notes"}${res.costUsd !== void 0 ? `, $${res.costUsd.toFixed(3)}, ${res.turns} turns` : ""}`);
@@ -17747,11 +17862,11 @@ async function setDelivery(paths, delivery, holdout, out) {
   return 0;
 }
 function removeNotesImport(claudeMd) {
-  if (!existsSync11(claudeMd)) return false;
-  const text = readFileSync11(claudeMd, "utf8");
+  if (!existsSync12(claudeMd)) return false;
+  const text = readFileSync12(claudeMd, "utf8");
   const next = text.replace(/\n?## Project notes \(trod\)\n\nVerified notes about this project's environment, kept by trod[^\n]*\n\n[ \t]*@\.trod\/notes\.md[ \t]*\n?/, "\n").replace(/^[ \t]*@\.trod\/notes\.md[ \t]*(\r?\n|$)/gm, "");
   if (next === text) return false;
-  writeFileSync8(claudeMd, next.replace(/\n{3,}/g, "\n\n"));
+  writeFileSync9(claudeMd, next.replace(/\n{3,}/g, "\n\n"));
   return true;
 }
 function deliveryHookCommand(dir) {
@@ -17761,7 +17876,7 @@ function deliveryHookCommand(dir) {
   if (!installed) return { command: current };
   if (/^npx -y trod(@\S+)? hook$/.test(installed.trim())) return { command: installed.trim() === "npx -y trod hook" ? installed.trim() : current };
   if (installed.includes(".trod/pkg/bin/trod")) {
-    const vendored = packageVersion(path12.join(dir, ".trod", "pkg"));
+    const vendored = packageVersion(path13.join(dir, ".trod", "pkg"));
     if (version2 && vendored !== version2) return { error: `the vendored trod in .trod/pkg is ${vendored ?? "unknown"}, older than ${version2}: re-run \`trod init --vendor\` first, so its hook handles notes delivery` };
   }
   return { command: installed };
@@ -17784,7 +17899,7 @@ async function hookMessage(raw, env = process.env) {
   if (!m) return void 0;
   const [, projectDir, kind, first] = m;
   const source = kind === "library" ? "library" : "session";
-  const entry = path12.join(projectDir, ".trod", kind, first);
+  const entry = path13.join(projectDir, ".trod", kind, first);
   const execAllowed = env.TROD_ALLOW_EXEC === "1";
   const tool = await loadToolEntry(entry, source, { execAllowed, env });
   if (tool.ok) await runToolExamples(tool, { projectDir, execAllowed, env });
