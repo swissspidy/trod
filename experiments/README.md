@@ -36,7 +36,7 @@ answer passes every step. For `csv-clean` that answer comes from an independentl
 | `genesis` | the same, plus the trod server (`--mcp-config`) and the trod skill (`--plugin-dir plugin`), `TROD_ALLOW_EXEC=1`. The agent decides whether to build tools. |
 | `nudged` | genesis, plus an appended system prompt that **requires** building repeated operations as trod tools instead of Bash-run scripts. It measures what tool building costs when it happens. |
 | `library` | genesis with no nudge, but `.trod/library/` starts with the tools that a nudged run of the same task built (as if promoted and committed by an earlier session). It measures cross-session reuse. |
-| `scripts` | baseline tools only, but in `--mode sessions` the whole work dir carries over between steps, so scripts the agent wrote survive. The fair comparison for a tool library. |
+| `scripts` | baseline tools only, but in `--mode sessions` the whole work dir carries over between steps, so scripts the agent wrote survive. |
 | `toolsmith` | genesis, after one dedicated session in the same run that builds general tools for the task's kind of work. |
 | `forged` | genesis with the library and notes that `trod forge` built once per task (or per `forgeKey`) with `--forge-model`. |
 
