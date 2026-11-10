@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { cpSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { init, packageVersion } from '../src/init.ts';
 
@@ -78,5 +79,17 @@ describe('package', () => {
     const server = json(path.join(PLUGIN, 'server.json'));
     expect([server.version, server.packages[0].version]).toEqual([version, version]);
     expect(server.name).toBe(json(path.join(PLUGIN, 'package.json')).mcpName);
+  });
+
+  it('says so when the build is unreleased and npx could not fetch it', () => {
+    const root = path.join(mkdtempSync(path.join(tmpdir(), 'trod-root-')), 'pkg');
+    cpSync(PLUGIN, root, { recursive: true });
+    const unreleased = { ...JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')), version: '0.0.0' };
+    writeFileSync(path.join(root, 'package.json'), JSON.stringify(unreleased));
+    const dir = mkdtempSync(path.join(tmpdir(), 'trod-init-'));
+    expect(init({ projectDir: dir, packageRoot: root }).notes.join('\n')).toMatch(/unreleased build \(0\.0\.0\).*trod init --vendor/);
+    expect(init({ projectDir: dir, packageRoot: root, vendor: true }).notes.join('\n')).not.toMatch(/unreleased build/);
+    writeFileSync(path.join(root, 'package.json'), JSON.stringify({ ...unreleased, version: '1.2.3' }));
+    expect(init({ projectDir: mkdtempSync(path.join(tmpdir(), 'trod-init-')), packageRoot: root }).notes.join('\n')).not.toMatch(/unreleased build/);
   });
 });

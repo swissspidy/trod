@@ -1,90 +1,18 @@
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { defaultServerPath, forge, type ForgeResult } from './forge.ts';
-import { acquireLearnLock, checkLedgerHistory, digestTranscript, findTranscripts, LEARN_PROMPT, LEDGER_FILE, TROD_TASK, readLearnState, readLedger, readOutcomes, summarizeLedger, transcriptDir, codexSessionsDir, codexTranscripts, writeDigests, writeLearnState, type SessionDigest } from './learn.ts';
+import { acquireLearnLock, checkLedgerHistory, findTranscripts, LEARN_PROMPT, LEDGER_FILE, pickSessions, readLearnState, readLedger, readOutcomes, summarizeLedger, transcriptDir, codexSessionsDir, codexTranscripts, writeDigests, writeLearnState } from './learn.ts';
 import { tmpdir } from 'node:os';
 import { defaultPackageRoot, init, installClaudeHooks, installedHookCommand, packageVersion } from './init.ts';
 import { buildHoldoutReport, buildReport, formatReport, notesSince, sessionMetrics, type SessionMetrics } from './report.ts';
 import { notesHook, sessionDelivery } from './delivery.ts';
 import { DEFAULT_TUNE_MODEL, DEFAULT_TUNE_PROPOSER, readTuneConfig, splitTasks, tune, TUNE_CONFIG } from './tune.ts';
 import { sessionEndHook, setAutoLearn } from './autolearn.ts';
+import { doctor, execEnabled, formatDoctor } from './doctor.ts';
+import { DETAILS, OVERVIEW, suggestCommand } from './help.ts';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { ANTIGRAVITY_NOTES_RULE, codexNotesFile, linkAntigravityNotes, linkCodexNotes, computeStats, formatStats, linkNotes, listToolEntries, loadToolEntry, NOTES_IMPORT, NOTES_MAX_CHARS, promoteTool, readLogs, resolveProjectDir, runToolExamples, trodPaths, verifyNotes, notesPaths, readTrodConfig, writeTrodConfig, type NotesReport, type TrodPaths } from '@trod/server';
-
-const USAGE = `trod: self-morphing tools for Claude Code
-
-Usage:
-  trod init [--vendor] [--allow-exec] [--antigravity | --codex [--auto-approve]]
-                           Set this repository up for trod in every Claude Code session, local or cloud (also
-                           sessions started from the mobile app): writes .mcp.json, .claude/settings.json and the
-                           skill. --vendor copies the server into .trod/pkg instead of running it through npx;
-                           --allow-exec lets tools run (TROD_ALLOW_EXEC=1; meant for ephemeral cloud containers).
-                           --antigravity sets the repository up for Antigravity instead (.agents/mcp_config.json,
-                           the skill, and a rule that loads the notes); --codex sets it up for Codex
-                           (.codex/config.toml, the skills in .agents/skills/, a notes block in AGENTS.md);
-                           --auto-approve approves trod's tool calls in Codex (needed for codex exec)
-  trod mcp                 Start the trod MCP server on stdio (for any MCP client)
-  trod promote <name>      Move .trod/tools/<name> to .trod/library/<name> (commit the library)
-  trod report [--from <path>...] [--json]
-                           Is trod helping? Compares this project's sessions (Claude Code and Codex transcripts)
-                           from before the notes were linked with those after: turns, tool calls, failed calls,
-                           follow-up prompts, tokens, duration; plus the evidence ledger's summary
-  trod stats [--json]      Summarize tool usage across .trod/logs/*.jsonl
-  trod check               Validate every tool without running its examples (single-file tools are imported to
-                           read their meta, which needs TROD_ALLOW_EXEC=1)
-  trod list                List session and library tools
-  trod hook                The command behind trod's Claude Code hooks (JSON on stdin): PostToolUse reports whether a
-                           just-written tool is valid, SessionStart and UserPromptSubmit deliver the notes (hooks
-                           delivery), SessionEnd counts sessions for trod learn --auto
-  trod verify [--json]     Re-run every library tool's examples and every note check against the current
-                           environment; exit 1 if any tool or note is stale (run it in CI or on a schedule)
-  trod notes [--link]      Show .trod/notes.md's status and run its checks; --link adds @.trod/notes.md to CLAUDE.md
-  trod notes --delivery hooks|import [--holdout <share>]
-                           How Claude Code sessions get the notes. hooks: trod's hooks inject .trod/notes.md at session
-                           start and add a .trod/wiki/ page when a prompt matches its "when:" words; a random share of
-                           sessions (--holdout, default 0.1) gets no notes, so trod report can compare. import: the
-                           CLAUDE.md import (default)
-  trod forge --brief <text|@file> [--model <id>] [--no-link] [--practice <cmd> [--reset <cmd>]]
-                           Run a dedicated tool-building session (headless Claude Code), promote every valid tool
-                           whose examples do not fail to .trod/library (tools without examples are promoted as
-                           unverified), check the notes it wrote and link them into CLAUDE.md.
-                           --practice: a shell command whose exit code 0 means the current attempt succeeded (e.g.
-                           a test suite, a grader); the forge practises against it before writing notes, and its
-                           notes are linked only if it passed at least once. --reset starts a fresh attempt.
-  trod learn --auto <n|off>
-                           Learn by itself: trod's SessionEnd hook starts \`trod learn\` in the background once n
-                           sessions have ended since the last run (at most once per 6 hours, each run capped at
-                           $2; log in .trod/logs/auto-learn.log)
-  trod learn [--from <dir|file>]... [--outcomes <file>] [--limit <n>] [--all] [--brief <text|@file>] [--model <id>]
-                           Distil notes from sessions that already happened: condenses Claude Code's transcripts of
-                           this project (default: ~/.claude/projects/<project>/) and Codex's sessions in it
-                           (~/.codex/sessions), compares failed with passed
-                           sessions in a forge session and writes rules into .trod/notes.md (and .trod/wiki/ pages
-                           when there are many kinds of task). --outcomes: JSON mapping session ids to true/false
-                           (e.g. from CI); without it the outcome is judged from each transcript. Takes --practice too.
-                           Incremental: only sessions since the last run (.trod/state/learn.json); exits 0 without a
-                           session when there is nothing new, so it can run on a schedule. --all relearns from
-                           every session (still at most --limit, 200 by default) and recounts the evidence.
-                           The learner keeps .trod/notes.evidence.json: per rule, how often later sessions confirmed
-                           or contradicted it; rules contradicted more often than confirmed are fixed or dropped.
-
-  trod tune [--config <file>] [--iterations <n>] [--runs <n>] [--margin <n>] [--model <id>] [--proposer <id>] [--dry-run]
-                           Tune the notes against your own tasks (.trod/tune.json: {"tasks": [{"id", "prompt", "check"}]},
-                           check = shell command, exit 0 = done). A model (default Haiku) runs the practice tasks, each
-                           in a throwaway copy of the project; a stronger model rewrites .trod/notes.md from the failed
-                           sessions; the candidate replaces the notes only if it passes at least --margin (default 1)
-                           more held-out validation runs than the current notes. --dry-run shows the split and run counts.
-
-Options:
-  --timeout <minutes>      forge and learn: stop the session after this long (default 30); tune: per task (default 15)
-  --budget <usd>           forge, learn and tune: spend cap per session (Claude Code's --max-budget-usd)
-  --stream <file>          forge and learn: keep the session's stream-json output in this file
-  --json                   Machine-readable output (report, stats, verify, notes, forge, learn, tune)
-  --version                Print trod's version
-  --dir <path>             Project directory (default: TROD_PROJECT_DIR, CLAUDE_PROJECT_DIR or cwd)
-  --logs <path>            Logs directory for stats (default: <dir>/.trod/logs)
-`;
 
 export async function main(argv: string[], out: (s: string) => void = console.log): Promise<number> {
   const { values, positionals } = parseArgs({
@@ -132,8 +60,15 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
     out(packageVersion(defaultPackageRoot()) ?? 'dev');
     return 0;
   }
-  if (values.help || !command) {
-    out(USAGE);
+  // `trod help <command>`, `trod <command> --help`; without a command, the overview.
+  if (command === 'help' || values.help || !command) {
+    const topic = command === 'help' ? rest[0] : command;
+    if (topic && !DETAILS[topic]) {
+      const guess = suggestCommand(topic);
+      out(`trod: no command "${topic}"${guess ? ` (did you mean "${guess}"?)` : ''}. Run \`trod help\` for the list.`);
+      return 1;
+    }
+    out(topic ? DETAILS[topic]! : OVERVIEW);
     return command || values.help ? 0 : 1;
   }
   if (values.link && values['no-link']) {
@@ -169,7 +104,13 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       for (const f of res.unchanged) out(`unchanged ${f}`);
       for (const n of res.notes) out(n);
       out(values.antigravity ? 'Commit these files. Antigravity starts trod from .agents/mcp_config.json in this workspace.' : values.codex ? 'Commit these files. Codex starts trod from .codex/config.toml once you trust the project.' : 'Commit these files. Local sessions and cloud sessions (also from the mobile app) start trod from .mcp.json.');
+      out('Next: `trod doctor` shows the setup and what to do next (`trod learn` once you have a few sessions, or `trod forge` to study something now).');
       return 0;
+    }
+    case 'doctor': {
+      const report = doctor(paths);
+      out(values.json ? JSON.stringify(report, null, 2) : formatDoctor(report, packageVersion(defaultPackageRoot()) ?? 'dev'));
+      return report.broken ? 1 : 0;
     }
     case 'promote': {
       const name = rest[0];
@@ -290,25 +231,27 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
         // learn sessions, and (unless --all) sessions an earlier run learned from.
         const files = findTranscripts(sources);
         const state = readLearnState(paths.projectDir);
-        const seen = new Set(values.all ? [] : state.sessions);
-        const picked: SessionDigest[] = [];
-        let skipped = 0;
-        for (const file of files) {
-          if (picked.length >= limit) break;
-          if (seen.has(path.basename(file, '.jsonl'))) {
-            skipped++;
-            continue;
-          }
-          const d = digestTranscript(file, { outcome: outcomes?.get(path.basename(file, '.jsonl')) });
-          if (d && !d.learnRun && !TROD_TASK.test(d.task)) picked.push(d);
-        }
+        const { picked, skipped } = pickSessions(files, { seen: new Set(values.all ? [] : state.sessions), limit, outcomes });
         if (!picked.length) {
           // An explicit --from that finds no transcript at all is a mistake; anything else is a quiet scheduled run.
           if (!files.length && values.from?.length) {
             out(`trod learn: no session transcripts found in ${sources.join(', ')}`);
             return 1;
           }
+          if (values['dry-run']) {
+            out(skipped ? `learn: nothing new since the last run (${skipped} session(s) already learned from)` : 'learn: no sessions of this project to learn from yet');
+            return 0;
+          }
           out(skipped ? `learn: nothing new since the last run (${state.lastRun ?? 'unknown'}; ${skipped} session(s) already learned from). --all learns from them again.` : `learn: nothing to learn from yet (no sessions of this project in ${values.from?.length ? sources.join(', ') : `${transcriptDir(paths.projectDir)} or ${codexSessionsDir()}`})`);
+          return 0;
+        }
+        if (values['dry-run']) {
+          // What a run would read, without starting the session that costs money.
+          const by = (o: string) => picked.filter((d) => d.outcome === o).length;
+          out(`learn would read ${picked.length} session(s)${files.length > picked.length && picked.length === limit ? ` (the ${limit} most recent)` : ''}: ${by('pass')} passed, ${by('fail')} failed, ${by('unknown')} with an outcome to judge from the transcript${skipped ? `; ${skipped} already learned from` : ''}`);
+          for (const d of picked.slice(0, 15)) out(`  ${d.outcome.padEnd(7)} ${String(d.toolCalls).padStart(3)} tool calls, ${d.errors} errors  ${(d.task.split('\n').find((l) => /\w/.test(l)) ?? '').trim().slice(0, 90)}`);
+          if (picked.length > 15) out(`  … and ${picked.length - 15} more`);
+          out('Nothing was started. Run `trod learn` to learn from them (one session; cap its spend with --budget <usd>).');
           return 0;
         }
         // With hooks delivery, say what each session had: the holdout ran without notes, a natural control group.
@@ -321,11 +264,13 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
         const dir = digestsDir;
         const counts = writeDigests(path.join(dir, 'sessions'), picked);
         out(`learning from ${picked.length} session(s) (${counts.pass} passed, ${counts.fail} failed, ${counts.unknown} unknown)${files.length > picked.length && picked.length === limit ? `, the ${limit} most recent` : ''}`);
-        const brief = values.brief ? (values.brief.startsWith('@') ? readFileSync(values.brief.slice(1), 'utf8') : values.brief) : "No brief: learn from the sessions and the project's files.";
+        let brief = values.brief ? (values.brief.startsWith('@') ? readFileSync(values.brief.slice(1), 'utf8') : values.brief) : "No brief: learn from the sessions and the project's files.";
+        // A tool is only worth building where sessions may run it.
+        if (!execEnabled(paths.projectDir)) brief += '\n\nSessions in this project cannot run trod tools (execution is off), so do not build tools and do not refer to any in the notes: put everything a session needs into the notes themselves.';
         const practice = values.practice ? { check: values.practice, reset: values.reset } : undefined;
         const before = snapshot(paths.projectDir);
         const ledgerBefore = readLedger(paths.projectDir).rules;
-        const res = await forge({ projectDir: paths.projectDir, brief, model: values.model, server: values.server, maxBudgetUsd: values.budget, timeoutMs: values.timeout ? Number(values.timeout) * 60_000 : undefined, streamFile: values.stream, out, linkNotes: !values['no-link'], practice, prompt: LEARN_PROMPT(path.join(dir, 'sessions'), counts, values.all ? undefined : state, values.all) });
+        const res = await forge({ projectDir: paths.projectDir, brief, model: values.model, server: values.server, maxBudgetUsd: values.budget, timeoutMs: values.timeout ? Number(values.timeout) * 60_000 : undefined, streamFile: values.stream, out, linkNotes: !values['no-link'], practice, activity: `learning from ${picked.length} session(s)`, notesBasis: 'they rest on the sessions they were learned from', prompt: LEARN_PROMPT(path.join(dir, 'sessions'), counts, values.all ? undefined : state, values.all) });
         // Notes that were there before do not count as this run's result.
         if (!res.promoted.length && snapshot(paths.projectDir) === before) {
           out('learn: the learner changed nothing in .trod/notes.md, .trod/wiki/ or the evidence ledger');
@@ -435,9 +380,11 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       if (msg) out(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: msg } }));
       return 0;
     }
-    default:
-      out(`trod: unknown command "${command}"\n\n${USAGE}`);
+    default: {
+      const guess = suggestCommand(command);
+      out(`trod: unknown command "${command}"${guess ? ` (did you mean "${guess}"?)` : ''}. Run \`trod help\` for the list.`);
       return 1;
+    }
   }
 }
 
@@ -459,7 +406,10 @@ function forgeExit(command: 'forge' | 'learn', res: ForgeResult, json: boolean, 
   if (json) out(JSON.stringify(res, null, 2));
   const notesFailed = !!res.notes && (res.notes.checks.some((c) => !c.ok) || res.notes.errors.length > 0);
   const notesVerified = !!res.notes && !notesFailed && (command === 'learn' || res.notes.checks.length > 0 || (res.practice?.passed ?? 0) > 0);
-  return (res.promoted.length || notesVerified) && !notesFailed && res.exitCode === 0 ? 0 : 1;
+  const ok = !!(res.promoted.length || notesVerified) && !notesFailed && res.exitCode === 0;
+  // What a first-time user needs to hear: nothing is committed for them, and later sessions load what is.
+  if (ok && !json) out(`Next: review what changed under .trod/ (and CLAUDE.md) with \`git diff\`, then commit it. Sessions started after that load the notes${res.promoted.length ? ' and the library' : ''}.`);
+  return ok ? 0 : 1;
 }
 
 /**

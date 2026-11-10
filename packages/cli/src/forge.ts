@@ -61,6 +61,10 @@ export interface ForgeOptions {
   claudeBin?: string;
   /** Replaces FORGE_PROMPT (trod learn uses LEARN_PROMPT). */
   prompt?: string;
+  /** What the session is doing, for the progress line (default "forging tools"). */
+  activity?: string;
+  /** What notes without checks rest on, for the "linked" line (trod learn: the sessions they were learned from). */
+  notesBasis?: string;
 }
 
 export interface ForgeResult {
@@ -166,7 +170,7 @@ async function runForge(opts: ForgeOptions, scratch: string): Promise<ForgeResul
   ];
   const streamFile = opts.streamFile ?? path.join(scratch, 'forge.jsonl');
   mkdirSync(path.dirname(streamFile), { recursive: true });
-  out(`forging tools in ${opts.projectDir}${opts.model ? ` with ${opts.model}` : ''} …`);
+  out(`${opts.activity ?? 'forging tools'} in ${opts.projectDir}${opts.model ? ` with ${opts.model}` : ''} … (a headless Claude Code session; this takes a few minutes)`);
   const claudeBin = opts.claudeBin ?? baseEnv.TROD_CLAUDE_BIN ?? 'claude';
   const { exitCode, stream, spawnError } = await new Promise<{ exitCode: number | null; stream: string; spawnError?: string }>((resolve) => {
     const child = spawn(claudeBin, args, { cwd: opts.projectDir, env, stdio: ['ignore', 'pipe', 'inherit'] });
@@ -214,7 +218,7 @@ async function runForge(opts: ForgeOptions, scratch: string): Promise<ForgeResul
   let notesLinkedNow = false;
   if (notes.exists) {
     const passed = notes.checks.filter((c) => c.ok).length;
-    out(`  notes: ${notes.chars} chars${notes.tooLong ? ` (over ${NOTES_MAX_CHARS}: trim them, they are in every session's context)` : ''}, ${passed}/${notes.checks.length} check(s) passed`);
+    out(`  notes: ${notes.chars} chars${notes.tooLong ? ` (over ${NOTES_MAX_CHARS}: trim them, they are in every session's context)` : ''}, ${notes.checks.length ? `${passed}/${notes.checks.length} check(s) passed` : 'no checks'}`);
     for (const c of notes.checks.filter((c) => !c.ok)) out(`    failed check "${c.claim}" (${c.tool}): ${c.error}`);
     for (const e of notes.errors) out(`    ${e}`);
     // Practice notes count as verified only if the forge passed the practice check at least once.
@@ -225,7 +229,7 @@ async function runForge(opts: ForgeOptions, scratch: string): Promise<ForgeResul
     else if (exitCode !== 0) out(`  notes NOT linked into CLAUDE.md: the session did not finish cleanly (${exitCode === null ? 'killed, e.g. by --timeout' : `exit code ${exitCode}`}), so they may be incomplete; review them, then run \`trod notes --link\``);
     else if (opts.linkNotes !== false) {
       notesLinkedNow = linkNotes(paths);
-      if (notesLinkedNow) out(`  linked .trod/notes.md into CLAUDE.md (${NOTES_IMPORT})${notes.checks.length ? '' : ' (no checks: nothing in them is verified)'}`);
+      if (notesLinkedNow) out(`  linked .trod/notes.md into CLAUDE.md (${NOTES_IMPORT})${notes.checks.length ? '' : ` (${opts.notesBasis ?? 'no checks: nothing in them is verified'})`}`);
       const rule = linkAntigravityNotes(paths);
       if (rule === 'written') out(`  linked .trod/notes.md into Antigravity (${ANTIGRAVITY_NOTES_RULE})`);
       else if (typeof rule === 'object') out(`  ${rule.error}`);

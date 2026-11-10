@@ -20,9 +20,23 @@ async function run(args: string[]) {
 }
 
 describe('trod cli', () => {
-  it('prints usage', async () => {
-    expect((await run(['--help'])).out).toContain('trod promote');
+  it('prints an overview, per-command help, and a suggestion for a mistyped command', async () => {
+    const overview = await run(['--help']);
+    expect(overview.code).toBe(0);
+    // One line per command, short enough to scan.
+    for (const c of ['init', 'doctor', 'learn', 'forge', 'tune', 'verify', 'report', 'notes', 'stats', 'list', 'check', 'promote', 'mcp', 'hook']) expect(overview.out).toMatch(new RegExp(`^  ${c} `, 'm'));
+    expect(overview.out.split('\n').length).toBeLessThan(50);
     expect((await run([])).code).toBe(1);
+    expect((await run(['help'])).out).toBe(overview.out);
+    // The details are one command away, either way round.
+    const forge = await run(['help', 'forge']);
+    expect(forge).toMatchObject({ code: 0 });
+    expect(forge.out).toMatch(/^trod forge --brief/);
+    expect(forge.out).toContain('--practice <cmd>');
+    expect((await run(['forge', '--help'])).out).toBe(forge.out);
+    expect(await run(['forg'])).toMatchObject({ code: 1, out: expect.stringContaining('did you mean "forge"?') });
+    expect(await run(['help', 'lern'])).toMatchObject({ code: 1, out: expect.stringContaining('did you mean "learn"?') });
+    expect((await run(['frobnicate'])).out).not.toContain('did you mean');
   });
 
   it('checks, promotes and lists tools', async () => {

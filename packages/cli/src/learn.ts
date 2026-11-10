@@ -292,6 +292,26 @@ function digestCodex(file: string, events: Record<string, unknown>[], opts: { ou
   return assembleDigest(file, { task, steps, toolCalls, errors, final, learnRun }, opts);
 }
 
+/**
+ * The sessions a learning run would read: newest first, until `limit`, skipping empty transcripts (subagent
+ * side-chains among them), trod's own forge, learn and tune sessions, and sessions an earlier run learned from (`seen`).
+ */
+export function pickSessions(files: string[], opts: { seen?: Set<string>; limit?: number; outcomes?: Map<string, Outcome> } = {}): { picked: SessionDigest[]; skipped: number } {
+  const picked: SessionDigest[] = [];
+  let skipped = 0;
+  for (const file of files) {
+    if (picked.length >= (opts.limit ?? Infinity)) break;
+    const id = path.basename(file, '.jsonl');
+    if (opts.seen?.has(id)) {
+      skipped++;
+      continue;
+    }
+    const d = digestTranscript(file, { outcome: opts.outcomes?.get(id) });
+    if (d && !d.learnRun && !TROD_TASK.test(d.task)) picked.push(d);
+  }
+  return { picked, skipped };
+}
+
 /** Reads an outcomes file: {"<session id or file name>": true | false | "pass" | "fail" | <score 0..1>}. */
 export function readOutcomes(file: string): Map<string, Outcome> {
   const raw = JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>;
