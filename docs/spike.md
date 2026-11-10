@@ -3,7 +3,7 @@
 Date: 2026-11-06. Claude Code 2.1.318, `@modelcontextprotocol/sdk` 1.32.2, Node 22.23. Models: Sonnet 5.5
 for the runs below (Opus 5.5 for the auth smoke test).
 
-The throwaway server is [`spike/server.mjs`](../spike/server.mjs), and [`spike/headless.sh`](../spike/headless.sh) runs the headless check. The server is about 40 lines: it watches a directory
+The throwaway server was `spike/server.mjs`, and `spike/headless.sh` ran the headless check (both removed since; see them at [commit 3aa3ed2](https://github.com/swissspidy/trod/tree/3aa3ed2c121c75640f3f24f3b3edc1265aafba9e/spike)). The server is about 40 lines: it watches a directory
 of `*.json` files, each one a tool definition with a canned `reply`. It registers them with the low-level
 `Server` API (raw JSON Schema, `capabilities.tools.listChanged: true`) and sends
 `notifications/tools/list_changed` 100 ms after the directory changes. It logs every `tools/list` and call.

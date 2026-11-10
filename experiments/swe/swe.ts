@@ -61,8 +61,14 @@ export const DJANGO4: SweEnv = {
   forgeCommit: '', // filled in by sweTasks: the parent of the earliest base commit in the environment
 };
 
+/**
+ * For git in a checkout: with --as-user the checkout belongs to the agent's user, and git refuses to work in a
+ * repository owned by someone else ("dubious ownership") unless told the directory is safe.
+ */
+export const GIT_ENV: NodeJS.ProcessEnv = { ...process.env, GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'safe.directory', GIT_CONFIG_VALUE_0: '*' };
+
 function sh(cmd: string, args: string[], opts: { cwd?: string; input?: string } = {}): string {
-  return execFileSync(cmd, args, { cwd: opts.cwd, input: opts.input, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] });
+  return execFileSync(cmd, args, { cwd: opts.cwd, input: opts.input, env: GIT_ENV, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, stdio: ['pipe', 'pipe', 'pipe'] });
 }
 
 /** A fresh repository holding exactly the tree of `commit`, with a single commit and no history. */
@@ -139,10 +145,12 @@ export async function grade(env: SweEnv, inst: Instance, work: string): Promise<
   try {
     sh('git', ['add', '-A'], { cwd: work });
     // Against the checkout's first commit (the exported base), not HEAD: the agent may have committed its changes.
-    const base = execFileSync('git', ['rev-list', '--max-parents=0', 'HEAD'], { cwd: work, encoding: 'utf8' }).trim().split('\n').at(-1)!;
-    writeFileSync(path.join(path.dirname(work), 'agent.patch'), execFileSync('git', ['diff', '--cached', base, '--binary'], { cwd: work, maxBuffer: 256 * 1024 * 1024 }));
-  } catch {
-    // not a git checkout (e.g. a unit test); nothing to save
+    const base = sh('git', ['rev-list', '--max-parents=0', 'HEAD'], { cwd: work }).trim().split('\n').at(-1)!;
+    writeFileSync(path.join(path.dirname(work), 'agent.patch'), execFileSync('git', ['diff', '--cached', base, '--binary'], { cwd: work, env: GIT_ENV, maxBuffer: 256 * 1024 * 1024 }));
+  } catch (e) {
+    // Not a git checkout (e.g. a unit test): nothing to save. Anything else is worth knowing: without the patch the
+    // checkout is kept (afterRun deletes it only when the patch exists) and the run cannot be regraded from a patch.
+    if (existsSync(path.join(work, '.git'))) console.error(`could not save agent.patch for ${work}: ${(e as Error).message.split('\n')[0]}`);
   }
   // Reset the test files the test patch touches, then apply it.
   // From the base commit in the bare clone (outside the agent's reach), not from the agent's HEAD, which it may have

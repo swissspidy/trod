@@ -110,7 +110,12 @@ async function score(env: MwEnv): Promise<CheckResult> {
     return { pass: false, score: 0, infra: true, details: `infra: score request failed (${(e as Error).message})` };
   }
   if (!res.ok) return { pass: false, score: 0, infra: true, details: `infra: score failed (${res.status})` };
-  const r = (await res.json()) as { reward: number; done: boolean; reason?: string };
+  let r: { reward: number; done: boolean; reason?: string };
+  try {
+    r = (await res.json()) as { reward: number; done: boolean; reason?: string };
+  } catch (e) {
+    return { pass: false, score: 0, infra: true, details: `infra: score response unreadable (${(e as Error).message})` };
+  }
   return { pass: r.reward > 0, score: Math.max(0, r.reward), details: `reward ${r.reward}${r.done ? '' : ' (episode not ended)'}${r.reason ? ` (${r.reason})` : ''}` };
 }
 

@@ -61,14 +61,28 @@ function findResults(dir: string): RunRecord[] {
   return out;
 }
 
+const BUILT_IN = new Set(TASKS.map((t) => t.id));
+/**
+ * The row a record belongs to. Built-in tasks are their own row. A benchmark suite has hundreds of instances, so
+ * its rows are families: the instance id without its trailing number (MiniWoB "click-menu-s3" → "click-menu", BIRD
+ * "financial-112" → "financial", AppWorld "82e2fac_1" → "82e2fac", SWE-bench "django__django-13809" → "django__django").
+ */
+export function groupOf(taskId: string): string {
+  return BUILT_IN.has(taskId) ? taskId : taskId.replace(/[-_]s?\d+$/, '') || taskId;
+}
+
 export function aggregate(all: RunRecord[]) {
   // A check that could not be completed (infra) says nothing about the agent: leave those runs out of every aggregate.
   const records = all.filter((r) => !r.check.infra && !(r.steps ?? []).some((st) => st.check?.infra));
   const infraExcluded = all.length - records.length;
   const cells: Cell[] = [];
-  for (const task of TASKS) {
+  // Built-in tasks in their own order, then the families of suite instances.
+  const seen = new Set(records.map((r) => groupOf(r.task)));
+  const groups = [...TASKS.map((t) => t.id).filter((id) => seen.has(id)), ...[...seen].filter((g) => !BUILT_IN.has(g)).sort()];
+  for (const group of groups) {
+    const task = { id: group };
     for (const arm of ARMS) {
-      const rs = records.filter((r) => r.task === task.id && r.arm === arm);
+      const rs = records.filter((r) => groupOf(r.task) === task.id && r.arm === arm);
       if (!rs.length) continue;
       const created = rs.map((r) => r.trod?.toolsCreated ?? 0);
       const calls = rs.map((r) => r.trod?.calls ?? 0);
@@ -112,7 +126,7 @@ export function aggregate(all: RunRecord[]) {
     return { arm, all: summary(by('all')), repetitive: summary(by('repetitive')), control: summary(by('control')) };
   });
   // Per-task ratio to baseline (cost, turns, wall), the headline numbers.
-  const present = TASKS.filter((t) => records.some((r) => r.task === t.id));
+  const present = groups.map((id) => ({ id, kind: records.find((r) => groupOf(r.task) === id)!.kind }));
   const ratios = present.map((t) => {
     const base = cells.find((c) => c.task === t.id && c.arm === 'baseline');
     return {
@@ -164,7 +178,8 @@ const pct = (n: number) => `${Math.round(n * 100)}%`;
 
 /** Horizontal grouped bars: one group per task, one bar per arm. */
 function groupedBars(cells: Cell[], metric: keyof Cell, label: string, unit: (v: number) => string): string {
-  const rows = TASKS.filter((t) => cells.some((c) => c.task === t.id)).map((t) => ({ task: t, vals: ARMS.map((a) => cells.find((c) => c.task === t.id && c.arm === a)) }));
+  const ids = [...new Set(cells.map((c) => c.task))];
+  const rows = ids.map((id) => ({ task: { id }, vals: ARMS.map((a) => cells.find((c) => c.task === id && c.arm === a)) }));
   const max = Math.max(...cells.map((c) => Number(c[metric]) || 0), 1e-9);
   const barH = 10;
   const gap = 2;
@@ -204,9 +219,15 @@ export function renderHtml(agg: ReturnType<typeof aggregate>, meta: { model: str
     .map((x) => `<tr><td>${esc(ARM_LABEL[x.arm])}</td>${x.steps.map((v) => `<td>$${fmt(v, 3)}</td>`).join('')}</tr>`)
     .join('')}</tbody></table>`;
   const legend = `<div class="legend">${ARMS.map((a, i) => (cells.some((c) => c.arm === a) ? `<span><i class="sw s${i + 1}"></i>${esc(ARM_LABEL[a])}</span>` : '')).join('')}</div>`;
-  const tile = (o: (typeof overall)[number]) => `<div class="tile"><div class="tl"><i class="sw s${ARMS.indexOf(o.arm) + 1}"></i>${esc(ARM_LABEL[o.arm])}</div>
-<div class="big">${o.repetitive.n ? `${Math.round(o.repetitive.tokens / 1000)}k` : '–'}</div><div class="sub">mean tokens per repetitive session · score ${fmt(o.repetitive.meanScore)} · pass ${pct(o.repetitive.passRate)} · ${Math.round(o.repetitive.tokensPerScore / 1000)}k tokens per full score · $${fmt(o.repetitive.costUsd, 3)} · ${fmt(o.repetitive.turns, 1)} turns · ${fmt(o.repetitive.wallS, 0)} s</div>
+  const anyRepetitive = overall.some((o) => o.repetitive.n > 0);
+  const tile = (o: (typeof overall)[number]) => {
+    // Benchmark suites have no multi-step ("repetitive") tasks: their headline is all runs. Chosen once for the
+    // report, so every tile shows the same population.
+    const h = anyRepetitive ? o.repetitive : o.all;
+    return `<div class="tile"><div class="tl"><i class="sw s${ARMS.indexOf(o.arm) + 1}"></i>${esc(ARM_LABEL[o.arm])}</div>
+<div class="big">${h.n ? `${Math.round(h.tokens / 1000)}k` : '–'}</div><div class="sub">mean tokens per ${anyRepetitive ? 'repetitive session' : 'run'} · score ${fmt(h.meanScore)} · pass ${pct(h.passRate)} · ${Math.round(h.tokensPerScore / 1000)}k tokens per full score · $${fmt(h.costUsd, 3)} · ${fmt(h.turns, 1)} turns · ${fmt(h.wallS, 0)} s</div>
 <div class="sub">controls: ${o.control.n ? `$${fmt(o.control.costUsd, 3)} · pass ${pct(o.control.passRate)}` : 'no runs'}${o.arm === 'baseline' ? '' : ` · tools built in ${o.all.runsWithTools}/${o.all.n} runs (${o.all.toolsCreated} tools, ${o.all.trodCalls} calls)`}</div></div>`;
+  };
   const table = `<table><thead><tr><th>task</th><th>arm</th><th>n</th><th>pass</th><th>score</th><th>cost $</th><th>tokens</th><th>out tokens</th><th>turns</th><th>wall s</th><th>tools</th><th>trod calls</th><th>calls/tool</th><th>creation share</th></tr></thead><tbody>${cells
     .map(
       (c) =>

@@ -11,7 +11,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, wri
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import type { RunRecord } from '../runner/metrics.ts';
-import { DJANGO4, exportCommit, grade, loadInstances } from './swe.ts';
+import { DJANGO4, exportCommit, GIT_ENV, grade, loadInstances } from './swe.ts';
 
 const { values, positionals } = parseArgs({ allowPositionals: true, options: { parallel: { type: 'string', default: '4' }, 'dry-run': { type: 'boolean', default: false }, regrade: { type: 'boolean', default: false }, force: { type: 'boolean', default: false } } });
 const root = positionals[0] ? path.resolve(positionals[0]) : undefined;
@@ -80,13 +80,13 @@ await Promise.all(
         mkdirSync(work, { recursive: true });
         exportCommit(DJANGO4.gitDir, inst.base_commit, work);
         const p = readFileSync(path.join(dir, 'agent.patch'));
-        if (p.length) execFileSync('git', ['apply', '--whitespace=nowarn', '-'], { cwd: work, input: p });
+        if (p.length) execFileSync('git', ['apply', '--whitespace=nowarn', '-'], { cwd: work, input: p, env: GIT_ENV });
       }
       // The agent's changes (tracked and untracked), before grading touches the test files again.
-      execFileSync('git', ['add', '-A'], { cwd: work });
+      execFileSync('git', ['add', '-A'], { cwd: work, env: GIT_ENV });
       // Against the checkout's first commit, so changes the agent committed are in the patch too.
-      const base = execFileSync('git', ['rev-list', '--max-parents=0', 'HEAD'], { cwd: work, encoding: 'utf8' }).trim().split('\n').at(-1)!;
-      const patch = execFileSync('git', ['diff', '--cached', base, '--binary'], { cwd: work, maxBuffer: 256 * 1024 * 1024 }).toString();
+      const base = execFileSync('git', ['rev-list', '--max-parents=0', 'HEAD'], { cwd: work, encoding: 'utf8', env: GIT_ENV }).trim().split('\n').at(-1)!;
+      const patch = execFileSync('git', ['diff', '--cached', base, '--binary'], { cwd: work, env: GIT_ENV, maxBuffer: 256 * 1024 * 1024 }).toString();
       const check = await grade(DJANGO4, inst, work);
       if (check.pass !== record.check.pass) changed++;
       console.log(`${check.pass === record.check.pass ? 'same' : 'CHANGED'} ${path.relative(root, dir)}: ${record.check.pass ? 'resolved' : 'unresolved'} -> ${check.pass ? 'resolved' : 'unresolved'}${check.infra ? ' (infra)' : ''}`);
