@@ -1882,14 +1882,21 @@ async function main(argv, out = console.log) {
     case "check":
     case "list": {
       let bad = 0;
+      let unchecked = 0;
       const execAllowed = process.env.TROD_ALLOW_EXEC === "1";
       for (const [source, root] of [["library", paths.libraryDir], ["session", paths.toolsDir]]) {
         for (const entry of listToolEntries2(root)) {
           const t = await loadToolEntry(entry, source, { execAllowed });
+          if (!t.ok && !execAllowed && entry.endsWith(".mjs") && t.errors.every((e) => e.includes("TROD_ALLOW_EXEC=1"))) {
+            unchecked++;
+            out(`unchecked ${source}/${t.folder}`);
+            continue;
+          }
           if (!t.ok) bad++;
           out(`${t.ok ? "ok     " : "INVALID"} ${source}/${t.folder}${t.ok || command === "list" ? "" : "\n  - " + t.errors.join("\n  - ")}`);
         }
       }
+      if (unchecked) out(`${unchecked} single-file tool(s) not checked: reading one means importing it, which needs TROD_ALLOW_EXEC=1 (\`TROD_ALLOW_EXEC=1 trod ${command}\`, or \`trod verify\`, which also runs their examples).`);
       return command === "check" && bad ? 1 : 0;
     }
     case "forge": {
@@ -2234,7 +2241,7 @@ Fix the file; trod re-validates on every change.`;
 }
 function printNotes(notes, out) {
   const passed2 = notes.checks.filter((c) => c.ok).length;
-  out(`notes: ${notes.exists ? `${notes.chars} chars` : "missing"}${notes.tooLong ? ` (over ${NOTES_MAX_CHARS4}: they are in every session's context, trim them)` : ""}, ${passed2}/${notes.checks.length} check(s) passed, ${notes.linked ? notes.delivery === "hooks" ? "delivered by trod's hooks" : "linked from CLAUDE.md" : `not linked (trod notes --link adds ${NOTES_IMPORT3} to CLAUDE.md)`}`);
+  out(`notes: ${notes.exists ? `${notes.chars} chars` : "missing"}${notes.tooLong ? ` (over ${NOTES_MAX_CHARS4}: they are in every session's context, trim them)` : ""}, ${notes.checks.length ? `${passed2}/${notes.checks.length} check(s) passed` : "no checks"}, ${notes.linked ? notes.delivery === "hooks" ? "delivered by trod's hooks" : "linked from CLAUDE.md" : `not linked (trod notes --link adds ${NOTES_IMPORT3} to CLAUDE.md)`}`);
   for (const c of notes.checks.filter((c2) => !c2.ok)) out(`  STALE  "${c.claim}" (${c.tool}): ${c.error}`);
   for (const e of notes.errors) out(`  ${e}`);
 }

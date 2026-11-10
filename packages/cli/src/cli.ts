@@ -145,14 +145,23 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
     case 'check':
     case 'list': {
       let bad = 0;
+      let unchecked = 0;
       const execAllowed = process.env.TROD_ALLOW_EXEC === '1';
       for (const [source, root] of [['library', paths.libraryDir], ['session', paths.toolsDir]] as const) {
         for (const entry of listToolEntries(root)) {
           const t = await loadToolEntry(entry, source, { execAllowed });
+          // A single-file tool can only be read by importing it. Without TROD_ALLOW_EXEC=1 that is not done, and
+          // the tool is unchecked, which is not the same as invalid.
+          if (!t.ok && !execAllowed && entry.endsWith('.mjs') && t.errors.every((e) => e.includes('TROD_ALLOW_EXEC=1'))) {
+            unchecked++;
+            out(`unchecked ${source}/${t.folder}`);
+            continue;
+          }
           if (!t.ok) bad++;
           out(`${t.ok ? 'ok     ' : 'INVALID'} ${source}/${t.folder}${t.ok || command === 'list' ? '' : '\n  - ' + t.errors.join('\n  - ')}`);
         }
       }
+      if (unchecked) out(`${unchecked} single-file tool(s) not checked: reading one means importing it, which needs TROD_ALLOW_EXEC=1 (\`TROD_ALLOW_EXEC=1 trod ${command}\`, or \`trod verify\`, which also runs their examples).`);
       return command === 'check' && bad ? 1 : 0;
     }
     case 'forge': {
@@ -547,7 +556,7 @@ export async function hookMessage(raw: string, env: NodeJS.ProcessEnv = process.
 
 function printNotes(notes: NotesReport, out: (s: string) => void): void {
   const passed = notes.checks.filter((c) => c.ok).length;
-  out(`notes: ${notes.exists ? `${notes.chars} chars` : 'missing'}${notes.tooLong ? ` (over ${NOTES_MAX_CHARS}: they are in every session's context, trim them)` : ''}, ${passed}/${notes.checks.length} check(s) passed, ${notes.linked ? (notes.delivery === 'hooks' ? 'delivered by trod\'s hooks' : 'linked from CLAUDE.md') : `not linked (trod notes --link adds ${NOTES_IMPORT} to CLAUDE.md)`}`);
+  out(`notes: ${notes.exists ? `${notes.chars} chars` : 'missing'}${notes.tooLong ? ` (over ${NOTES_MAX_CHARS}: they are in every session's context, trim them)` : ''}, ${notes.checks.length ? `${passed}/${notes.checks.length} check(s) passed` : 'no checks'}, ${notes.linked ? (notes.delivery === 'hooks' ? 'delivered by trod\'s hooks' : 'linked from CLAUDE.md') : `not linked (trod notes --link adds ${NOTES_IMPORT} to CLAUDE.md)`}`);
   for (const c of notes.checks.filter((c) => !c.ok)) out(`  STALE  "${c.claim}" (${c.tool}): ${c.error}`);
   for (const e of notes.errors) out(`  ${e}`);
 }

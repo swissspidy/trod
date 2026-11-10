@@ -342,7 +342,7 @@ sessions are split by date, not by whether they actually saw the notes.
 ```sh
 pnpm install
 pnpm check      # typecheck, lint, tests
-pnpm build      # bundles plugin/server/trod-server.mjs and plugin/bin/trod (committed)
+pnpm build      # rebuilds the bundles under plugin/server/ and plugin/bin/trod (committed)
 ```
 
 pnpm monorepo: `packages/server` (MCP server, registry, executor, logs), `packages/cli`, `plugin/` (the

@@ -65,6 +65,27 @@ describe('trod cli', () => {
   });
 });
 
+describe('trod list and check', () => {
+  it('call a single-file tool they may not import unchecked, not invalid', async () => {
+    const dir = project();
+    writeFileSync(path.join(dir, '.trod', 'tools', 'one_file.mjs'), "export const meta = { description: 'Returns the number one.', whenToUse: 'In tests.', inputSchema: { type: 'object' } };\nexport default async () => 1;\n");
+    const before = process.env.TROD_ALLOW_EXEC;
+    delete process.env.TROD_ALLOW_EXEC;
+    try {
+      const list = await run(['list', '--dir', dir]);
+      expect(list.out).toContain('unchecked session/one_file');
+      expect(list.out).not.toContain('INVALID');
+      expect(list.out).toMatch(/1 single-file tool\(s\) not checked.*TROD_ALLOW_EXEC=1/);
+      expect((await run(['check', '--dir', dir])).code).toBe(0);
+      process.env.TROD_ALLOW_EXEC = '1';
+      expect((await run(['list', '--dir', dir])).out).toContain('ok      session/one_file');
+    } finally {
+      if (before === undefined) delete process.env.TROD_ALLOW_EXEC;
+      else process.env.TROD_ALLOW_EXEC = before;
+    }
+  });
+});
+
 describe('trod hook', () => {
   it('ignores files outside .trod and reports validity for tools', async () => {
     const { hookMessage } = await import('../src/cli.ts');

@@ -107,7 +107,7 @@ Tool code runs outside Claude Code's permission prompts, so execution is off unl
 
 ```sh
 pnpm install && pnpm check    # typecheck, lint, tests
-pnpm build                    # bundles plugin/server/trod-server.mjs and plugin/bin/trod (committed)
+pnpm build                    # rebuilds the bundles under plugin/ (committed)
 ```
 
 MIT licensed.
