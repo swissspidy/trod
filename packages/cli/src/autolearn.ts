@@ -41,8 +41,9 @@ export function setAutoLearn(paths: TrodPaths, value: string): { ok: true; messa
   }
   const n = Number(value);
   if (!Number.isInteger(n) || n < 1) return { ok: false, message: '--auto takes a number of sessions (e.g. 10) or "off"' };
-  writeTrodConfig(paths, { ...config, autoLearn: { after: n, cooldownHours: config.autoLearn?.cooldownHours ?? 6 } });
-  return { ok: true, message: `automatic learning is on: trod's SessionEnd hook starts \`trod learn\` in the background after every ${n} finished session(s) (at most once per 6 hours; log: ${AUTO_LOG}). It needs trod's hooks (trod init or the plugin). Commit .trod/config.json to turn it on for everyone, or keep it local.` };
+  const cooldownHours = config.autoLearn?.cooldownHours ?? 6;
+  writeTrodConfig(paths, { ...config, autoLearn: { after: n, cooldownHours } });
+  return { ok: true, message: `automatic learning is on: trod's SessionEnd hook starts \`trod learn\` in the background after every ${n} finished session(s) (at most once per ${cooldownHours} hours; log: ${AUTO_LOG}). It needs trod's hooks (trod init or the plugin). Commit .trod/config.json to turn it on for everyone, or keep it local.` };
 }
 
 interface InboxEntry {
