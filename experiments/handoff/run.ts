@@ -137,8 +137,9 @@ async function runOne(inst: Instance, arm: string): Promise<Record_> {
     const text = existsSync(file) ? readFileSync(file, 'utf8') : '';
     handoffChars = text.length;
     writeFileSync(path.join(dir, 'HANDOFF.md'), text);
-    // The lead replies DONE when it finished the fix itself, and its HANDOFF.md says so up front ("DONE, verified").
-    const finished = /^\W*DONE\b/.test(lead.final.trim()) || /\b(done|fixed|applied)\b[^\n]{0,40}\bverified\b|\bverified\b[^\n]{0,40}\b(done|fixed|applied)\b|\(DONE\b|\bstatus:\s*done\b/i.test(text.slice(0, 300));
+    // The lead replies DONE when it finished the fix itself, and its HANDOFF.md says so up front ("DONE, verified",
+    // or a title such as "# HANDOFF — DONE").
+    const finished = /^\W*DONE\b/.test(lead.final.trim()) || /\b(done|fixed|applied)\b[^\n]{0,40}\bverified\b|\bverified\b[^\n]{0,40}\b(done|fixed|applied)\b|\(DONE\b|\bstatus:\s*done\b/i.test(text.slice(0, 300)) || /\bDONE\b/.test(text.split('\n')[0] ?? '');
     if (!text) handoff = 'no-handoff-file';
     else if (finished) handoff = 'finished-by-lead';
     else handoff = 'handed-off';

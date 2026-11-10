@@ -102,7 +102,7 @@ Tool code runs outside Claude Code's permission prompts, so execution is off unl
 
 - [Reference](docs/reference.md): tool format, every install route (plugin, `trod init`, cloud environments, other
   MCP clients), CLI, configuration, releasing.
-- [Experiments](experiments/) and results: [round 1](results/README.md) … [round 15](results-15/README.md);
+- [Experiments](experiments/) and results: [round 1](results/README.md) … [round 15](results-15/README.md), [round 16](results-16/README.md) (Opus-to-Haiku hand-off: no saving on SWE-bench);
   decisions in [docs/adr](docs/adr/); [distribution](docs/distribution.md); [changelog](plugin/CHANGELOG.md).
 
 ```sh
