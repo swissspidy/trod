@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Copies the version of the published package (plugin/package.json, which Changesets bumps) into every other place
 // that names it: the server's VERSION, the Claude Code, Codex and Antigravity plugin manifests and the MCP Registry entry.
-// `pnpm version-packages` runs it after `changeset version`; `--check` fails if any of them disagree (CI and tests).
+// `pnpm version-packages` runs it after `changeset version`; `--check` fails if any of them disagree (CI and the release workflow).
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 

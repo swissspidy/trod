@@ -104,7 +104,8 @@ describe.each(TASKS.map((t) => [t.id, t] as const))('task %s', (_id, task) => {
     }
   });
 
-  it.runIf(!!task.handler)('serves its fixture', async () => {
+  // Tasks without an HTTP fixture have nothing to serve: no test for them, rather than one reported as skipped.
+  if (task.handler) it('serves its fixture', async () => {
     const expected = task.setup({ work: work() });
     const state = { step: 0 };
     const server = createServer(task.handler!(expected, state));

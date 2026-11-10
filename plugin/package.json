@@ -37,6 +37,7 @@
     ".codex-mcp.json",
     "hooks/",
     ".claude-plugin/",
+    ".mcp.json",
     "README.md",
     "server.json"
   ],

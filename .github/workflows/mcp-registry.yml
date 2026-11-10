@@ -18,6 +18,8 @@ concurrency:
 jobs:
   publish:
     name: Publish to the MCP Registry
+    # The schedule also fires in forks, which cannot publish this server.
+    if: github.repository == 'swissspidy/trod'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
