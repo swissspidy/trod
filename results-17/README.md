@@ -82,8 +82,8 @@ anything trod adds. They are not a like-for-like comparison.
 
 The fifth arm repeats what worked on AutomationBench ([round 18](../results-18/README.md)): Haiku ran the 90 train
 tasks alone (84 passed), and `trod learn` (Opus) wrote notes from those sessions with only pass or fail per session.
-The result is 6,000 characters: nine general rules and recipes for the task families of the train set. The rules
-and their counts are in [`evidence.json`](evidence.json); the notes are not published because their recipes
+The result is 6,000 characters: nine general rules and recipes for the task families of the train set. The ledger
+in [`evidence.json`](evidence.json) tracks ten claims from both parts with their counts; the notes are not published because their recipes
 paraphrase train tasks.
 
 | Set | haiku | haiku-learned | |
@@ -114,6 +114,6 @@ paraphrase train tasks.
   ```sh
   AW_NOTES=$PWD/experiments/appworld/notes/CLAUDE.md node experiments/runner/run.ts --suite appworld:test_normal \
     --arms baseline --model claude-haiku-5-5 --as-user agent --seeds 1 --out results/runs/aw17-haiku-notes-test_normal
-  node experiments/appworld/compare.ts results-17 haiku=results/runs/aw17-haiku \
+  node experiments/appworld/compare.ts results/aw17 haiku=results/runs/aw17-haiku \
     haiku-notes=results/runs/aw17-haiku-notes haiku-learned=results/runs/aw17-haiku-learned sonnet=results/runs/aw17-sonnet sonnet-notes=results/runs/aw17-sonnet-notes
   ```

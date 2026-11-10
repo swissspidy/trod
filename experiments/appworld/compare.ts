@@ -45,7 +45,10 @@ for (const spec of specs) {
   const [arm, prefix] = [spec.slice(0, i), spec.slice(i + 1)];
   for (const split of SPLITS) {
     const dir = `${prefix}-${split}`;
-    if (!existsSync(dir)) continue;
+    if (!existsSync(dir)) {
+      console.error(`${arm}: no such directory ${dir}`);
+      process.exit(1);
+    }
     for (const task of readdirSync(dir)) {
       const base = path.join(dir, task, 'baseline-s1');
       if (existsSync(path.join(base, 'result.infra.json'))) infra[arm] = (infra[arm] ?? 0) + 1;
