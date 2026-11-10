@@ -241,9 +241,10 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
         out(`trod tune: ${(e as Error).message}`);
         return 1;
       }
-      const res = await tune({ projectDir: paths.projectDir, config, out });
+      const res = await tune({ projectDir: paths.projectDir, config, out, configFile: file });
       if (values.json) out(JSON.stringify(res, null, 2));
-      return res.iterations.length ? 0 : 1;
+      // Success means the loop ran on real evidence: some practice run that did not error.
+      return res.iterations.some((it) => it.practice.runs > it.practice.errors) ? 0 : 1;
     }
     case 'learn': {
       if (values.reset && !values.practice) {

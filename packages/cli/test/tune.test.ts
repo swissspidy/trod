@@ -80,21 +80,28 @@ describe('tune config', () => {
     expect(existsSync(ws.dir)).toBe(false);
   });
 
-  it('uses a git worktree at HEAD in a git repository', () => {
+  it('exports HEAD without history in a git repository, and hides the tune config', () => {
     const dir = project();
-    const git = (...a: string[]) => spawnSync('git', ['-C', dir, ...a], { encoding: 'utf8', env: { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' } });
-    git('init', '-q');
-    git('add', '.');
-    git('commit', '-qm', 'init');
+    writeFileSync(path.join(dir, '.trod', 'tune.json'), '{"tasks": []}');
+    const git = (cwd: string, ...a: string[]) => spawnSync('git', ['-C', cwd, ...a], { encoding: 'utf8', env: { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' } });
+    git(dir, 'init', '-q');
+    git(dir, 'add', '.');
+    git(dir, 'commit', '-qm', 'one');
+    writeFileSync(path.join(dir, 'later.txt'), 'x');
+    git(dir, 'add', '.');
+    git(dir, 'commit', '-qm', 'two');
     writeFileSync(path.join(dir, 'uncommitted.txt'), 'x');
     const harness = path.join(tmp(), 'h');
     mkdirSync(harness);
     const ws = makeWorkspace(dir, harness, path.join(tmp(), 'scratch'));
-    expect(existsSync(path.join(ws.dir, 'README.md'))).toBe(true);
+    expect(existsSync(path.join(ws.dir, 'later.txt'))).toBe(true);
     expect(existsSync(path.join(ws.dir, 'uncommitted.txt'))).toBe(false);
-    expect(git('worktree', 'list').stdout).toContain(ws.dir);
+    expect(existsSync(path.join(ws.dir, '.trod', 'tune.json'))).toBe(false);
+    // One commit, no history to look things up in (not even the tune config).
+    expect(git(ws.dir, 'log', '--oneline').stdout.trim().split('\n')).toHaveLength(1);
+    expect(git(ws.dir, 'show', 'HEAD:.trod/tune.json').status).not.toBe(0);
     ws.remove();
-    expect(git('worktree', 'list').stdout).not.toContain(ws.dir);
+    expect(existsSync(ws.dir)).toBe(false);
   });
 });
 

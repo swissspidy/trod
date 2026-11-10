@@ -107,28 +107,37 @@ function isGitRepo(dir: string): boolean {
 }
 
 /**
- * A throwaway copy of the project with a harness in .trod: a detached git worktree at HEAD when the project is a git
- * repository (uncommitted changes are not part of it), else a plain copy. CLAUDE.md imports the notes either way.
+ * A throwaway copy of the project with a harness in .trod. From a git repository: the tree of HEAD (`git archive`) in a
+ * fresh repository with a single commit and no history, so uncommitted changes are not part of it and nothing in the
+ * history (such as the tune config) can be looked up. Otherwise a plain copy without node_modules. `hide` lists paths
+ * (relative to the project) removed from the copy: the tune config, so sessions never see the validation tasks.
+ * CLAUDE.md imports the notes either way.
  */
-export function makeWorkspace(projectDir: string, harness: string, scratch: string): { dir: string; remove: () => void } {
+export function makeWorkspace(projectDir: string, harness: string, scratch: string, hide: string[] = [TUNE_CONFIG]): { dir: string; remove: () => void } {
   mkdirSync(scratch, { recursive: true });
   const dir = mkdtempSync(path.join(scratch, 'ws-'));
-  let remove = () => rmSync(dir, { recursive: true, force: true });
-  if (isGitRepo(projectDir) && spawnSync('git', ['-C', projectDir, 'worktree', 'add', '--detach', '--force', dir, 'HEAD'], { stdio: 'ignore' }).status === 0) {
-    remove = () => {
-      spawnSync('git', ['-C', projectDir, 'worktree', 'remove', '--force', dir], { stdio: 'ignore' });
-      rmSync(dir, { recursive: true, force: true });
-    };
+  const remove = () => rmSync(dir, { recursive: true, force: true });
+  const git = isGitRepo(projectDir);
+  if (git) {
+    const r = spawnSync('sh', ['-c', 'git -C "$1" archive HEAD | tar -x -C "$2"', 'sh', projectDir, dir], { stdio: 'ignore' });
+    if (r.status !== 0) throw new Error(`could not export HEAD of ${projectDir} (git archive)`);
   } else {
     const skip = new Set(['.git', 'node_modules']);
     cpSync(projectDir, dir, { recursive: true, filter: (src) => !skip.has(path.basename(src)) && !src.startsWith(path.join(projectDir, TUNE_DIR)) && !src.startsWith(path.resolve(scratch)) });
   }
+  for (const h of hide) rmSync(path.join(dir, h), { recursive: true, force: true });
   const trodDir = path.join(dir, '.trod');
   for (const f of HARNESS_FILES) rmSync(path.join(trodDir, f), { recursive: true, force: true });
   snapshotHarness(harness, trodDir);
   const claudeMd = path.join(dir, 'CLAUDE.md');
   const text = existsSync(claudeMd) ? readFileSync(claudeMd, 'utf8') : '';
   if (existsSync(path.join(trodDir, 'notes.md')) && !text.split('\n').some((l) => l.trim() === NOTES_IMPORT)) writeFileSync(claudeMd, `${text.trimEnd()}${text ? '\n\n' : ''}${NOTES_IMPORT}\n`);
+  if (git) {
+    const g = (...a: string[]) => spawnSync('git', ['-C', dir, ...a], { stdio: 'ignore' });
+    g('init', '-q');
+    g('add', '-A');
+    g('-c', 'user.name=trod', '-c', 'user.email=trod@localhost', 'commit', '-q', '-m', 'base');
+  }
   return { dir, remove };
 }
 
@@ -150,6 +159,8 @@ interface Ctx {
   config: Required<Pick<TuneConfig, 'model' | 'runs' | 'parallel' | 'timeoutMinutes'>> & TuneConfig;
   /** Where workspaces go: outside the project, so a plain copy never contains itself. */
   scratch: string;
+  /** Paths removed from every workspace (the tune config). */
+  hide: string[];
 }
 
 function sh(cmd: string, cwd: string, env: NodeJS.ProcessEnv, timeoutMs: number): { code: number | null; output: string } {
@@ -160,7 +171,7 @@ function sh(cmd: string, cwd: string, env: NodeJS.ProcessEnv, timeoutMs: number)
 /** One task session in a fresh workspace, then the task's check. */
 async function runTask(ctx: Ctx, harness: string, task: TuneTask, run: number, outDir: string): Promise<RunResult> {
   const stream = path.join(outDir, `${task.id}-${run}.jsonl`);
-  const ws = makeWorkspace(ctx.projectDir, harness, ctx.scratch);
+  const ws = makeWorkspace(ctx.projectDir, harness, ctx.scratch, ctx.hide);
   try {
     const env: NodeJS.ProcessEnv = { ...ctx.env, TROD_ALLOW_EXEC: '1', TROD_PROJECT_DIR: ws.dir };
     delete env.CLAUDECODE;
@@ -171,7 +182,7 @@ async function runTask(ctx: Ctx, harness: string, task: TuneTask, run: number, o
     const mcp = path.join(ws.dir, '.trod', '.tune-mcp.json');
     writeFileSync(mcp, JSON.stringify({ mcpServers: { trod: { command: process.execPath, args: [defaultServerPath()] } } }));
     const args = ['-p', task.prompt, '--output-format', 'stream-json', '--verbose', '--mcp-config', mcp, '--strict-mcp-config', '--allowedTools', 'Bash,Read,Write,Edit,Glob,Grep,TodoWrite,mcp__trod__*', '--disallowedTools', 'WebFetch,WebSearch,Task,Agent', '--model', ctx.config.model, '--max-budget-usd', ctx.config.maxBudgetUsd ?? '2'];
-    const { code, text } = await new Promise<{ code: number | null; text: string }>((resolve) => {
+    const { code, text, spawnError } = await new Promise<{ code: number | null; text: string; spawnError?: string }>((resolve) => {
       const child = spawn(ctx.claudeBin ?? ctx.env.TROD_CLAUDE_BIN ?? 'claude', args, { cwd: ws.dir, env, stdio: ['ignore', 'pipe', 'pipe'] });
       let buf = '';
       child.stdout.on('data', (c: Buffer) => (buf += c.toString('utf8')));
@@ -181,11 +192,11 @@ async function runTask(ctx: Ctx, harness: string, task: TuneTask, run: number, o
         clearTimeout(timer);
         resolve({ code: c, text: buf });
       });
-      child.on('error', () => resolve({ code: null, text: buf }));
+      child.on('error', (err) => resolve({ code: null, text: buf, spawnError: err.message }));
     });
     writeFileSync(stream, text);
     const result = text.split('\n').filter((l) => l.includes('"type":"result"')).map((l) => JSON.parse(l)).at(-1) as { total_cost_usd?: number; is_error?: boolean } | undefined;
-    if (code === null || !result) return { task: task.id, run, pass: false, stream, costUsd: result?.total_cost_usd, error: code === null ? 'session killed (timeout)' : 'session ended without a result' };
+    if (code === null || !result) return { task: task.id, run, pass: false, stream, costUsd: result?.total_cost_usd, error: spawnError ? `could not start the session: ${spawnError}` : code === null ? 'session killed (timeout)' : 'session ended without a result' };
     const check = sh(task.check, ws.dir, env, 10 * 60_000);
     return { task: task.id, run, pass: check.code === 0, stream, costUsd: result.total_cost_usd };
   } finally {
@@ -203,7 +214,8 @@ async function runBatch(ctx: Ctx, harness: string, tasks: TuneTask[], outDir: st
     Array.from({ length: Math.min(ctx.config.parallel, jobs.length) }, async () => {
       while (next < jobs.length) {
         const [t, n] = jobs[next++]!;
-        const r = await runTask(ctx, harness, t, n, outDir);
+        // One broken run (a workspace that cannot be made, a check that throws) must not sink the whole batch.
+        const r = await runTask(ctx, harness, t, n, outDir).catch((err: Error): RunResult => ({ task: t.id, run: n, pass: false, stream: '', error: err.message.split('\n')[0] }));
         results.push(r);
         ctx.out(`  ${label} ${r.pass ? 'pass' : r.error ? 'ERROR' : 'fail'} ${t.id}#${n}${r.error ? ` (${r.error})` : ''}`);
       }
@@ -227,7 +239,7 @@ Do not change anything outside .trod/. When the notes are written, reply DONE wi
 
 /** Proposes new notes from practice sessions; returns the candidate harness dir, or undefined with a reason. */
 async function propose(ctx: Ctx, harness: string, practice: RunResult[], tasks: TuneTask[], dir: string): Promise<{ candidate?: string; reason?: string; costUsd?: number }> {
-  const ws = makeWorkspace(ctx.projectDir, harness, ctx.scratch);
+  const ws = makeWorkspace(ctx.projectDir, harness, ctx.scratch, ctx.hide);
   try {
     const sessions = path.join(ws.dir, '.trod', 'tune-sessions');
     mkdirSync(sessions, { recursive: true });
@@ -291,13 +303,19 @@ export interface TuneOptions {
   env?: NodeJS.ProcessEnv;
   /** Where runs and state go (default .trod/tune/<timestamp>). */
   outDir?: string;
+  /** The config file, if not .trod/tune.json: hidden from the workspaces too when it lies inside the project. */
+  configFile?: string;
 }
 
 export async function tune(opts: TuneOptions): Promise<TuneResult> {
   const out = opts.out ?? (() => {});
   const config = { model: 'claude-haiku-5-5', runs: 2, parallel: 3, timeoutMinutes: 15, ...opts.config };
   const margin = config.margin ?? 1;
-  const ctx: Ctx = { projectDir: opts.projectDir, out, claudeBin: opts.claudeBin, env: opts.env ?? process.env, config, scratch: mkdtempSync(path.join(tmpdir(), 'trod-tune-')) };
+  const ctx: Ctx = { projectDir: opts.projectDir, out, claudeBin: opts.claudeBin, env: opts.env ?? process.env, config, scratch: mkdtempSync(path.join(tmpdir(), 'trod-tune-')), hide: [TUNE_CONFIG] };
+  if (opts.configFile) {
+    const rel = path.relative(opts.projectDir, path.resolve(opts.configFile));
+    if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) ctx.hide.push(rel);
+  }
   const { practice, validate } = splitTasks(config.tasks);
   const outDir = opts.outDir ?? path.join(opts.projectDir, TUNE_DIR, new Date().toISOString().replace(/[:.]/g, '-'));
   mkdirSync(outDir, { recursive: true });

@@ -262,8 +262,10 @@ Each task has a `prompt` (what a user would type), a `check` (a shell command ru
 exit 0 means done) and optionally a `setup` command and a `split`. Then `npx trod tune` runs a loop:
 
 1. **Practice.** A model (`--model`, default Haiku) runs each practice task `runs` times. Every run gets a throwaway
-   copy of the project carrying the current notes: a detached git worktree at HEAD (so commit what the tasks should
-   see), or a plain copy outside git. The task's check decides pass or fail.
+   copy of the project carrying the current notes: in a git repository, the files of HEAD in a fresh repository with
+   no history (so commit what the tasks should see); otherwise a plain copy. `node_modules` and untracked files are
+   not copied and nothing is installed: use a task's `setup` (e.g. `npm ci`) for dependencies. The tune config is
+   removed from every copy, so no session sees the validation tasks. The task's check decides pass or fail.
 2. **Propose.** A stronger model (`--proposer`, default Opus) reads digests of those sessions and rewrites
    `.trod/notes.md` (and `.trod/wiki/`) in a copy of the project. It writes general rules, not task answers, and its
    notes checks must pass.
