@@ -12,6 +12,7 @@
  */
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { mcnemar, wilson } from '../lib/stats.ts';
 
 const [out, ...specs] = process.argv.slice(2);
 if (!out || !specs.length) {
@@ -58,31 +59,6 @@ for (const spec of specs) {
       runs.push({ arm, split, task, scenario: task.split('_')[0]!, pass: !!r.check.pass, score: +Number(r.check.score).toFixed(3), costUsd: +Number(r.costUsd).toFixed(5), turns: r.turns, tokens: r.tokens.total, wallS: Math.round(r.wallMs / 1000), model: r.model });
     }
   }
-}
-
-/** 95% Wilson score interval for k successes in n trials. */
-function wilson(k: number, n: number): [number, number] {
-  if (!n) return [0, 0];
-  const z = 1.96;
-  const p = k / n;
-  const d = 1 + (z * z) / n;
-  const c = p + (z * z) / (2 * n);
-  const h = z * Math.sqrt((p * (1 - p)) / n + (z * z) / (4 * n * n));
-  return [(c - h) / d, (c + h) / d];
-}
-
-/** Exact two-sided McNemar test: b tasks only the first arm passed, c only the second. */
-function mcnemar(b: number, c: number): number {
-  const n = b + c;
-  if (!n) return 1;
-  const k = Math.min(b, c);
-  let logChoose = 0;
-  let tail = 0;
-  for (let i = 0; i <= k; i++) {
-    if (i > 0) logChoose += Math.log(n - i + 1) - Math.log(i);
-    tail += Math.exp(logChoose - n * Math.LN2);
-  }
-  return Math.min(1, 2 * tail);
 }
 
 const pct = (x: number) => `${(100 * x).toFixed(1)}%`;

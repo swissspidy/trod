@@ -1,0 +1,286 @@
+{
+  "arms": [
+    "haiku",
+    "haiku-learned",
+    "haiku-learned-2",
+    "haiku-datehint",
+    "sonnet",
+    "sonnet-learned"
+  ],
+  "infra": {
+    "sonnet-learned": 27
+  },
+  "summary": [
+    {
+      "arm": "haiku",
+      "model": "claude-haiku-5-5",
+      "tasks": 300,
+      "passed": 50,
+      "passRate": 0.1667,
+      "ci95": [
+        0.1288,
+        0.213
+      ],
+      "assertionsSatisfied": 0.4962,
+      "costPerTaskUsd": 0.01061,
+      "costUsd": 3.18,
+      "turns": 11.9,
+      "byDomain": {
+        "finance": {
+          "tasks": 50,
+          "passed": 5
+        },
+        "hr": {
+          "tasks": 50,
+          "passed": 8
+        },
+        "marketing": {
+          "tasks": 50,
+          "passed": 9
+        },
+        "operations": {
+          "tasks": 50,
+          "passed": 12
+        },
+        "sales": {
+          "tasks": 50,
+          "passed": 6
+        },
+        "support": {
+          "tasks": 50,
+          "passed": 10
+        }
+      }
+    },
+    {
+      "arm": "haiku-learned",
+      "model": "claude-haiku-5-5",
+      "tasks": 300,
+      "passed": 109,
+      "passRate": 0.3633,
+      "ci95": [
+        0.311,
+        0.4192
+      ],
+      "assertionsSatisfied": 0.776,
+      "costPerTaskUsd": 0.00777,
+      "costUsd": 2.33,
+      "turns": 8.8,
+      "byDomain": {
+        "finance": {
+          "tasks": 50,
+          "passed": 14
+        },
+        "hr": {
+          "tasks": 50,
+          "passed": 20
+        },
+        "marketing": {
+          "tasks": 50,
+          "passed": 22
+        },
+        "operations": {
+          "tasks": 50,
+          "passed": 21
+        },
+        "sales": {
+          "tasks": 50,
+          "passed": 17
+        },
+        "support": {
+          "tasks": 50,
+          "passed": 15
+        }
+      },
+      "vs": "haiku",
+      "paired": 300,
+      "gained": 66,
+      "lost": 7,
+      "mcnemarP": 0
+    },
+    {
+      "arm": "haiku-learned-2",
+      "model": "claude-haiku-5-5",
+      "tasks": 300,
+      "passed": 106,
+      "passRate": 0.3533,
+      "ci95": [
+        0.3014,
+        0.409
+      ],
+      "assertionsSatisfied": 0.7749,
+      "costPerTaskUsd": 0.00827,
+      "costUsd": 2.48,
+      "turns": 8.7,
+      "byDomain": {
+        "finance": {
+          "tasks": 50,
+          "passed": 20
+        },
+        "hr": {
+          "tasks": 50,
+          "passed": 24
+        },
+        "marketing": {
+          "tasks": 50,
+          "passed": 21
+        },
+        "operations": {
+          "tasks": 50,
+          "passed": 20
+        },
+        "sales": {
+          "tasks": 50,
+          "passed": 9
+        },
+        "support": {
+          "tasks": 50,
+          "passed": 12
+        }
+      },
+      "vs": "haiku",
+      "paired": 300,
+      "gained": 65,
+      "lost": 9,
+      "mcnemarP": 0
+    },
+    {
+      "arm": "haiku-datehint",
+      "model": "claude-haiku-5-5",
+      "tasks": 300,
+      "passed": 55,
+      "passRate": 0.1833,
+      "ci95": [
+        0.1436,
+        0.231
+      ],
+      "assertionsSatisfied": 0.5064,
+      "costPerTaskUsd": 0.01063,
+      "costUsd": 3.19,
+      "turns": 11.6,
+      "byDomain": {
+        "finance": {
+          "tasks": 50,
+          "passed": 4
+        },
+        "hr": {
+          "tasks": 50,
+          "passed": 9
+        },
+        "marketing": {
+          "tasks": 50,
+          "passed": 8
+        },
+        "operations": {
+          "tasks": 50,
+          "passed": 18
+        },
+        "sales": {
+          "tasks": 50,
+          "passed": 7
+        },
+        "support": {
+          "tasks": 50,
+          "passed": 9
+        }
+      },
+      "vs": "haiku",
+      "paired": 300,
+      "gained": 22,
+      "lost": 17,
+      "mcnemarP": 0.5224
+    },
+    {
+      "arm": "sonnet",
+      "model": "claude-sonnet-5-5",
+      "tasks": 300,
+      "passed": 91,
+      "passRate": 0.3033,
+      "ci95": [
+        0.2541,
+        0.3576
+      ],
+      "assertionsSatisfied": 0.6833,
+      "costPerTaskUsd": 0.09528,
+      "costUsd": 28.59,
+      "turns": 9.7,
+      "byDomain": {
+        "finance": {
+          "tasks": 50,
+          "passed": 13
+        },
+        "hr": {
+          "tasks": 50,
+          "passed": 21
+        },
+        "marketing": {
+          "tasks": 50,
+          "passed": 12
+        },
+        "operations": {
+          "tasks": 50,
+          "passed": 22
+        },
+        "sales": {
+          "tasks": 50,
+          "passed": 8
+        },
+        "support": {
+          "tasks": 50,
+          "passed": 15
+        }
+      },
+      "vs": "haiku",
+      "paired": 300,
+      "gained": 54,
+      "lost": 13,
+      "mcnemarP": 0
+    },
+    {
+      "arm": "sonnet-learned",
+      "model": "claude-sonnet-5-5",
+      "tasks": 179,
+      "passed": 80,
+      "passRate": 0.4469,
+      "ci95": [
+        0.376,
+        0.5201
+      ],
+      "assertionsSatisfied": 0.826,
+      "costPerTaskUsd": 0.07697,
+      "costUsd": 13.78,
+      "turns": 6.9,
+      "byDomain": {
+        "finance": {
+          "tasks": 0,
+          "passed": 0
+        },
+        "hr": {
+          "tasks": 0,
+          "passed": 0
+        },
+        "marketing": {
+          "tasks": 50,
+          "passed": 28
+        },
+        "operations": {
+          "tasks": 50,
+          "passed": 24
+        },
+        "sales": {
+          "tasks": 50,
+          "passed": 20
+        },
+        "support": {
+          "tasks": 29,
+          "passed": 8
+        }
+      },
+      "vs": "haiku",
+      "paired": 179,
+      "gained": 51,
+      "lost": 5,
+      "mcnemarP": 0
+    }
+  ]
+}

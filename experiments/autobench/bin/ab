@@ -1,0 +1,45 @@
+#!/usr/bin/env python3
+"""Reach the workspace's connected apps.
+
+  ab search "<what you are looking for>" [top_k]      find API endpoints (URL, method, parameters)
+  ab fetch <METHOD> <url> [--params '<json>'] [--body '<json>']
+  ab fetch <METHOD> <url> --body - <<'EOF'            the body from stdin (no shell quoting to get wrong)
+  {"subject": "Hi"}
+  EOF
+
+The environment's URL is read from $AB_URL or ./.service/base-url.
+"""
+import json
+import os
+import sys
+import urllib.request
+
+url = os.environ.get("AB_URL")
+if not url:
+    try:
+        url = open(os.path.join(os.getcwd(), ".service", "base-url")).read().strip()
+    except OSError:
+        sys.exit("ab: no environment (set AB_URL or create .service/base-url)")
+
+
+def post(path, payload):
+    req = urllib.request.Request(url.rstrip("/") + path, data=json.dumps(payload).encode(), headers={"content-type": "application/json"})
+    with urllib.request.urlopen(req, timeout=120) as res:
+        return json.load(res).get("output", "")
+
+
+args = sys.argv[1:]
+if len(args) >= 2 and args[0] == "search":
+    print(post("/search", {"query": args[1], "top_k": int(args[2]) if len(args) > 2 else 5}))
+elif len(args) >= 3 and args[0] == "fetch":
+    payload = {"method": args[1], "url": args[2]}
+    rest = args[3:]
+    while rest:
+        flag = rest.pop(0)
+        if flag not in ("--params", "--body") or not rest:
+            sys.exit(f"ab: unexpected argument {flag!r} (use --params '<json>' and --body '<json>' or --body -)")
+        value = rest.pop(0)
+        payload[flag[2:]] = sys.stdin.read() if value == "-" else value
+    print(post("/fetch", payload))
+else:
+    sys.exit(__doc__.strip())

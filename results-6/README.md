@@ -7,6 +7,10 @@ runs; 11 fixed, 2 broken, exact McNemar p = 0.022). Adding the tool library on t
 reached 104–108/120, so the 6b result depends on a few rules one forge happened to find
 ([round 6d](#round-6d-can-trod-forge-write-the-round-6b-notes-itself)).
 
+**Correction (round 17):** on all 585 tasks of the two test sets, these notes do not help: 85.8% without and 86.5%
+with them. The 95% below holds only on this round's 120-task sample, on which the notes were the best of five sets
+tried. See [round 17](../results-17/README.md).
+
 [AppWorld](https://appworld.dev) (ACL 2024) is a simulated world of nine apps (Amazon, Gmail, Spotify, Venmo,
 Splitwise, SimpleNote, Todoist, phone, file system) with 457 APIs. Tasks are everyday chores ("approve all Venmo
 payment requests from my roommates from this calendar month"), graded by unit tests on the final database state. It

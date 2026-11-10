@@ -1,0 +1,13 @@
+{"rules": [
+  {"id": "never-give-up", "where": ".trod/notes.md", "confirmed": 71, "contradicted": 0, "status": "new"},
+  {"id": "ss-is-sheets-id-ws-is-tab", "where": ".trod/notes.md", "confirmed": 10, "contradicted": 0, "status": "new"},
+  {"id": "drive-list-without-filter", "where": ".trod/notes.md", "confirmed": 6, "contradicted": 0, "status": "new"},
+  {"id": "missing-connector-401-look-elsewhere", "where": ".trod/notes.md", "confirmed": 8, "contradicted": 0, "status": "new"},
+  {"id": "scenario-date-not-clock", "where": ".trod/notes.md", "confirmed": 18, "contradicted": 0, "status": "new"},
+  {"id": "read-all-tabs-apply-exclusions", "where": ".trod/notes.md", "confirmed": 5, "contradicted": 0, "status": "new"},
+  {"id": "do-state-changes-not-reports", "where": ".trod/notes.md", "confirmed": 4, "contradicted": 0, "status": "new"},
+  {"id": "missing-id-list-parent", "where": ".trod/notes.md", "confirmed": 2, "contradicted": 0, "status": "new"},
+  {"id": "only-requested-outbound-send-not-draft", "where": ".trod/notes.md", "confirmed": 2, "contradicted": 0, "status": "new"},
+  {"id": "written-policy-beats-risky-request", "where": ".trod/notes.md", "confirmed": 1, "contradicted": 0, "status": "new"},
+  {"id": "gmail-raw-base64url", "where": ".trod/notes.md", "confirmed": 15, "contradicted": 0, "status": "new"}
+]}
