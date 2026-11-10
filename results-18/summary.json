@@ -7,9 +7,7 @@
     "sonnet",
     "sonnet-learned"
   ],
-  "infra": {
-    "sonnet-learned": 27
-  },
+  "infra": {},
   "summary": [
     {
       "arm": "haiku",
@@ -239,25 +237,25 @@
     {
       "arm": "sonnet-learned",
       "model": "claude-sonnet-5-5",
-      "tasks": 179,
-      "passed": 80,
-      "passRate": 0.4469,
+      "tasks": 300,
+      "passed": 133,
+      "passRate": 0.4433,
       "ci95": [
-        0.376,
-        0.5201
+        0.3882,
+        0.4999
       ],
-      "assertionsSatisfied": 0.826,
-      "costPerTaskUsd": 0.07697,
-      "costUsd": 13.78,
-      "turns": 6.9,
+      "assertionsSatisfied": 0.8238,
+      "costPerTaskUsd": 0.07353,
+      "costUsd": 22.06,
+      "turns": 6.6,
       "byDomain": {
         "finance": {
-          "tasks": 0,
-          "passed": 0
+          "tasks": 50,
+          "passed": 22
         },
         "hr": {
-          "tasks": 0,
-          "passed": 0
+          "tasks": 50,
+          "passed": 24
         },
         "marketing": {
           "tasks": 50,
@@ -272,14 +270,14 @@
           "passed": 20
         },
         "support": {
-          "tasks": 29,
-          "passed": 8
+          "tasks": 50,
+          "passed": 15
         }
       },
       "vs": "haiku",
-      "paired": 179,
-      "gained": 51,
-      "lost": 5,
+      "paired": 300,
+      "gained": 90,
+      "lost": 7,
       "mcnemarP": 0
     }
   ]
