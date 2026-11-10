@@ -82,9 +82,9 @@ anything trod adds. They are not a like-for-like comparison.
 
 The fifth arm repeats what worked on AutomationBench ([round 18](../results-18/README.md)): Haiku ran the 90 train
 tasks alone (84 passed), and `trod learn` (Opus) wrote notes from those sessions with only pass or fail per session.
-The result is 6,000 characters: nine general rules and recipes for the task families of the train set. The ledger
-in [`evidence.json`](evidence.json) tracks ten claims from both parts with their counts; the notes are not published because their recipes
-paraphrase train tasks.
+The result is 6,000 characters: nine general rules and recipes for the task families of the train set. The ledger in
+[`evidence.json`](evidence.json) tracks ten claims from both parts with their counts; the notes are not published
+because their recipes paraphrase train tasks.
 
 | Set | haiku | haiku-learned | |
 |---|---|---|---|
