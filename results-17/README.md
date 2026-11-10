@@ -56,7 +56,8 @@ Split by whether earlier rounds had used the scenario:
   three tasks the 6b notes happened to cover. On the sample the notes still score 96.7%, as in round 15. On
   everything else they change nothing.
 - **No arm differs from any other.** Four arms, two models, with and without notes: all between 84.6% and 86.5% on
-  585 tasks, and every paired test far from significance. In this harness AppWorld does not separate Haiku from
+  585 tasks, and all six paired tests between arms far from significance (the smallest p is 0.25, Haiku with notes
+  against Sonnet alone). In this harness AppWorld does not separate Haiku from
   Sonnet at all, so there is no missing knowledge for notes to supply. The remaining failures are spread evenly:
   the notes fix about as many tasks as they break.
 - **Scenario completion is the one place the notes may help:** 80.0% against 75.3% on both sets (156 against 146
@@ -83,5 +84,11 @@ sessions to learn from and no gap to close on test, a different outcome is unlik
 
 - `runs.jsonl`: one record per run (arm, split, task id, pass, cost, turns, tokens); no task text, since AppWorld's
   data may only be redistributed encrypted. `summary.json`: the tables above.
-- Reproduce: `experiments/runner/run.ts --suite appworld:test_normal` (and `test_challenge`) per arm, with
-  `AW_NOTES` for the notes arms, then `experiments/appworld/compare.ts`.
+- Reproduce, per arm and split (`AW_NOTES` only for the notes arms; `claude-sonnet-5-5` for the Sonnet arms):
+
+  ```sh
+  AW_NOTES=$PWD/experiments/appworld/notes/CLAUDE.md node experiments/runner/run.ts --suite appworld:test_normal \
+    --arms baseline --model claude-haiku-5-5 --as-user agent --seeds 1 --out results/runs/aw17-haiku-notes-test_normal
+  node experiments/appworld/compare.ts results-17 haiku=results/runs/aw17-haiku \
+    haiku-notes=results/runs/aw17-haiku-notes sonnet=results/runs/aw17-sonnet sonnet-notes=results/runs/aw17-sonnet-notes
+  ```

@@ -52,8 +52,9 @@ Passes per domain (50 tasks each):
 - **Haiku with notes against Sonnet alone:** 109 against 91 passes (+49 / −31, p = 0.057), at 8% of the cost per
   task.
 - **The notes make sessions shorter:** 8.8 turns instead of 11.9, and 36% fewer tokens.
-- **Sonnet with the same notes, unfinished.** The run stopped after 179 tasks (marketing, operations, sales and 29
-  of support) when the API credits ran out. On those 179, Sonnet passed 50 alone and 80 with the notes (+38 / −8,
+- **Sonnet with the same notes, unfinished.** The run stopped when the API credits ran out: 179 tasks were
+  graded (marketing, operations, sales and 29 of support), and 27 more attempts failed on the credit error and are
+  left out. On those 179, Sonnet passed 50 alone and 80 with the notes (+38 / −8,
   p < 0.0001); Haiku with the notes passed 68 of the same tasks. Notes written from Haiku's sessions help the
   larger model about as much. Finance and HR are missing, so this is not a number for the test set.
 

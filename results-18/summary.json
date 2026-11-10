@@ -93,6 +93,7 @@
         }
       },
       "vs": "haiku",
+      "paired": 300,
       "gained": 66,
       "lost": 7,
       "mcnemarP": 0
@@ -138,6 +139,7 @@
         }
       },
       "vs": "haiku",
+      "paired": 300,
       "gained": 65,
       "lost": 9,
       "mcnemarP": 0
@@ -183,6 +185,7 @@
         }
       },
       "vs": "haiku",
+      "paired": 300,
       "gained": 22,
       "lost": 17,
       "mcnemarP": 0.5224
@@ -228,6 +231,7 @@
         }
       },
       "vs": "haiku",
+      "paired": 300,
       "gained": 54,
       "lost": 13,
       "mcnemarP": 0
@@ -273,6 +277,7 @@
         }
       },
       "vs": "haiku",
+      "paired": 179,
       "gained": 51,
       "lost": 5,
       "mcnemarP": 0

@@ -65,14 +65,19 @@ class Handler(BaseHTTPRequestHandler):
         return self._send(404, {"error": "not found"})
 
     def do_POST(self):
-        length = int(self.headers.get("content-length") or 0)
         try:
-            body = json.loads(self.rfile.read(length) or b"{}")
+            body = json.loads(self.rfile.read(int(self.headers.get("content-length") or 0)) or b"{}")
         except ValueError:
             return self._send(400, {"error": "request body must be JSON"})
+        if not isinstance(body, dict):
+            return self._send(400, {"error": "request body must be a JSON object"})
         if self.path == "/search":
             calls["search"] += 1
-            return self._send(200, {"output": api_search(str(body.get("query", "")), int(body.get("top_k") or 5))})
+            try:
+                out = api_search(str(body.get("query", "")), int(body.get("top_k") or 5))
+            except Exception as e:  # as for /fetch below
+                out = json.dumps({"error": {"code": 500, "message": f"{type(e).__name__}: {e}"}})
+            return self._send(200, {"output": out})
         if self.path == "/fetch":
             calls["fetch"] += 1
             try:

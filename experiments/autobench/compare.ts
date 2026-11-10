@@ -75,19 +75,21 @@ for (const arm of arms) {
   }
   let b = 0;
   let c = 0;
+  let n = 0;
   let paired = '';
   if (arm !== arms[0]) {
     for (const r of rs) {
       const other = base.get(r.task);
       if (other === undefined) continue;
+      n++;
       if (other && !r.pass) b++;
       else if (!other && r.pass) c++;
     }
-    paired = `  vs ${arms[0]}: +${c} / -${b}, p=${mcnemar(b, c).toFixed(4)}`;
+    paired = `  vs ${arms[0]}: +${c} / -${b}, p=${mcnemar(b, c).toFixed(4)}${n < rs.length || n < base.size ? ` (on the ${n} tasks both ran)` : ''}`;
   }
   const passed = `${String(k).padStart(3)}/${rs.length} ${pct(k / rs.length).padStart(6)} [${pct(lo)}, ${pct(hi)}]`;
   console.log(`${arm.padEnd(16)} ${passed.padEnd(34)} ${pct(partial).padStart(6)}      $${(cost / rs.length).toFixed(4)}  ${domains.map((d) => String(byDomain[d]!.passed).padStart(5)).join(' ')}${paired}`);
-  summary.push({ arm, model: rs[0]!.model, tasks: rs.length, passed: k, passRate: +(k / rs.length).toFixed(4), ci95: [+lo.toFixed(4), +hi.toFixed(4)], assertionsSatisfied: +partial.toFixed(4), costPerTaskUsd: +(cost / rs.length).toFixed(5), costUsd: +cost.toFixed(2), turns: +(rs.reduce((a, r) => a + r.turns, 0) / rs.length).toFixed(1), byDomain, ...(arm !== arms[0] ? { vs: arms[0], gained: c, lost: b, mcnemarP: +mcnemar(b, c).toFixed(5) } : {}) });
+  summary.push({ arm, model: rs[0]!.model, tasks: rs.length, passed: k, passRate: +(k / rs.length).toFixed(4), ci95: [+lo.toFixed(4), +hi.toFixed(4)], assertionsSatisfied: +partial.toFixed(4), costPerTaskUsd: +(cost / rs.length).toFixed(5), costUsd: +cost.toFixed(2), turns: +(rs.reduce((a, r) => a + r.turns, 0) / rs.length).toFixed(1), byDomain, ...(arm !== arms[0] ? { vs: arms[0], paired: n, gained: c, lost: b, mcnemarP: +mcnemar(b, c).toFixed(5) } : {}) });
 }
 if (Object.keys(infra).length) console.log(`\ninfrastructure failures left out: ${JSON.stringify(infra)}`);
 

@@ -125,9 +125,21 @@ export function autobenchTasks(ids: string[]): Task[] {
       },
       serve: async ({ work }: TaskContext) => {
         const env = await start(id);
-        envs.set(work, env);
-        const info = (await (await fetch(`${env.baseUrl}/task`)).json()) as { system: string; prompt: string };
-        return { baseUrl: env.baseUrl, close: () => env.close(), info };
+        try {
+          const info = (await (await fetch(`${env.baseUrl}/task`)).json()) as { system: string; prompt: string };
+          envs.set(work, env);
+          return {
+            baseUrl: env.baseUrl,
+            close: () => {
+              envs.delete(work);
+              env.close();
+            },
+            info,
+          };
+        } catch (e) {
+          env.close();
+          throw e;
+        }
       },
       env: () => ({ PATH: `${BIN}:${process.env.PATH ?? ''}` }),
       steps: [
