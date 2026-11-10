@@ -1,0 +1,333 @@
+{
+  "arms": [
+    "haiku",
+    "haiku-notes",
+    "sonnet",
+    "sonnet-notes"
+  ],
+  "infra": {
+    "haiku": 1
+  },
+  "summary": [
+    {
+      "set": "test_normal",
+      "arm": "haiku",
+      "tasks": 168,
+      "passed": 149,
+      "tgc": 0.8869,
+      "ci95": [
+        0.8301,
+        0.9264
+      ],
+      "scenarios": 56,
+      "scenariosPassed": 44,
+      "sgc": 0.7857,
+      "costPerTaskUsd": 0.00608,
+      "costUsd": 1.02,
+      "turns": 8.4
+    },
+    {
+      "set": "test_normal",
+      "arm": "haiku-notes",
+      "tasks": 168,
+      "passed": 153,
+      "tgc": 0.9107,
+      "ci95": [
+        0.8579,
+        0.9451
+      ],
+      "scenarios": 56,
+      "scenariosPassed": 51,
+      "sgc": 0.9107,
+      "costPerTaskUsd": 0.00637,
+      "costUsd": 1.07,
+      "turns": 9,
+      "vs": "haiku",
+      "gained": 7,
+      "lost": 3,
+      "mcnemarP": 0.34375
+    },
+    {
+      "set": "test_normal",
+      "arm": "sonnet",
+      "tasks": 168,
+      "passed": 145,
+      "tgc": 0.8631,
+      "ci95": [
+        0.8029,
+        0.907
+      ],
+      "scenarios": 56,
+      "scenariosPassed": 46,
+      "sgc": 0.8214,
+      "costPerTaskUsd": 0.05426,
+      "costUsd": 9.12,
+      "turns": 6.1,
+      "vs": "haiku",
+      "gained": 6,
+      "lost": 10,
+      "mcnemarP": 0.4545
+    },
+    {
+      "set": "test_normal",
+      "arm": "sonnet-notes",
+      "tasks": 168,
+      "passed": 151,
+      "tgc": 0.8988,
+      "ci95": [
+        0.8439,
+        0.9359
+      ],
+      "scenarios": 56,
+      "scenariosPassed": 46,
+      "sgc": 0.8214,
+      "costPerTaskUsd": 0.05731,
+      "costUsd": 9.63,
+      "turns": 6.8,
+      "vs": "haiku",
+      "gained": 9,
+      "lost": 7,
+      "mcnemarP": 0.80362
+    },
+    {
+      "set": "test_challenge",
+      "arm": "haiku",
+      "tasks": 416,
+      "passed": 352,
+      "tgc": 0.8462,
+      "ci95": [
+        0.8083,
+        0.8776
+      ],
+      "scenarios": 138,
+      "scenariosPassed": 102,
+      "sgc": 0.7391,
+      "costPerTaskUsd": 0.00826,
+      "costUsd": 3.43,
+      "turns": 10.6
+    },
+    {
+      "set": "test_challenge",
+      "arm": "haiku-notes",
+      "tasks": 417,
+      "passed": 353,
+      "tgc": 0.8465,
+      "ci95": [
+        0.8088,
+        0.8779
+      ],
+      "scenarios": 139,
+      "scenariosPassed": 105,
+      "sgc": 0.7554,
+      "costPerTaskUsd": 0.00819,
+      "costUsd": 3.41,
+      "turns": 11,
+      "vs": "haiku",
+      "gained": 25,
+      "lost": 25,
+      "mcnemarP": 1
+    },
+    {
+      "set": "test_challenge",
+      "arm": "sonnet",
+      "tasks": 417,
+      "passed": 350,
+      "tgc": 0.8393,
+      "ci95": [
+        0.801,
+        0.8715
+      ],
+      "scenarios": 139,
+      "scenariosPassed": 97,
+      "sgc": 0.6978,
+      "costPerTaskUsd": 0.07823,
+      "costUsd": 32.62,
+      "turns": 9,
+      "vs": "haiku",
+      "gained": 29,
+      "lost": 32,
+      "mcnemarP": 0.79815
+    },
+    {
+      "set": "test_challenge",
+      "arm": "sonnet-notes",
+      "tasks": 417,
+      "passed": 351,
+      "tgc": 0.8417,
+      "ci95": [
+        0.8036,
+        0.8736
+      ],
+      "scenarios": 139,
+      "scenariosPassed": 101,
+      "sgc": 0.7266,
+      "costPerTaskUsd": 0.08571,
+      "costUsd": 35.74,
+      "turns": 10.3,
+      "vs": "haiku",
+      "gained": 31,
+      "lost": 33,
+      "mcnemarP": 0.90065
+    },
+    {
+      "set": "both test sets",
+      "arm": "haiku",
+      "tasks": 584,
+      "passed": 501,
+      "tgc": 0.8579,
+      "ci95": [
+        0.8272,
+        0.8839
+      ],
+      "scenarios": 194,
+      "scenariosPassed": 146,
+      "sgc": 0.7526,
+      "costPerTaskUsd": 0.00763,
+      "costUsd": 4.46,
+      "turns": 10
+    },
+    {
+      "set": "both test sets",
+      "arm": "haiku-notes",
+      "tasks": 585,
+      "passed": 506,
+      "tgc": 0.865,
+      "ci95": [
+        0.8349,
+        0.8903
+      ],
+      "scenarios": 195,
+      "scenariosPassed": 156,
+      "sgc": 0.8,
+      "costPerTaskUsd": 0.00766,
+      "costUsd": 4.48,
+      "turns": 10.4,
+      "vs": "haiku",
+      "gained": 32,
+      "lost": 28,
+      "mcnemarP": 0.69888
+    },
+    {
+      "set": "both test sets",
+      "arm": "sonnet",
+      "tasks": 585,
+      "passed": 495,
+      "tgc": 0.8462,
+      "ci95": [
+        0.8147,
+        0.8731
+      ],
+      "scenarios": 195,
+      "scenariosPassed": 143,
+      "sgc": 0.7333,
+      "costPerTaskUsd": 0.07134,
+      "costUsd": 41.74,
+      "turns": 8.1,
+      "vs": "haiku",
+      "gained": 35,
+      "lost": 42,
+      "mcnemarP": 0.49438
+    },
+    {
+      "set": "both test sets",
+      "arm": "sonnet-notes",
+      "tasks": 585,
+      "passed": 502,
+      "tgc": 0.8581,
+      "ci95": [
+        0.8275,
+        0.8841
+      ],
+      "scenarios": 195,
+      "scenariosPassed": 147,
+      "sgc": 0.7538,
+      "costPerTaskUsd": 0.07755,
+      "costUsd": 45.37,
+      "turns": 9.3,
+      "vs": "haiku",
+      "gained": 40,
+      "lost": 40,
+      "mcnemarP": 1
+    },
+    {
+      "set": "both test sets, unseen scenarios only",
+      "arm": "haiku",
+      "tasks": 464,
+      "passed": 391,
+      "tgc": 0.8427,
+      "ci95": [
+        0.8067,
+        0.873
+      ],
+      "scenarios": 154,
+      "scenariosPassed": 114,
+      "sgc": 0.7403,
+      "costPerTaskUsd": 0.00782,
+      "costUsd": 3.63,
+      "turns": 10.2
+    },
+    {
+      "set": "both test sets, unseen scenarios only",
+      "arm": "haiku-notes",
+      "tasks": 465,
+      "passed": 390,
+      "tgc": 0.8387,
+      "ci95": [
+        0.8025,
+        0.8693
+      ],
+      "scenarios": 155,
+      "scenariosPassed": 118,
+      "sgc": 0.7613,
+      "costPerTaskUsd": 0.00785,
+      "costUsd": 3.65,
+      "turns": 10.7,
+      "vs": "haiku",
+      "gained": 26,
+      "lost": 28,
+      "mcnemarP": 0.89192
+    },
+    {
+      "set": "both test sets, unseen scenarios only",
+      "arm": "sonnet",
+      "tasks": 465,
+      "passed": 396,
+      "tgc": 0.8516,
+      "ci95": [
+        0.8164,
+        0.881
+      ],
+      "scenarios": 155,
+      "scenariosPassed": 114,
+      "sgc": 0.7355,
+      "costPerTaskUsd": 0.0725,
+      "costUsd": 33.71,
+      "turns": 8.3,
+      "vs": "haiku",
+      "gained": 31,
+      "lost": 27,
+      "mcnemarP": 0.694
+    },
+    {
+      "set": "both test sets, unseen scenarios only",
+      "arm": "sonnet-notes",
+      "tasks": 465,
+      "passed": 397,
+      "tgc": 0.8538,
+      "ci95": [
+        0.8187,
+        0.883
+      ],
+      "scenarios": 155,
+      "scenariosPassed": 116,
+      "sgc": 0.7484,
+      "costPerTaskUsd": 0.07859,
+      "costUsd": 36.55,
+      "turns": 9.5,
+      "vs": "haiku",
+      "gained": 34,
+      "lost": 29,
+      "mcnemarP": 0.61466
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{"rules": [
+  {"id": "never-give-up", "where": ".trod/notes.md", "confirmed": 78, "contradicted": 0, "status": "fixed"},
+  {"id": "ss-is-sheets-id-ws-is-tab", "where": ".trod/notes.md", "confirmed": 30, "contradicted": 0, "status": "fixed"},
+  {"id": "drive-list-without-filter", "where": ".trod/notes.md", "confirmed": 14, "contradicted": 0, "status": "kept"},
+  {"id": "missing-connector-401-look-elsewhere", "where": ".trod/notes.md", "confirmed": 11, "contradicted": 0, "status": "fixed"},
+  {"id": "scenario-date-not-clock", "where": ".trod/notes.md", "confirmed": 21, "contradicted": 4, "status": "fixed"},
+  {"id": "read-all-tabs-apply-exclusions", "where": ".trod/notes.md", "confirmed": 7, "contradicted": 0, "status": "fixed"},
+  {"id": "do-state-changes-not-reports", "where": ".trod/notes.md (merged into rule 2)", "confirmed": 8, "contradicted": 0, "status": "fixed"},
+  {"id": "every-named-action-must-succeed", "where": ".trod/notes.md", "confirmed": 10, "contradicted": 0, "status": "new"},
+  {"id": "missing-id-list-parent", "where": ".trod/notes.md", "confirmed": 5, "contradicted": 0, "status": "fixed"},
+  {"id": "only-requested-outbound-send-not-draft", "where": ".trod/notes.md", "confirmed": 3, "contradicted": 0, "status": "kept"},
+  {"id": "written-policy-beats-risky-request", "where": ".trod/notes.md", "confirmed": 3, "contradicted": 0, "status": "kept"},
+  {"id": "hold-applies-only-to-that-record", "where": ".trod/notes.md", "confirmed": 1, "contradicted": 0, "status": "new"},
+  {"id": "post-even-when-nothing-qualifies", "where": ".trod/notes.md", "confirmed": 1, "contradicted": 0, "status": "new"},
+  {"id": "computed-amounts-keep-cents", "where": ".trod/notes.md", "confirmed": 3, "contradicted": 0, "status": "new"},
+  {"id": "salesforce-soql-recipe", "where": ".trod/notes.md", "confirmed": 6, "contradicted": 0, "status": "new"},
+  {"id": "no-pins-list-no-batchupdate", "where": ".trod/notes.md", "confirmed": 5, "contradicted": 0, "status": "new"},
+  {"id": "gmail-raw-base64url", "where": ".trod/notes.md", "confirmed": 35, "contradicted": 0, "status": "kept"}
+]}

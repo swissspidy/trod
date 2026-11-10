@@ -25,22 +25,26 @@ npx trod doctor     # see what trod knows here and what to do next
 
 Measured on public benchmarks, with held-out test tasks the learning session never saw. Same model, same tasks,
 with and without the notes ([site](https://swissspidy.github.io/trod/),
-[all 16 rounds](https://swissspidy.github.io/trod/experiments.html)):
+[all 18 rounds](https://swissspidy.github.io/trod/experiments.html)):
 
 | Tasks solved by Haiku 5.5 | alone | with trod's notes |
 |---|---|---|
+| [AutomationBench](results-18/README.md): business workflows across 50 apps, 300 held-out tasks | 17% | **36%** |
 | [MiniWoB++](results-9/README.md): 30 hardest web task types | 68% | **90%**; [95%](results-14/README.md) after further learning and validated tuning |
 | [ScienceWorld](results-8/README.md): 30 kinds of science task | 52% | **89%** |
-| [AppWorld](results-6/README.md): everyday chores across 9 apps | 87.5% | **95%** ([97.5%](results-15/README.md) when re-measured) |
+| [AppWorld](results-17/README.md): everyday chores across 9 apps, all 585 test tasks | 85.8% | 86.5% |
 | [BIRD](results-7/README.md): text-to-SQL | 61% | 63% |
 | [SWE-bench Verified](results-5/README.md): Django issues | 79.6% | 79.1% |
 
-On the first two, Haiku with notes also beats Sonnet without them (67% on both) at about a tenth of the cost per run.
+On the first three, Haiku with notes also beats Sonnet without them (30%, 67% and 67%) at about a tenth of the cost
+per run. On AutomationBench the notes came from `trod learn` alone: one $2 learning session over Haiku's own earlier
+sessions.
 
 **It helps** where the same hidden rules come back in every task: internal or quirky APIs, unfamiliar codebases,
-in-house tooling, web and app workflows. **It does not help** where the model already knows the domain (Django), or
-where every task needs its own fact that no earlier task taught (BIRD). The null results are published with the
-same care as the wins.
+in-house tooling, web and app workflows. **It does not help** where the model already knows the domain (Django),
+where it already does well without notes (AppWorld), or where every task needs its own fact that no earlier task
+taught (BIRD). The null results are published with the same care as the wins, and so are corrections: an earlier
+AppWorld gain measured on a 120-task sample [did not hold](results-17/README.md) on the full test sets.
 
 ## Three ways to teach it
 
@@ -86,7 +90,7 @@ Notes an agent writes about your project can be wrong. trod does not take them o
   follow-up prompts, tokens. With `npx trod notes --delivery hooks`, a random 10% of sessions get no notes, so the
   comparison is a real experiment.
 - **Validated rewrites.** `trod tune` rejects a rewrite that does not beat the current notes on held-out tasks. On
-  AppWorld it rejected three plausible rewrites, one of which would have cost 3.5 points.
+  AppWorld it rejected three plausible rewrites, one of which would have cost 3.5 points on the validation tasks.
 
 ## Install
 
@@ -140,7 +144,7 @@ condensed versions a learning session reads. Details: [SECURITY.md](SECURITY.md)
 ## More
 
 - [Reference](docs/reference.md): the tool format, every install route, the CLI, configuration.
-- [Experiments](experiments/) and the results of each round: [1](results/README.md) … [16](results-16/README.md).
+- [Experiments](experiments/) and the results of each round: [1](results/README.md) … [18](results-18/README.md).
 - [Design decisions](docs/adr/), [distribution](docs/distribution.md), [changelog](plugin/CHANGELOG.md).
 - [Contributing](CONTRIBUTING.md) and [security](SECURITY.md).
 

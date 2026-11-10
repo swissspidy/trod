@@ -83,13 +83,14 @@ p code,li code,td code{font-size:.92em;background:var(--surface-2);padding:1px 5
 </div>
 
 <div class="tiles">
+  <div class="tile"><div class="tl">AutomationBench business workflows, 300 held-out tasks</div><div class="big">17% → 36%</div><div class="sub">Haiku, notes from one <code>trod learn</code> session · Sonnet alone: 30%</div></div>
   <div class="tile"><div class="tl">MiniWoB++ web tasks, hardest 30 types</div><div class="big">68% → 90%</div><div class="sub">Haiku, with practice notes · Sonnet alone: 67%</div></div>
   <div class="tile"><div class="tl">ScienceWorld</div><div class="big">52% → 89%</div><div class="sub">Haiku, with forged notes · Sonnet alone: 67%</div></div>
   <div class="tile"><div class="tl">Learned from past sessions alone</div><div class="big">68% → 91%</div><div class="sub">MiniWoB++, three rounds of <code>trod learn</code> · no setup</div></div>
 </div>
 
 <h2>Where it shines</h2>
-<p>Forged knowledge pays in proportion to how much of tomorrow's work today's lessons cover. Across sixteen rounds of experiments; in those that forged or learned notes, the test cases were ones the forge never saw:</p>
+<p>Forged knowledge pays in proportion to how much of tomorrow's work today's lessons cover. Across eighteen rounds of experiments; in those that forged or learned notes, the test cases were ones the forge never saw:</p>
 <div class="chart" role="figure" aria-label="Share of tasks Haiku solved alone and with forged notes (a forged tool library for SWE-bench), per benchmark">
   <div class="legend"><span><i class="sw" style="background:var(--series-2)"></i>Haiku alone</span><span><i class="sw" style="background:var(--series-1)"></i>Haiku with forged notes (SWE-bench: forged tool library)</span></div>
   <div id="rows"></div>
@@ -107,6 +108,7 @@ p code,li code,td code{font-size:.92em;background:var(--surface-2);padding:1px 5
   </ul></div>
   <div class="card"><h3>Little or no effect</h3><ul>
     <li>Domains the model already knows well (SWE-bench on Django: no change)</li>
+    <li>Tasks the model already solves without help (AppWorld, full test sets: 86% either way)</li>
     <li>Tasks that each need a fact no earlier task taught (BIRD: tokens saved, accuracy flat)</li>
     <li>Building tools mid-task instead of forging once: no cheaper than writing a script</li>
   </ul></div>
@@ -125,7 +127,7 @@ p code,li code,td code{font-size:.92em;background:var(--surface-2);padding:1px 5
 <p>Learning from experience is not a new idea. What trod adds is a forge you can run, gates that hold back notes whose checks fail or that never passed your success check, and published measurements of when it helps.</p>
 <div class="scroll"><table>
   <tr><th></th><th>Who writes the knowledge</th><th>Verified?</th><th>Learns by practice?</th><th>Measured gains</th></tr>
-  <tr class="us"><td>trod</td><td class="y">A dedicated forge session (any model), from probing, practice or past sessions</td><td class="y">Tool examples, note checks, <code>trod verify</code></td><td class="y">Yes, against your success check</td><td class="y">16 rounds, positive and negative</td></tr>
+  <tr class="us"><td>trod</td><td class="y">A dedicated forge session (any model), from probing, practice or past sessions</td><td class="y">Tool examples, note checks, <code>trod verify</code></td><td class="y">Yes, against your success check</td><td class="y">18 rounds, positive and negative</td></tr>
   <tr><td><code>CLAUDE.md</code>, auto memory</td><td>You, or the agent as it goes</td><td class="n">No</td><td class="n">No</td><td class="n">n/a</td></tr>
   <tr><td>Cline Memory Bank</td><td>The agent, on request, as markdown files</td><td class="n">No</td><td class="n">No</td><td class="n">n/a</td></tr>
   <tr><td>Agent Skills (<code>SKILL.md</code>)</td><td>An author, by hand</td><td class="n">No</td><td class="n">No</td><td class="n">n/a; complementary: trod produces the know-how a skill would package</td></tr>
@@ -149,9 +151,10 @@ npx trod verify                     # in CI</code></pre>
 
 <script>
 const data = [
+  { name: 'AutomationBench', note: 'business workflows, 50 apps; notes from trod learn', base: 16.7, notes: 36.3, runs: 300, href: 'https://github.com/swissspidy/trod/blob/main/results-18/README.md' },
   { name: 'MiniWoB++', note: '30 hardest web task types', base: 68.0, notes: 90.0, runs: 150, href: 'round-9/' },
   { name: 'ScienceWorld', note: '30 science task types', base: 52.2, notes: 88.9, runs: 180, href: 'round-8/' },
-  { name: 'AppWorld', note: 'everyday app chores', base: 87.5, notes: 95.0, runs: 120, href: 'round-6/' },
+  { name: 'AppWorld', note: 'everyday app chores; Haiku already does well', base: 85.8, notes: 86.5, runs: 585, href: 'https://github.com/swissspidy/trod/blob/main/results-17/README.md' },
   { name: 'BIRD text-to-SQL', note: 'each question needs its own fact', base: 61.2, notes: 62.7, runs: 330, href: 'round-7/' },
   { name: 'SWE-bench Verified', note: 'Django, the model knows it; bar: tool library', base: 79.6, notes: 79.1, runs: 201, href: 'round-5/', label: 'with forged tool library' },
 ];

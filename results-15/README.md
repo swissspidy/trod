@@ -5,6 +5,9 @@ test_challenge), Haiku 5.5 with the round 6b notes. Three tuning iterations prop
 all three, so the notes are unchanged. Round 6b measured the same notes at 114/120. With the notes identical, the
 difference between the two measurements is run-to-run variation.
 
+**Later (round 17):** on the full test sets the same notes score 86.5% against 85.8% without notes; the 120-task
+sample is not representative. See [round 17](../results-17/README.md).
+
 ## What ran
 
 `experiments/appworld/tune.ts` applies round 13's loop to AppWorld. The harness here is one always-loaded `CLAUDE.md`,
