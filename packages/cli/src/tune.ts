@@ -6,6 +6,7 @@ import path from 'node:path';
 import { NOTES_IMPORT, NOTES_MAX_CHARS, trodPaths, verifyNotes } from '@trod/server';
 import { defaultServerPath, forge } from './forge.ts';
 import { digestTranscript } from './learn.ts';
+import { TROD_SESSION_ENV } from './session-env.ts';
 
 /**
  * `trod tune`: validated notes tuning (results-13 and results-15 as a command). The project defines tasks with checks
@@ -125,10 +126,11 @@ export function makeWorkspace(projectDir: string, harness: string, scratch: stri
     const skip = new Set(['.git', 'node_modules']);
     cpSync(projectDir, dir, { recursive: true, filter: (src) => !skip.has(path.basename(src)) && !src.startsWith(path.join(projectDir, TUNE_DIR)) && !src.startsWith(path.resolve(scratch)) });
   }
-  for (const h of hide) rmSync(path.join(dir, h), { recursive: true, force: true });
   const trodDir = path.join(dir, '.trod');
   for (const f of HARNESS_FILES) rmSync(path.join(trodDir, f), { recursive: true, force: true });
   snapshotHarness(harness, trodDir);
+  // After the harness, which could carry a hidden path back in (a config kept under .trod/wiki).
+  for (const h of hide) rmSync(path.join(dir, h), { recursive: true, force: true });
   const claudeMd = path.join(dir, 'CLAUDE.md');
   const text = existsSync(claudeMd) ? readFileSync(claudeMd, 'utf8') : '';
   if (existsSync(path.join(trodDir, 'notes.md')) && !text.split('\n').some((l) => l.trim() === NOTES_IMPORT)) writeFileSync(claudeMd, `${text.trimEnd()}${text ? '\n\n' : ''}${NOTES_IMPORT}\n`);
@@ -139,6 +141,17 @@ export function makeWorkspace(projectDir: string, harness: string, scratch: stri
     g('-c', 'user.name=trod', '-c', 'user.email=trod@localhost', 'commit', '-q', '-m', 'base');
   }
   return { dir, remove };
+}
+
+/** Paths removed from every workspace: the tune config, and a custom config file when it lies inside the project. */
+export function hiddenPaths(projectDir: string, configFile?: string): string[] {
+  const hide = [TUNE_CONFIG];
+  if (configFile) {
+    const rel = path.relative(projectDir, path.resolve(configFile));
+    // Inside means no leading ".." segment (a file named "..tasks.json" is inside).
+    if (rel && rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel)) hide.push(rel);
+  }
+  return hide;
 }
 
 export interface RunResult {
@@ -173,7 +186,7 @@ async function runTask(ctx: Ctx, harness: string, task: TuneTask, run: number, o
   const stream = path.join(outDir, `${task.id}-${run}.jsonl`);
   const ws = makeWorkspace(ctx.projectDir, harness, ctx.scratch, ctx.hide);
   try {
-    const env: NodeJS.ProcessEnv = { ...ctx.env, TROD_ALLOW_EXEC: '1', TROD_PROJECT_DIR: ws.dir };
+    const env: NodeJS.ProcessEnv = { ...ctx.env, [TROD_SESSION_ENV]: 'tune', TROD_ALLOW_EXEC: '1', TROD_PROJECT_DIR: ws.dir };
     delete env.CLAUDECODE;
     if (task.setup) {
       const s = sh(task.setup, ws.dir, env, 10 * 60_000);
@@ -260,7 +273,7 @@ async function propose(ctx: Ctx, harness: string, practice: RunResult[], tasks: 
       maxBudgetUsd: '5',
       linkNotes: false,
       claudeBin: ctx.claudeBin,
-      env: ctx.env,
+      env: { ...ctx.env, [TROD_SESSION_ENV]: 'tune' },
       streamFile: path.join(dir, 'proposer.jsonl'),
       out: ctx.out,
     });
@@ -311,11 +324,7 @@ export async function tune(opts: TuneOptions): Promise<TuneResult> {
   const out = opts.out ?? (() => {});
   const config = { model: 'claude-haiku-5-5', runs: 2, parallel: 3, timeoutMinutes: 15, ...opts.config };
   const margin = config.margin ?? 1;
-  const ctx: Ctx = { projectDir: opts.projectDir, out, claudeBin: opts.claudeBin, env: opts.env ?? process.env, config, scratch: mkdtempSync(path.join(tmpdir(), 'trod-tune-')), hide: [TUNE_CONFIG] };
-  if (opts.configFile) {
-    const rel = path.relative(opts.projectDir, path.resolve(opts.configFile));
-    if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) ctx.hide.push(rel);
-  }
+  const ctx: Ctx = { projectDir: opts.projectDir, out, claudeBin: opts.claudeBin, env: opts.env ?? process.env, config, scratch: mkdtempSync(path.join(tmpdir(), 'trod-tune-')), hide: hiddenPaths(opts.projectDir, opts.configFile) };
   const { practice, validate } = splitTasks(config.tasks);
   const outDir = opts.outDir ?? path.join(opts.projectDir, TUNE_DIR, new Date().toISOString().replace(/[:.]/g, '-'));
   mkdirSync(outDir, { recursive: true });

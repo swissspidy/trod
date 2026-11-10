@@ -212,6 +212,16 @@ starts in a fresh checkout with no history to learn from. Options:
 | launchd (macOS) | a LaunchAgent with `ProgramArguments` `npx -y trod learn`, `WorkingDirectory` the project, `StartCalendarInterval` weekly |
 | Antigravity | an Automation or a sidecar `schedule` that runs `npx -y trod learn` in the project (`/schedule` lasts only for its conversation) |
 
+**Or let it run by itself.** `trod learn --auto 10` turns on learning after every 10 finished sessions, with no
+scheduler. trod's SessionEnd hook (installed by `trod init` and the plugin) records each session that ends in
+`.trod/state/inbox.jsonl`. Once 10 have ended since the last learning run, the hook starts `trod learn` in the
+background, detached so the ending session is not held up, and logs to `.trod/logs/auto-learn.log`. It is the same
+incremental run, so the diff still waits for review. At most one automatic run starts per 6 hours (`cooldownHours` in
+`.trod/config.json`), none starts while another learning run holds the lock, and sessions trod starts itself (forge,
+learn, tune) never count. `trod learn --auto off` turns it off. Each run costs a learner session (about $0.20–0.50 in
+our runs) and is capped at $2, since nobody is watching it (`budgetUsd` in `.trod/config.json`). Commit `.trod/config.json` to turn it on for everyone working in the repository, or leave it uncommitted to
+keep it on your machine only.
+
 The `learn` skill (`/trod:learn`, or `trod-learn` in projects set up with `trod init`) runs `trod learn` and
 reports the evidence line and the changes without committing. Its prompt carries a marker (`trod-learn-run-7c1e5a`),
 and `trod learn` never learns from sessions whose prompts contain it (hidden skill messages included), so scheduled

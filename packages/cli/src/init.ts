@@ -180,7 +180,7 @@ export function installClaudeHooks(dir: string, hookCommand: string, res: InitRe
   const settings = readJson(settingsFile);
   if (opts.approveMcp) settings.enableAllProjectMcpServers = true;
   const hooks = (settings.hooks ?? {}) as Record<string, HookGroup[]>;
-  const wanted: [string, string | undefined][] = [['PostToolUse', 'Write|Edit|MultiEdit'], ['SessionStart', undefined], ['UserPromptSubmit', undefined]];
+  const wanted: [string, string | undefined][] = [['PostToolUse', 'Write|Edit|MultiEdit'], ['SessionStart', undefined], ['UserPromptSubmit', undefined], ['SessionEnd', undefined]];
   for (const [event, matcher] of wanted) {
     const kept = (hooks[event] ?? []).map((g) => ({ ...g, hooks: g.hooks.filter((h) => !isTrodHook(h)) })).filter((g) => g.hooks.length > 0);
     kept.push({ ...(matcher ? { matcher } : {}), hooks: [{ type: 'command', command: hookCommand, timeout: event === 'PostToolUse' ? 60 : 15 }] });
