@@ -243,6 +243,45 @@ project chooses hooks delivery. `trod notes --delivery import` switches back. Ch
 model answered from the injected notes and the page its prompt matched, without a tool call. Codex and Antigravity keep
 their copy and rule (they have no equivalent hooks for this yet).
 
+## Tuning notes against your own tasks
+
+`trod learn` judges sessions after the fact. When you can say what "done" means as a command, `trod tune` measures
+instead. List tasks in `.trod/tune.json`:
+
+```json
+{
+  "tasks": [
+    { "id": "add-lower", "prompt": "Add an exported function `lower` to util.js.", "check": "npm test && grep -q '^- lower:' CHANGELOG.md" },
+    { "id": "add-trim", "prompt": "Add an exported function `trim` to util.js.", "check": "npm test && grep -q '^- trim:' CHANGELOG.md", "split": "validate" }
+  ],
+  "runs": 2
+}
+```
+
+Each task has a `prompt` (what a user would type), a `check` (a shell command run in the task's workspace afterwards;
+exit 0 means done) and optionally a `setup` command and a `split`. Then `npx trod tune` runs a loop:
+
+1. **Practice.** A model (`--model`, default Haiku) runs each practice task `runs` times. Every run gets a throwaway
+   copy of the project carrying the current notes: in a git repository, the files of HEAD in a fresh repository with
+   no history (so commit what the tasks should see); otherwise a plain copy. `node_modules` and untracked files are
+   not copied and nothing is installed: use a task's `setup` (e.g. `npm ci`) for dependencies. The tune config is
+   removed from every copy, so no session sees the validation tasks. The task's check decides pass or fail.
+2. **Propose.** A stronger model (`--proposer`, default Opus) reads digests of those sessions and rewrites
+   `.trod/notes.md` (and `.trod/wiki/`) in a copy of the project. It writes general rules, not task answers, and its
+   notes checks must pass.
+3. **Validate.** The held-out validation tasks run with the current notes and with the candidate. The candidate
+   replaces the project's notes only if it passes at least `--margin` (default 1) more runs; otherwise nothing changes.
+
+Tasks without a `split` are divided between the two sets by a stable hash of their id. `--iterations` repeats the
+loop on the winning notes, and `--dry-run` shows the split and how many sessions an iteration costs. Runs, digests
+and the decision go to `.trod/tune/<time>/` (ignored by git). The project's notes change only when a candidate wins,
+and nothing is committed.
+
+Validation is the point. On AppWorld, three plausible rewrites from Opus were each rejected because they did no
+better on held-out tasks; one did 3.5 points worse ([round 15](../results-15/README.md)). On MiniWoB++, the pages
+that did win took Haiku from 137 to 141 of 150 ([round 13](../results-13/README.md)). On a toy repository with an
+unwritten changelog rule, one iteration took Haiku from 0 to 3 of 3 validation runs for $0.26.
+
 ## Is it helping?
 
 `trod report` compares this project's sessions (the Claude Code and Codex transcripts `trod learn` reads) from

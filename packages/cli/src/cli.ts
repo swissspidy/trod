@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { defaultPackageRoot, init, installClaudeHooks, installedHookCommand, packageVersion } from './init.ts';
 import { buildHoldoutReport, buildReport, formatReport, notesSince, sessionMetrics, type SessionMetrics } from './report.ts';
 import { notesHook, sessionDelivery } from './delivery.ts';
+import { readTuneConfig, splitTasks, tune, TUNE_CONFIG } from './tune.ts';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
@@ -59,6 +60,13 @@ Usage:
                            The learner keeps .trod/notes.evidence.json: per rule, how often later sessions confirmed
                            or contradicted it; rules contradicted more often than confirmed are fixed or dropped.
 
+  trod tune [--config <file>] [--iterations <n>] [--runs <n>] [--margin <n>] [--model <id>] [--proposer <id>] [--dry-run]
+                           Tune the notes against your own tasks (.trod/tune.json: {"tasks": [{"id", "prompt", "check"}]},
+                           check = shell command, exit 0 = done). A model (default Haiku) runs the practice tasks, each
+                           in a throwaway copy of the project; a stronger model rewrites .trod/notes.md from the failed
+                           sessions; the candidate replaces the notes only if it passes at least --margin (default 1)
+                           more held-out validation runs than the current notes. --dry-run shows the split and run counts.
+
 Options:
   --timeout <minutes>      forge and learn: stop the session after this long (default 30)
   --dir <path>             Project directory (default: TROD_PROJECT_DIR, CLAUDE_PROJECT_DIR or cwd)
@@ -96,6 +104,13 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       codex: { type: 'boolean', default: false },
       'auto-approve': { type: 'boolean', default: false },
       version: { type: 'boolean', short: 'v', default: false },
+      config: { type: 'string' },
+      iterations: { type: 'string' },
+      runs: { type: 'string' },
+      margin: { type: 'string' },
+      proposer: { type: 'string' },
+      parallel: { type: 'string' },
+      'dry-run': { type: 'boolean', default: false },
     },
   });
   const [command, ...rest] = positionals;
@@ -198,6 +213,38 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       const practice = values.practice ? { check: values.practice, reset: values.reset } : undefined;
       const res = await forge({ projectDir: paths.projectDir, brief, model: values.model, server: values.server, maxBudgetUsd: values.budget, timeoutMs: values.timeout ? Number(values.timeout) * 60_000 : undefined, streamFile: values.stream, out, linkNotes: !values['no-link'], practice });
       return forgeExit('forge', res, values.json, out);
+    }
+    case 'tune': {
+      const file = values.config ? path.resolve(values.config) : path.join(paths.projectDir, TUNE_CONFIG);
+      let config;
+      try {
+        config = readTuneConfig(file);
+        for (const k of ['iterations', 'runs', 'margin', 'parallel'] as const) {
+          if (values[k] === undefined) continue;
+          const n = Number(values[k]);
+          if (!Number.isInteger(n) || n < (k === 'margin' ? 0 : 1)) throw new Error(`--${k} must be a whole number${k === 'margin' ? '' : ' ≥ 1'}`);
+          config[k] = n;
+        }
+        if (values.model) config.model = values.model;
+        if (values.proposer) config.proposer = values.proposer;
+        if (values.budget) config.maxBudgetUsd = values.budget;
+        if (values.timeout) config.timeoutMinutes = Math.ceil(Number(values.timeout));
+        const { practice, validate } = splitTasks(config.tasks);
+        if (values['dry-run']) {
+          const runs = config.runs ?? 2;
+          out(`practice (${practice.length}): ${practice.map((t) => t.id).join(', ')}`);
+          out(`validate (${validate.length}): ${validate.map((t) => t.id).join(', ')}`);
+          out(`per iteration: ${practice.length * runs} practice run(s), 1 proposer session, ${2 * validate.length * runs} validation run(s); model ${config.model ?? 'claude-haiku-5-5'}, proposer ${config.proposer ?? 'claude-opus-5-5'}`);
+          return 0;
+        }
+      } catch (e) {
+        out(`trod tune: ${(e as Error).message}`);
+        return 1;
+      }
+      const res = await tune({ projectDir: paths.projectDir, config, out, configFile: file });
+      if (values.json) out(JSON.stringify(res, null, 2));
+      // Success means the loop ran on real evidence: some practice run that did not error.
+      return res.iterations.some((it) => it.practice.runs > it.practice.errors) ? 0 : 1;
     }
     case 'learn': {
       if (values.reset && !values.practice) {
