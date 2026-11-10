@@ -24,6 +24,8 @@ export interface AutoLearnConfig {
   after: number;
   /** At most one automatic run per this many hours (default 6). */
   cooldownHours?: number;
+  /** Spend cap in USD for each automatic run, which nobody is watching (default 2). */
+  budgetUsd?: number;
 }
 
 export function autoLearnConfig(paths: TrodPaths): AutoLearnConfig | undefined {
@@ -43,7 +45,7 @@ export function setAutoLearn(paths: TrodPaths, value: string): { ok: true; messa
   if (!Number.isInteger(n) || n < 1) return { ok: false, message: '--auto takes a number of sessions (e.g. 10) or "off"' };
   const cooldownHours = config.autoLearn?.cooldownHours ?? 6;
   writeTrodConfig(paths, { ...config, autoLearn: { after: n, cooldownHours } });
-  return { ok: true, message: `automatic learning is on: trod's SessionEnd hook starts \`trod learn\` in the background after every ${n} finished session(s) (at most once per ${cooldownHours} hours; log: ${AUTO_LOG}). It needs trod's hooks (trod init or the plugin). Commit .trod/config.json to turn it on for everyone, or keep it local.` };
+  return { ok: true, message: `automatic learning is on: trod's SessionEnd hook starts \`trod learn\` in the background after every ${n} finished session(s) (at most once per ${cooldownHours} hours, at most $${config.autoLearn?.budgetUsd ?? 2} each; log: ${AUTO_LOG}). It needs trod's hooks (trod init or the plugin). Commit .trod/config.json to turn it on for everyone, or keep it local.` };
 }
 
 interface InboxEntry {
@@ -95,13 +97,14 @@ function learnLocked(paths: TrodPaths): boolean {
 
 /** Starts `trod learn` detached from the hook, with its output in .trod/logs/auto-learn.log. */
 export function spawnLearn(paths: TrodPaths, cli = process.argv[1]!, env: NodeJS.ProcessEnv = process.env): void {
+  const budget = String(autoLearnConfig(paths)?.budgetUsd ?? 2);
   const log = path.join(paths.projectDir, AUTO_LOG);
   mkdirSync(path.dirname(log), { recursive: true });
   appendFileSync(log, `\n=== ${new Date().toISOString()} automatic trod learn ===\n`);
   const fd = openSync(log, 'a');
   const childEnv: NodeJS.ProcessEnv = { ...env, [TROD_SESSION_ENV]: 'learn' };
   delete childEnv.CLAUDECODE;
-  const child = spawn(process.execPath, [cli, 'learn', '--dir', paths.projectDir], { cwd: paths.projectDir, env: childEnv, detached: true, stdio: ['ignore', fd, fd] });
+  const child = spawn(process.execPath, [cli, 'learn', '--dir', paths.projectDir, '--budget', budget], { cwd: paths.projectDir, env: childEnv, detached: true, stdio: ['ignore', fd, fd] });
   child.unref();
 }
 

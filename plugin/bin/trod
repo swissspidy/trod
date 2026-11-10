@@ -17327,7 +17327,7 @@ function setAutoLearn(paths, value) {
   if (!Number.isInteger(n) || n < 1) return { ok: false, message: '--auto takes a number of sessions (e.g. 10) or "off"' };
   const cooldownHours = config2.autoLearn?.cooldownHours ?? 6;
   writeTrodConfig(paths, { ...config2, autoLearn: { after: n, cooldownHours } });
-  return { ok: true, message: `automatic learning is on: trod's SessionEnd hook starts \`trod learn\` in the background after every ${n} finished session(s) (at most once per ${cooldownHours} hours; log: ${AUTO_LOG}). It needs trod's hooks (trod init or the plugin). Commit .trod/config.json to turn it on for everyone, or keep it local.` };
+  return { ok: true, message: `automatic learning is on: trod's SessionEnd hook starts \`trod learn\` in the background after every ${n} finished session(s) (at most once per ${cooldownHours} hours, at most $${config2.autoLearn?.budgetUsd ?? 2} each; log: ${AUTO_LOG}). It needs trod's hooks (trod init or the plugin). Commit .trod/config.json to turn it on for everyone, or keep it local.` };
 }
 function readInbox(paths) {
   const file = path12.join(paths.projectDir, INBOX_FILE);
@@ -17365,6 +17365,7 @@ function learnLocked(paths) {
   }
 }
 function spawnLearn(paths, cli = process.argv[1], env = process.env) {
+  const budget = String(autoLearnConfig(paths)?.budgetUsd ?? 2);
   const log2 = path12.join(paths.projectDir, AUTO_LOG);
   mkdirSync9(path12.dirname(log2), { recursive: true });
   appendFileSync4(log2, `
@@ -17373,7 +17374,7 @@ function spawnLearn(paths, cli = process.argv[1], env = process.env) {
   const fd = openSync2(log2, "a");
   const childEnv = { ...env, [TROD_SESSION_ENV]: "learn" };
   delete childEnv.CLAUDECODE;
-  const child = spawn4(process.execPath, [cli, "learn", "--dir", paths.projectDir], { cwd: paths.projectDir, env: childEnv, detached: true, stdio: ["ignore", fd, fd] });
+  const child = spawn4(process.execPath, [cli, "learn", "--dir", paths.projectDir, "--budget", budget], { cwd: paths.projectDir, env: childEnv, detached: true, stdio: ["ignore", fd, fd] });
   child.unref();
 }
 function sessionEndHook(paths, payload, start = (p) => spawnLearn(p), now = /* @__PURE__ */ new Date(), env = process.env) {

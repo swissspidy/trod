@@ -62,6 +62,8 @@ interface Phase {
   outputTokens: number;
   exit: number | null;
   final: string;
+  /** No result event: the session crashed, was killed or never started (a bad model id, say). */
+  noResult?: boolean;
 }
 
 function cleanEnv(home: string, work: string): Record<string, string> {
@@ -100,8 +102,9 @@ async function session(dir: string, work: string, name: string, model: string, p
     });
   });
   writeFileSync(path.join(dir, `stream-${name}.jsonl`), text);
-  const res = (text.split('\n').filter((l) => l.includes('"type":"result"')).map((l) => JSON.parse(l)).at(-1) ?? {}) as { total_cost_usd?: number; num_turns?: number; usage?: { output_tokens?: number }; result?: string };
-  return { model, costUsd: res.total_cost_usd ?? 0, turns: res.num_turns ?? 0, outputTokens: res.usage?.output_tokens ?? 0, exit: code, final: String(res.result ?? '').slice(-400) };
+  const resLine = text.split('\n').filter((l) => l.includes('"type":"result"')).at(-1);
+  const res = (resLine ? JSON.parse(resLine) : {}) as { total_cost_usd?: number; num_turns?: number; usage?: { output_tokens?: number }; result?: string };
+  return { model, costUsd: res.total_cost_usd ?? 0, turns: res.num_turns ?? 0, outputTokens: res.usage?.output_tokens ?? 0, exit: code, final: String(res.result ?? '').slice(-400), ...(resLine ? {} : { noResult: true }) };
 }
 
 interface Record_ {
@@ -148,7 +151,7 @@ async function runOne(inst: Instance, arm: string): Promise<Record_> {
     rmSync(file, { force: true });
   } else throw new Error(`unknown arm ${arm}`);
   const check = await grade(env, inst, work);
-  const rec: Record_ = { instance: inst.instance_id, arm, pass: check.pass, details: check.details, infra: check.infra, phases, costUsd: phases.reduce((a, p) => a + p.costUsd, 0), handoff, handoffChars };
+  const rec: Record_ = { instance: inst.instance_id, arm, pass: check.pass, details: check.details, infra: check.infra || phases.some((p) => p.noResult), phases, costUsd: phases.reduce((a, p) => a + p.costUsd, 0), handoff, handoffChars };
   writeFileSync(resFile, JSON.stringify(rec, null, 2));
   if (existsSync(path.join(dir, 'agent.patch'))) rmSync(work, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 });
   return rec;

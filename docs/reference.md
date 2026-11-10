@@ -219,7 +219,7 @@ background, detached so the ending session is not held up, and logs to `.trod/lo
 incremental run, so the diff still waits for review. At most one automatic run starts per 6 hours (`cooldownHours` in
 `.trod/config.json`), none starts while another learning run holds the lock, and sessions trod starts itself (forge,
 learn, tune) never count. `trod learn --auto off` turns it off. Each run costs a learner session (about $0.20–0.50 in
-our runs). Commit `.trod/config.json` to turn it on for everyone working in the repository, or leave it uncommitted to
+our runs) and is capped at $2, since nobody is watching it (`budgetUsd` in `.trod/config.json`). Commit `.trod/config.json` to turn it on for everyone working in the repository, or leave it uncommitted to
 keep it on your machine only.
 
 The `learn` skill (`/trod:learn`, or `trod-learn` in projects set up with `trod init`) runs `trod learn` and
