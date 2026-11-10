@@ -38,7 +38,7 @@ answer passes every step. For `csv-clean` that answer comes from an independentl
 | `library` | genesis with no nudge, but `.trod/library/` starts with the tools that a nudged run of the same task built (as if promoted and committed by an earlier session). It measures cross-session reuse. |
 | `scripts` | baseline tools only, but in `--mode sessions` the whole work dir carries over between steps, so scripts the agent wrote survive. |
 | `toolsmith` | genesis, after one dedicated session in the same run that builds general tools for the task's kind of work. |
-| `forged` | genesis with the library and notes that `trod forge` built once per task (or per `forgeKey`) with `--forge-model`. In `--mode sessions` only the library carries over to later steps; the notes are in the first step only. |
+| `forged` | genesis with the library and notes that `trod forge` built once per task (or per `forgeKey`) with `--forge-model`. In `--mode sessions` the library and the notes carry over to later steps. |
 
 `--mode resume` (default) sends each step as a follow-up in the same session; `--mode sessions` starts a fresh session
 in a fresh checkout per step, as with ephemeral cloud containers. Two arms differ: `toolsmith` always uses a fresh

@@ -96,7 +96,8 @@ async function runBatch(harness: string, types: string[], offset: number, per: n
       const dir = path.join(out, `${t}-s${seed}`, 'baseline-s1');
       const file = path.join(dir, 'result.json');
       if (!existsSync(file)) continue; // infra failure: result.infra.json
-      const r = JSON.parse(readFileSync(file, 'utf8')) as { check: { pass: boolean; score: number }; costUsd?: number };
+      const r = JSON.parse(readFileSync(file, 'utf8')) as { check: { pass: boolean; score: number; infra?: boolean }; costUsd?: number };
+      if (r.check.infra) continue; // an older runner saved these as results
       runs.push({ type: t, seed, pass: r.check.pass, score: r.check.score, stream: path.join(dir, 'stream-1.jsonl') });
     }
   }

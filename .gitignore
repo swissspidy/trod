@@ -1,6 +1,4 @@
 node_modules/
-.spike-tools/
-spike-server.log
 # Session tools and logs are per session; the library is committed (trod promote).
 .trod/tools/
 .trod/logs/

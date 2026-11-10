@@ -48,7 +48,7 @@ describe('trod init', () => {
     init({ projectDir: dir, packageRoot: PLUGIN });
     init({ projectDir: dir, packageRoot: PLUGIN, vendor: true });
     expect(json(path.join(dir, '.mcp.json')).mcpServers.trod).toEqual({ command: 'node', args: ['.trod/pkg/server/trod-server.mjs'] });
-    for (const f of ['server/trod-server.mjs', 'bin/trod', 'package.json']) expect(readFileSync(path.join(dir, '.trod', 'pkg', f))).toEqual(readFileSync(path.join(PLUGIN, f)));
+    for (const f of ['server/trod-server.mjs', 'server/trod-lib.mjs', 'bin/trod', 'package.json']) expect(readFileSync(path.join(dir, '.trod', 'pkg', f))).toEqual(readFileSync(path.join(PLUGIN, f)));
     const post = json(path.join(dir, '.claude', 'settings.json')).hooks.PostToolUse;
     expect(post).toHaveLength(1);
     expect(post[0].hooks[0].command).toBe('node "$CLAUDE_PROJECT_DIR/.trod/pkg/bin/trod" hook');

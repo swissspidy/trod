@@ -114,7 +114,7 @@ function readPractice(logFile: string): { attempts: number; passed: number; corr
 }
 
 export function defaultServerPath(): string {
-  // Bundled CLI: plugin/bin/trod -> plugin/server/trod-server.mjs.
+  // Bundled CLI: plugin/bin/trod -> plugin/server/trod-server.mjs (the entry; the code is in trod-lib.mjs next to it).
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'server', 'trod-server.mjs');
 }
 

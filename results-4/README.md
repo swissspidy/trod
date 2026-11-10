@@ -96,7 +96,7 @@ sessions) and nothing on ticket-triage.
   prompts say "include archived items".
 - **A harness mistake of mine.** `rescore.ts` re-checked session-mode runs whose earlier outputs had been wiped by
   the next fresh checkout, and overwrote their per-step results. They were restored from the runner logs
-  (`experiments/runner/restore-from-log.ts`, with a provenance note in each result), and `rescore` now keeps a
+  (a one-off script, `experiments/runner/restore-from-log.ts`, since removed; with a provenance note in each result), and `rescore` now keeps a
   step's original result when its outputs are gone.
 
 ## Caveats

@@ -114,6 +114,9 @@ export function birdTasks(questions: BirdQuestion[]): Task[] {
       kind: 'control',
       repetitions: 1,
       forgeKey: `bird-${q.db_id}`,
+      // The forge studies the database, not a question: the default brief would show it this task's test question.
+      toolsmithBrief: () =>
+        `Future sessions each answer one question about the "${q.db_id}" SQLite database by writing a single SELECT statement to ./answer.sql; it is graded by comparing its result rows with a reference query's. The database is ./db.sqlite (read-only) and ./docs/ has a CSV per table describing its columns and value meanings. Study the schema, the docs and the data: what the tables and coded values mean, how they join, which columns hold what the questions will ask about. You do not know the questions.`,
       setup: ({ work }: TaskContext) => {
         const dir = path.join(BIRD_HOME, 'db', q.db_id);
         for (const [link, target] of [

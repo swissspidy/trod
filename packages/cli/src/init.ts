@@ -83,6 +83,7 @@ export function init(opts: InitOptions): InitResult {
     // Keep the package layout (bin/, server/, package.json), so the vendored CLI finds its server and version.
     for (const [from, to] of [
       ['server/trod-server.mjs', '.trod/pkg/server/trod-server.mjs'],
+      ['server/trod-lib.mjs', '.trod/pkg/server/trod-lib.mjs'],
       ['bin/trod', '.trod/pkg/bin/trod'],
       ['package.json', '.trod/pkg/package.json'],
     ] as const) {

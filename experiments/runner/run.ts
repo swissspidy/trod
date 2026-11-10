@@ -260,7 +260,8 @@ async function newCheckout(task: Task, arm: Arm, work: string, baseUrl: string |
       });
       appendFileSync(path.join(path.dirname(work), 'promotions.log'), `before session ${i + 1}: ${name}: ${out}\n`);
     }
-    for (const d of ['library', 'logs']) {
+    // What a team would have committed: the library, and the forge's notes with their checks (plus trod's logs).
+    for (const d of ['library', 'logs', 'notes.md', 'notes.checks.json']) {
       const from = path.join(work, '.trod', d);
       if (existsSync(from)) cpSync(from, path.join(keep, d), { recursive: true });
     }
@@ -273,6 +274,8 @@ async function newCheckout(task: Task, arm: Arm, work: string, baseUrl: string |
   if (existsSync(keep)) {
     cpSync(keep, path.join(work, '.trod'), { recursive: true });
     rmSync(keep, { recursive: true, force: true });
+    // task.setup may have reset CLAUDE.md: link the notes again, as in the first step.
+    if (existsSync(path.join(work, '.trod', 'notes.md'))) linkNotes(trodPaths(work));
   }
   chownTree(work);
 }
@@ -452,9 +455,11 @@ async function runOne(task: Task, arm: Arm, seed: number): Promise<RunRecord> {
   const scores = task.steps.map((_, i) => steps[i]?.check.score ?? 0);
   // A session the API refused (no credit, overload, ...) never tried the task: infra, not a failure.
   const apiError = steps.map((_, i) => apiErrorOf(path.join(runDir, `stream-${i + 1}.jsonl`))).find(Boolean);
+  // So is a step whose check could not be completed (the environment or the grader failed, not the agent).
+  const infra = !!apiError || steps.some((s) => s.check.infra);
   const check = {
-    ...(apiError ? { infra: true } : {}),
-    pass: !apiError && steps.length === task.steps.length && steps.every((s) => s.check.pass),
+    ...(infra ? { infra: true } : {}),
+    pass: !infra && steps.length === task.steps.length && steps.every((s) => s.check.pass),
     score: scores.reduce((a, b) => a + b, 0) / scores.length,
     details: apiError ? `infra: API error (${apiError})` : steps.map((s) => `step ${s.step}: ${s.check.pass ? 'ok' : s.check.details}`).join(' | '),
   };
@@ -462,10 +467,10 @@ async function runOne(task: Task, arm: Arm, seed: number): Promise<RunRecord> {
   if (toolsmith) record.toolsmith = toolsmith;
   if (forgeInfo) (record as RunRecord & { forge?: unknown }).forge = forgeInfo;
   // An infra run is kept for inspection but not as result.json, so the next invocation retries it.
-  writeFileSync(path.join(runDir, apiError ? 'result.infra.json' : 'result.json'), JSON.stringify(record, null, 2));
+  writeFileSync(path.join(runDir, infra ? 'result.infra.json' : 'result.json'), JSON.stringify(record, null, 2));
   task.afterRun?.({ work, baseUrl });
   console.log(
-    `${apiError ? 'INFRA' : record.check.pass ? 'PASS' : 'FAIL'} ${id.padEnd(34)} score=${record.check.score.toFixed(2)} turns=${record.turns} tokens=${record.tokens.total} cost=$${record.costUsd.toFixed(3)} wall=${Math.round(wallMs / 1000)}s` +
+    `${infra ? 'INFRA' : record.check.pass ? 'PASS' : 'FAIL'} ${id.padEnd(34)} score=${record.check.score.toFixed(2)} turns=${record.turns} tokens=${record.tokens.total} cost=$${record.costUsd.toFixed(3)} wall=${Math.round(wallMs / 1000)}s` +
       (arm !== 'baseline' ? ` tools=${record.trod.toolsCreated} calls=${record.trod.calls}` : '') +
       (record.check.pass ? '' : `  (${record.check.details.slice(0, 140)})`),
   );
