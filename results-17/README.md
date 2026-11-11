@@ -5,7 +5,9 @@ round 6 notes (+32 / −28 tasks, p = 0.70). On the 465 tasks no earlier round h
 The gain reported in round 6 (87.5% → 95%) was measured on a 120-task sample on which these notes had been picked as
 the best of five sets, and it does not generalise.
 
-Notes that `trod learn` wrote from Haiku's 90 train sessions make it worse: 81.9% (+29 / −52, p = 0.014).
+Notes that `trod learn` wrote from Haiku's 90 train sessions do not help either. A first run suggested they cost 4
+points (p = 0.014); a repeat of both arms showed most of that was run-to-run variation. What remains is a small loss
+in a handful of scenarios, traced to rules that are wrong outside the train tasks.
 
 This corrects the AppWorld claim made since round 6. The README and the site now carry these numbers.
 
@@ -45,6 +47,8 @@ TGC is task goal completion. SGC is scenario goal completion: all three variants
 | | sonnet | 495 | 84.6% [81.5, 87.3] | 73.3% | $0.071 | +35 / −42, p = 0.49 |
 | | sonnet-notes | 502 | 85.8% [82.8, 88.4] | 75.4% | $0.078 | +40 / −40, p = 1.00 |
 
+The `haiku-learned` rows are a first run; a repeat [changes the picture](#notes-from-trod-learn-no-gain-and-a-few-rules-that-hurt).
+
 Split by whether earlier rounds had used the scenario:
 
 | Tasks | haiku | haiku-notes | haiku-learned | sonnet | sonnet-notes |
@@ -78,7 +82,7 @@ with its learned context (offline, with ground-truth labels). The numbers here a
 the ones without notes, which says the difference is the model and the harness (Claude Code with a shell), not
 anything trod adds. They are not a like-for-like comparison.
 
-## Notes from `trod learn` make it worse
+## Notes from `trod learn`: no gain, and a few rules that hurt
 
 The fifth arm repeats what worked on AutomationBench ([round 18](../results-18/README.md)): Haiku ran the 90 train
 tasks alone (84 passed), and `trod learn` (Opus) wrote notes from those sessions with only pass or fail per session.
@@ -92,13 +96,28 @@ because their recipes paraphrase train tasks.
 | test_challenge | 353 | 329 | +22 / −46, p = 0.005 |
 | both | 502 | 479 | +29 / −52, p = 0.014 |
 
-- **The loss is in `test_challenge`,** the set built around apps that the train tasks do not use. On `test_normal`
-  the notes change nothing.
-- **A likely cause, not established:** recipes written from 84 passed and 6 failed sessions describe how the train
-  tasks were solved, and Haiku follows them where they do not fit. Sessions with these notes are shorter (9.0 turns
-  against 10.0).
-- **There was nothing to learn from.** With six failures, the learning session had little evidence about what goes
-  wrong, and wrote down what already went right. On AutomationBench it had 200 failures.
+The first run looks like a clear loss on `test_challenge`. It is less than that. Both arms were run a second time on
+the 417 challenge tasks ([`repeat.jsonl`](repeat.jsonl)):
+
+| test_challenge | haiku | haiku-learned | |
+|---|---|---|---|
+| first run | 353 | 329 | +22 / −46, p = 0.005 |
+| second run | 337 | 330 | +29 / −36, p = 0.46 |
+| both runs (834) | 690 (82.7%) | 659 (79.0%) | |
+
+- **Haiku alone differs from itself by 16 tasks** between two runs (+18 / −34, p = 0.04). The first run of the
+  baseline was a high one. A single run per task cannot resolve differences of this size, and the p-values in the
+  tables above, which treat a run as the truth about a task, are too confident. That holds for every comparison in
+  this round.
+- **A small, real loss remains.** 18 tasks pass in both runs alone and fail in both runs with the notes; 5 go the
+  other way. Most are in five scenarios.
+- **One cause is identified.** The notes say "friends" means the Venmo friend list together with phone contacts
+  labelled friend, a rule the learning session added from three train sessions. In the first run it changed what
+  Haiku did in 16 tasks, and passes there fell from 13 to 9. One scenario fails in all six runs with the notes for this reason and passes in all six without.
+  The other clustered losses are in Gmail and Amazon tasks, apps the train tasks barely use; their cause is not
+  established.
+- **There was little to learn from.** With six failures in 90 sessions, the learning session had almost no evidence
+  about what goes wrong, and wrote down how the train tasks were solved. On AutomationBench it had 200 failures.
 - **These notes were not checked on held-out tasks before the test run.** On AutomationBench a dev check came first.
   `trod tune` does this check and keeps the old notes when a rewrite scores lower
   ([round 15](../results-15/README.md)); `trod learn` alone does not.
@@ -108,7 +127,8 @@ because their recipes paraphrase train tasks.
 ## Files
 
 - `runs.jsonl`: one record per run (arm, split, task id, pass, cost, turns, tokens); no task text, since AppWorld's
-  data may only be redistributed encrypted. `summary.json`: the tables above. `evidence.json`: the evidence ledger of the learned notes.
+  data may only be redistributed encrypted. `summary.json`: the tables above. `evidence.json`: the evidence ledger of the learned notes. `repeat.jsonl`: the second run of two arms on
+  `test_challenge`.
 - Reproduce, per arm and split (`AW_NOTES` only for the notes arms; `claude-sonnet-5-5` for the Sonnet arms):
 
   ```sh
