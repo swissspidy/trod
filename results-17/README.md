@@ -5,9 +5,10 @@ round 6 notes (+32 / −28 tasks, p = 0.70). On the 465 tasks no earlier round h
 The gain reported in round 6 (87.5% → 95%) was measured on a 120-task sample on which these notes had been picked as
 the best of five sets, and it does not generalise.
 
-Notes that `trod learn` wrote from Haiku's 90 train sessions do not help either. A first run suggested they cost 4
-points (p = 0.014); a repeat of both arms showed most of that was run-to-run variation. What remains is a small loss
-in a handful of scenarios, traced to rules that are wrong outside the train tasks.
+Notes that `trod learn` wrote from Haiku's 90 train sessions do not help either. On the challenge set the first run
+had them 24 tasks behind Haiku alone (p = 0.005); a repeat of both arms had them 7 behind (p = 0.46). Over both
+runs it is 79.0% against 82.7%. Part of that is a loss that repeats in a handful of scenarios, and one of those was
+traced to a learned rule that is wrong outside the train tasks.
 
 This corrects the AppWorld claim made since round 6. The README and the site now carry these numbers.
 
@@ -96,7 +97,7 @@ because their recipes paraphrase train tasks.
 | test_challenge | 353 | 329 | +22 / −46, p = 0.005 |
 | both | 502 | 479 | +29 / −52, p = 0.014 |
 
-The first run looks like a clear loss on `test_challenge`. It is less than that. Both arms were run a second time on
+The first run looks like a clear loss on `test_challenge`. The repeat is less clear. Both arms were run a second time on
 the 417 challenge tasks ([`repeat.jsonl`](repeat.jsonl)):
 
 | test_challenge | haiku | haiku-learned | |
@@ -105,8 +106,8 @@ the 417 challenge tasks ([`repeat.jsonl`](repeat.jsonl)):
 | second run | 337 | 330 | +29 / −36, p = 0.46 |
 | both runs (834) | 690 (82.7%) | 659 (79.0%) | |
 
-- **Haiku alone differs from itself by 16 tasks** between two runs (+18 / −34, p = 0.04). The first run of the
-  baseline was a high one. A single run per task cannot resolve differences of this size, and the p-values in the
+- **Haiku alone differs from itself** between two runs: 52 of 417 tasks change outcome (18 pass only in the second
+  run, 34 only in the first), a net 16 fewer passes (p = 0.04). The first run of the baseline was a high one. A single run per task cannot resolve differences of this size, and the p-values in the
   tables above, which treat a run as the truth about a task, are too confident. That holds for every comparison in
   this round.
 - **A small, real loss remains.** 18 tasks pass in both runs alone and fail in both runs with the notes; 5 go the
