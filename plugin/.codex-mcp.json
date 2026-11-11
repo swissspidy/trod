@@ -4,7 +4,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "trod@0.0.0",
+        "trod@0.1.0",
         "mcp"
       ],
       "startup_timeout_sec": 60,
