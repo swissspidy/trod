@@ -2,7 +2,7 @@
   "name": "trod",
   "displayName": "trod",
   "description": "Turns files into live tools mid-task, and loads the tool library and notes that trod forged or learned for your project.",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "logo": "assets/logo.svg",
   "suggestedPrompts": [
     "Build a trod tool for the API request we keep repeating",
