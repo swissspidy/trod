@@ -45,8 +45,8 @@ in-house tooling, web and app workflows. **It does not help** where the model al
 where it already does well without notes (AppWorld), or where every task needs its own fact that no earlier task
 taught (BIRD). The null results are published with the same care as the wins, and so are corrections: an earlier
 AppWorld gain measured on a 120-task sample [did not hold](results-17/README.md) on the full test sets, and notes learned there
-from 90 sessions with only 6 failures cost 4 points. Check learned notes on held-out tasks before relying on them
-(`trod tune` does).
+from 90 sessions with only 6 failures added nothing and carried one rule that broke tasks. Check learned notes on
+held-out tasks before relying on them (`trod tune` does).
 
 ## Three ways to teach it
 
