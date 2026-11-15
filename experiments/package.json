@@ -9,7 +9,7 @@
     "report": "node runner/report.ts"
   },
   "devDependencies": {
-    "@anthropic-ai/claude-code": "2.1.318",
+    "@anthropic-ai/claude-code": "2.1.319",
     "playwright": "1.65.0"
   }
 }
