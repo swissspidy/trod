@@ -1,0 +1,614 @@
+{
+  "tasks": [
+    {
+      "id": "revenue-1",
+      "split": "train",
+      "correct": true,
+      "sensitive": [
+        "Q4",
+        "Q5",
+        "Q6"
+      ]
+    },
+    {
+      "id": "revenue-2",
+      "split": "train",
+      "correct": true,
+      "sensitive": [
+        "Q4",
+        "Q5"
+      ]
+    },
+    {
+      "id": "revenue-3",
+      "split": "train",
+      "correct": true,
+      "sensitive": [
+        "Q4",
+        "Q6"
+      ]
+    },
+    {
+      "id": "revenue-4",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q4",
+        "Q5",
+        "Q6"
+      ]
+    },
+    {
+      "id": "revenue-5",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q4",
+        "Q5",
+        "Q6"
+      ]
+    },
+    {
+      "id": "revenue-6",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q4",
+        "Q5"
+      ]
+    },
+    {
+      "id": "revenue-7",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q4",
+        "Q5",
+        "Q6"
+      ]
+    },
+    {
+      "id": "revenue-8",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q5"
+      ]
+    },
+    {
+      "id": "region-orders-1",
+      "split": "train",
+      "correct": true,
+      "sensitive": [
+        "Q4",
+        "Q6",
+        "Q11"
+      ]
+    },
+    {
+      "id": "region-orders-2",
+      "split": "train",
+      "correct": true,
+      "sensitive": [
+        "Q4",
+        "Q5",
+        "Q11"
+      ]
+    },
+    {
+      "id": "region-orders-3",
+      "split": "train",
+      "correct": true,
+      "sensitive": [
+        "Q4",
+        "Q5",
+        "Q6",
+        "Q11"
+      ]
+    },
+    {
+      "id": "region-orders-4",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q4",
+        "Q5",
+        "Q6",
+        "Q11"
+      ]
+    },
+    {
+      "id": "region-orders-5",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q4",
+        "Q5",
+        "Q11"
+      ]
+    },
+    {
+      "id": "region-orders-6",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q4",
+        "Q5",
+        "Q6",
+        "Q11"
+      ]
+    },
+    {
+      "id": "region-orders-7",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q4",
+        "Q6",
+        "Q11"
+      ]
+    },
+    {
+      "id": "region-orders-8",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q4",
+        "Q5",
+        "Q6",
+        "Q11"
+      ]
+    },
+    {
+      "id": "net-units-1",
+      "split": "train",
+      "correct": true,
+      "sensitive": [
+        "Q5",
+        "Q6",
+        "Q9"
+      ]
+    },
+    {
+      "id": "net-units-2",
+      "split": "train",
+      "correct": true,
+      "sensitive": [
+        "Q5",
+        "Q6",
+        "Q9"
+      ]
+    },
+    {
+      "id": "net-units-3",
+      "split": "train",
+      "correct": true,
+      "sensitive": [
+        "Q5",
+        "Q6",
+        "Q9"
+      ]
+    },
+    {
+      "id": "net-units-4",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q4",
+        "Q5",
+        "Q9"
+      ]
+    },
+    {
+      "id": "net-units-5",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q5",
+        "Q6",
+        "Q9"
+      ]
+    },
+    {
+      "id": "net-units-6",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q5",
+        "Q9"
+      ]
+    },
+    {
+      "id": "net-units-7",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q5",
+        "Q6",
+        "Q9"
+      ]
+    },
+    {
+      "id": "net-units-8",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q5",
+        "Q9"
+      ]
+    },
+    {
+      "id": "returned-value-1",
+      "split": "train",
+      "correct": true,
+      "sensitive": [
+        "Q5",
+        "Q6",
+        "Q8",
+        "Q9"
+      ]
+    },
+    {
+      "id": "returned-value-2",
+      "split": "train",
+      "correct": true,
+      "sensitive": [
+        "Q5",
+        "Q6",
+        "Q8",
+        "Q9"
+      ]
+    },
+    {
+      "id": "returned-value-3",
+      "split": "train",
+      "correct": true,
+      "sensitive": [
+        "Q4",
+        "Q5",
+        "Q6",
+        "Q8",
+        "Q9"
+      ]
+    },
+    {
+      "id": "returned-value-4",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q4",
+        "Q8",
+        "Q9"
+      ]
+    },
+    {
+      "id": "returned-value-5",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q6",
+        "Q8",
+        "Q9"
+      ]
+    },
+    {
+      "id": "returned-value-6",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q8",
+        "Q9"
+      ]
+    },
+    {
+      "id": "returned-value-7",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q5",
+        "Q8",
+        "Q9"
+      ]
+    },
+    {
+      "id": "returned-value-8",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q5",
+        "Q8",
+        "Q9"
+      ]
+    },
+    {
+      "id": "region-refunds-1",
+      "split": "train",
+      "correct": true,
+      "sensitive": [
+        "Q10",
+        "Q11"
+      ]
+    },
+    {
+      "id": "region-refunds-2",
+      "split": "train",
+      "correct": true,
+      "sensitive": [
+        "Q10",
+        "Q11"
+      ]
+    },
+    {
+      "id": "region-refunds-3",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q10",
+        "Q11"
+      ]
+    },
+    {
+      "id": "region-refunds-4",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q10",
+        "Q11"
+      ]
+    },
+    {
+      "id": "region-refunds-5",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q10",
+        "Q11"
+      ]
+    },
+    {
+      "id": "region-refunds-6",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q10",
+        "Q11"
+      ]
+    },
+    {
+      "id": "region-refunds-7",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q10",
+        "Q11"
+      ]
+    },
+    {
+      "id": "tier-customers-1",
+      "split": "train",
+      "correct": true,
+      "sensitive": [
+        "Q11"
+      ]
+    },
+    {
+      "id": "tier-customers-2",
+      "split": "train",
+      "correct": true,
+      "sensitive": [
+        "Q11"
+      ]
+    },
+    {
+      "id": "tier-customers-3",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q6",
+        "Q11"
+      ]
+    },
+    {
+      "id": "tier-customers-4",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q6",
+        "Q11"
+      ]
+    },
+    {
+      "id": "tier-customers-5",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q6",
+        "Q11"
+      ]
+    },
+    {
+      "id": "tier-customers-6",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q11"
+      ]
+    },
+    {
+      "id": "tier-customers-7",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q11"
+      ]
+    },
+    {
+      "id": "fiscal-revenue-1",
+      "split": "train",
+      "correct": true,
+      "sensitive": [
+        "Q3",
+        "Q5"
+      ]
+    },
+    {
+      "id": "fiscal-revenue-2",
+      "split": "train",
+      "correct": true,
+      "sensitive": [
+        "Q3",
+        "Q6"
+      ]
+    },
+    {
+      "id": "fiscal-revenue-3",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q3",
+        "Q5",
+        "Q6"
+      ]
+    },
+    {
+      "id": "fiscal-revenue-4",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q3",
+        "Q6"
+      ]
+    },
+    {
+      "id": "fiscal-revenue-5",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q3",
+        "Q5",
+        "Q6"
+      ]
+    },
+    {
+      "id": "fiscal-revenue-6",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q3",
+        "Q5"
+      ]
+    },
+    {
+      "id": "fiscal-revenue-7",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q3",
+        "Q5"
+      ]
+    },
+    {
+      "id": "customer-net-1",
+      "split": "train",
+      "correct": true,
+      "sensitive": [
+        "Q5",
+        "Q6",
+        "Q10"
+      ]
+    },
+    {
+      "id": "customer-net-2",
+      "split": "train",
+      "correct": true,
+      "sensitive": [
+        "Q5",
+        "Q10"
+      ]
+    },
+    {
+      "id": "customer-net-3",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q5",
+        "Q10"
+      ]
+    },
+    {
+      "id": "customer-net-4",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q5",
+        "Q6",
+        "Q10"
+      ]
+    },
+    {
+      "id": "customer-net-5",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q5",
+        "Q10"
+      ]
+    },
+    {
+      "id": "customer-net-6",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q5",
+        "Q10"
+      ]
+    },
+    {
+      "id": "customer-net-7",
+      "split": "test",
+      "correct": true,
+      "sensitive": [
+        "Q5",
+        "Q10"
+      ]
+    }
+  ],
+  "perQuirk": {
+    "Q3": {
+      "train": 2,
+      "test": 5
+    },
+    "Q4": {
+      "train": 7,
+      "test": 11
+    },
+    "Q5": {
+      "train": 13,
+      "test": 25
+    },
+    "Q6": {
+      "train": 12,
+      "test": 17
+    },
+    "Q8": {
+      "train": 3,
+      "test": 5
+    },
+    "Q9": {
+      "train": 6,
+      "test": 10
+    },
+    "Q10": {
+      "train": 4,
+      "test": 10
+    },
+    "Q11": {
+      "train": 7,
+      "test": 15
+    },
+    "Q12": {
+      "train": 0,
+      "test": 0
+    }
+  }
+}

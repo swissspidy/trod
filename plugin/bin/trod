@@ -2,7 +2,7 @@
 import { createRequire as __trodCreateRequire } from 'node:module'; const require = __trodCreateRequire(import.meta.url);
 
 // packages/cli/src/cli.ts
-import { existsSync as existsSync8, mkdtempSync as mkdtempSync3, readdirSync as readdirSync5, readFileSync as readFileSync9, rmSync as rmSync3, statSync as statSync3, writeFileSync as writeFileSync7 } from "node:fs";
+import { existsSync as existsSync9, mkdtempSync as mkdtempSync3, readdirSync as readdirSync5, readFileSync as readFileSync10, rmSync as rmSync4, statSync as statSync3, writeFileSync as writeFileSync8 } from "node:fs";
 
 // packages/cli/src/forge.ts
 import { spawn } from "node:child_process";
@@ -1314,14 +1314,18 @@ ${d?.text ?? "(no transcript)"}
     ws.remove();
   }
 }
-async function tune(opts) {
-  const out = opts.out ?? (() => {
-  });
+function createContext(opts) {
   const config = { model: DEFAULT_TUNE_MODEL, runs: 2, parallel: 3, timeoutMinutes: 15, ...opts.config };
-  const margin = config.margin ?? 1;
   const scratch = mkdtempSync2(path6.join(tmpdir2(), "trod-tune-"));
-  const ctx = { projectDir: opts.projectDir, out, claudeBin: opts.claudeBin, env: opts.env ?? process.env, config, scratch, hide: hiddenPaths(opts.projectDir, opts.configFile), mcpConfig: path6.join(scratch, "mcp.json") };
+  const ctx = { projectDir: opts.projectDir, out: opts.out ?? (() => {
+  }), claudeBin: opts.claudeBin, env: opts.env ?? process.env, config, scratch, hide: hiddenPaths(opts.projectDir, opts.configFile), mcpConfig: path6.join(scratch, "mcp.json") };
   writeFileSync5(ctx.mcpConfig, JSON.stringify({ mcpServers: { trod: { command: process.execPath, args: [defaultServerPath()] } } }));
+  return ctx;
+}
+async function tune(opts) {
+  const ctx = createContext(opts);
+  const { out, config } = ctx;
+  const margin = config.margin ?? 1;
   const { practice, validate } = splitTasks(config.tasks);
   const outDir = opts.outDir ?? path6.join(opts.projectDir, TUNE_DIR, (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-"));
   mkdirSync5(outDir, { recursive: true });
@@ -1392,14 +1396,164 @@ async function tune(opts) {
   return result;
 }
 
+// packages/cli/src/prune.ts
+import { appendFileSync as appendFileSync2, existsSync as existsSync6, mkdirSync as mkdirSync6, readFileSync as readFileSync7, rmSync as rmSync3, writeFileSync as writeFileSync6 } from "node:fs";
+import path7 from "node:path";
+var PRUNE_HISTORY = path7.join(".trod", "prune-history.jsonl");
+function splitSections(notes) {
+  const lines2 = notes.split("\n");
+  const sections = [];
+  const preamble = [];
+  let cur;
+  for (const line of lines2) {
+    if (line.startsWith("## ")) {
+      cur = { title: line.slice(3).trim(), text: `${line}
+` };
+      sections.push(cur);
+    } else if (cur) cur.text += `${line}
+`;
+    else preamble.push(line);
+  }
+  return { preamble: preamble.join("\n"), sections };
+}
+var countRules = (notes) => notes.split("\n").filter((l) => /^\s*(?:[-*]|\d+\.)\s+\S/.test(l)).length;
+function perTask(rs) {
+  const by = /* @__PURE__ */ new Map();
+  for (const r of rs) if (!r.error) by.set(r.task, [...by.get(r.task) ?? [], r.pass]);
+  return new Map([...by].map(([t, ps]) => [t, ps.filter(Boolean).length / ps.length]));
+}
+function bootstrapMean(diffs, reps = 5e3) {
+  if (!diffs.length) return [0, 0];
+  let seed = 5;
+  const r = () => {
+    seed = seed + 1831565813 >>> 0;
+    let t = seed;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+  const means = [];
+  for (let i = 0; i < reps; i++) {
+    let s = 0;
+    for (let j = 0; j < diffs.length; j++) s += diffs[Math.floor(r() * diffs.length)];
+    means.push(s / diffs.length);
+  }
+  means.sort((a, b) => a - b);
+  return [means[Math.floor(0.025 * reps)], means[Math.floor(0.975 * reps)]];
+}
+function verdict(part, withPart, withoutPart, threshold, runs) {
+  const shared = [...withPart.keys()].filter((t) => withoutPart.has(t));
+  const diffs = shared.map((t) => withPart.get(t) - withoutPart.get(t));
+  const drop = diffs.reduce((s, x) => s + x, 0) / (diffs.length || 1);
+  const ci = bootstrapMean(diffs);
+  if (shared.length && ci[0] > 0) return { part, drop, ci, verdict: "KEEP", tasks: shared.length };
+  if (shared.length && ci[1] < threshold) return { part, drop, ci, verdict: "CUT", tasks: shared.length };
+  const half = (ci[1] - ci[0]) / 2;
+  const suggestRuns = half > 0 ? Math.min(50, Math.ceil(runs * (half / (threshold / 2)) ** 2)) : runs;
+  return { part, drop, ci, verdict: "INCONCLUSIVE", suggestRuns, tasks: shared.length };
+}
+function readPruneHistory(projectDir) {
+  const f = path7.join(projectDir, PRUNE_HISTORY);
+  if (!existsSync6(f)) return [];
+  return readFileSync7(f, "utf8").split("\n").filter((l) => l.trim()).flatMap((l) => {
+    try {
+      return [JSON.parse(l)];
+    } catch {
+      return [];
+    }
+  });
+}
+function summarizePruneHistory(h) {
+  const last = h.at(-1);
+  if (!last) return void 0;
+  const whole = last.verdicts.find((v) => v.part === "all notes");
+  const first = h[0];
+  const trend = h.length > 1 ? `; since ${first.date.slice(0, 10)}: ${first.notesChars.toLocaleString("en-US")} \u2192 ${last.notesChars.toLocaleString("en-US")} chars, ${first.rules} \u2192 ${last.rules} rules` : "";
+  return `Last prune (${last.date.slice(0, 10)}, ${last.model}): notes ${whole ? `${whole.verdict} (${whole.drop >= 0 ? "+" : ""}${(100 * whole.drop).toFixed(0)} points)` : "not measured"}, ${last.verdicts.filter((v) => v.verdict === "CUT").length} part(s) to cut${trend}`;
+}
+var pts = (x) => `${x >= 0 ? "+" : ""}${(100 * x).toFixed(1)}`;
+async function prune(opts) {
+  const ctx = createContext(opts);
+  const { out, config } = ctx;
+  const threshold = (opts.threshold ?? 5) / 100;
+  const tasks = config.tasks;
+  const outDir = opts.outDir ?? path7.join(opts.projectDir, TUNE_DIR, `prune-${(/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-")}`);
+  mkdirSync6(outDir, { recursive: true });
+  const trodDir = path7.join(opts.projectDir, ".trod");
+  const notesFile = path7.join(trodDir, "notes.md");
+  if (!existsSync6(notesFile)) throw new Error("no .trod/notes.md to prune");
+  const notes = readFileSync7(notesFile, "utf8");
+  const { preamble, sections } = splitSections(notes);
+  const full = path7.join(outDir, "harness-full");
+  snapshotHarness(trodDir, full);
+  const bare = path7.join(outDir, "harness-no-notes");
+  snapshotHarness(trodDir, bare);
+  rmSync3(path7.join(bare, "notes.md"), { force: true });
+  rmSync3(path7.join(bare, "wiki"), { recursive: true, force: true });
+  rmSync3(path7.join(bare, "notes.checks.json"), { force: true });
+  const n = tasks.length * config.runs;
+  out(`pruning notes for ${config.model}: ${tasks.length} task(s) \xD7 ${config.runs} run(s), with and without the notes${opts.sections && sections.length ? `, and without each of ${sections.length} section(s)` : ""} (${n * (2 + (opts.sections ? sections.length : 0))} runs)`);
+  let cost = 0;
+  const add = (rs) => rs.reduce((a, r) => a + (r.costUsd ?? 0), 0);
+  const effects = [];
+  try {
+    const withRuns = await runBatch(ctx, full, tasks, path7.join(outDir, "with-notes"), "with notes");
+    const withoutRuns = await runBatch(ctx, bare, tasks, path7.join(outDir, "without-notes"), "without");
+    cost += add(withRuns) + add(withoutRuns);
+    const withT = perTask(withRuns);
+    effects.push(verdict("all notes", withT, perTask(withoutRuns), threshold, config.runs));
+    if (opts.sections) {
+      for (const [i, sec] of sections.entries()) {
+        const h = path7.join(outDir, `harness-without-${i + 1}`);
+        snapshotHarness(trodDir, h);
+        writeFileSync6(path7.join(h, "notes.md"), [preamble, ...sections.filter((_, j) => j !== i).map((s) => s.text)].join("\n"));
+        const rs = await runBatch(ctx, h, tasks, path7.join(outDir, `without-${i + 1}`), `without "${sec.title}"`);
+        cost += add(rs);
+        effects.push(verdict(sec.title, withT, perTask(rs), threshold, config.runs));
+      }
+    }
+    const ok = (rs) => rs.filter((r) => !r.error);
+    const result = {
+      model: config.model,
+      notesChars: notes.length,
+      rules: countRules(notes),
+      withNotes: { passed: passed(ok(withRuns)), runs: ok(withRuns).length },
+      withoutNotes: { passed: passed(ok(withoutRuns)), runs: ok(withoutRuns).length },
+      effects,
+      costUsd: cost,
+      outDir
+    };
+    out(`with notes ${result.withNotes.passed}/${result.withNotes.runs}, without ${result.withoutNotes.passed}/${result.withoutNotes.runs}`);
+    for (const e of effects) out(`  ${e.verdict.padEnd(12)} ${e.part}: removing it changes the pass rate by ${pts(-e.drop)} points [${pts(-e.ci[1])}, ${pts(-e.ci[0])}] on ${e.tasks} task(s)${e.suggestRuns ? `; about ${e.suggestRuns} runs per task would decide it` : ""}`);
+    out("Nothing was changed. CUT means the part had no measurable effect on this model: consider removing it and re-running.");
+    const entry = {
+      date: (/* @__PURE__ */ new Date()).toISOString(),
+      model: config.model,
+      notesChars: notes.length,
+      estTokens: Math.round(notes.length / 4),
+      rules: result.rules,
+      sections: sections.length,
+      withNotes: result.withNotes,
+      withoutNotes: result.withoutNotes,
+      verdicts: effects.map((e) => ({ part: e.part, verdict: e.verdict, drop: +e.drop.toFixed(3) }))
+    };
+    appendFileSync2(path7.join(opts.projectDir, PRUNE_HISTORY), JSON.stringify(entry) + "\n");
+    writeFileSync6(path7.join(outDir, "result.json"), JSON.stringify(result, null, 2));
+    out(`appended to ${PRUNE_HISTORY}; run transcripts in ${path7.relative(opts.projectDir, outDir)} ($${cost.toFixed(2)})`);
+    return result;
+  } finally {
+    rmSync3(ctx.scratch, { recursive: true, force: true });
+  }
+}
+
 // packages/cli/src/autolearn.ts
 import { spawn as spawn3 } from "node:child_process";
-import { appendFileSync as appendFileSync2, closeSync as closeSync2, existsSync as existsSync6, mkdirSync as mkdirSync6, openSync as openSync2, readFileSync as readFileSync7, writeFileSync as writeFileSync6 } from "node:fs";
-import path7 from "node:path";
+import { appendFileSync as appendFileSync3, closeSync as closeSync2, existsSync as existsSync7, mkdirSync as mkdirSync7, openSync as openSync2, readFileSync as readFileSync8, writeFileSync as writeFileSync7 } from "node:fs";
+import path8 from "node:path";
 import { readTrodConfig as readTrodConfig2, writeTrodConfig } from "../server/trod-lib.mjs";
-var INBOX_FILE = path7.join(LEARN_STATE_DIR, "inbox.jsonl");
-var AUTO_STATE_FILE = path7.join(LEARN_STATE_DIR, "auto-learn.json");
-var AUTO_LOG = path7.join(".trod", "logs", "auto-learn.log");
+var INBOX_FILE = path8.join(LEARN_STATE_DIR, "inbox.jsonl");
+var AUTO_STATE_FILE = path8.join(LEARN_STATE_DIR, "auto-learn.json");
+var AUTO_LOG = path8.join(".trod", "logs", "auto-learn.log");
 function autoLearnConfig(paths) {
   const a = readTrodConfig2(paths).autoLearn;
   return a && Number.isInteger(a.after) && a.after >= 1 ? a : void 0;
@@ -1418,10 +1572,10 @@ function setAutoLearn(paths, value) {
   return { ok: true, message: `automatic learning is on: trod's SessionEnd hook starts \`trod learn\` in the background after every ${n} finished session(s) (at most once per ${cooldownHours} hours, at most $${config.autoLearn?.budgetUsd ?? 2} each; log: ${AUTO_LOG}). It needs trod's hooks (trod init or the plugin). Commit .trod/config.json to turn it on for everyone, or keep it local.` };
 }
 function readInbox(paths) {
-  const file = path7.join(paths.projectDir, INBOX_FILE);
-  if (!existsSync6(file)) return [];
+  const file = path8.join(paths.projectDir, INBOX_FILE);
+  if (!existsSync7(file)) return [];
   const out = [];
-  for (const line of readFileSync7(file, "utf8").split("\n")) {
+  for (const line of readFileSync8(file, "utf8").split("\n")) {
     if (!line.trim()) continue;
     try {
       out.push(JSON.parse(line));
@@ -1438,9 +1592,9 @@ function pendingSessions(paths) {
 }
 function spawnLearn(paths, cli = process.argv[1], env = process.env) {
   const budget = String(autoLearnConfig(paths)?.budgetUsd ?? 2);
-  const log2 = path7.join(paths.projectDir, AUTO_LOG);
-  mkdirSync6(path7.dirname(log2), { recursive: true });
-  appendFileSync2(log2, `
+  const log2 = path8.join(paths.projectDir, AUTO_LOG);
+  mkdirSync7(path8.dirname(log2), { recursive: true });
+  appendFileSync3(log2, `
 === ${(/* @__PURE__ */ new Date()).toISOString()} automatic trod learn ===
 `);
   const fd = openSync2(log2, "a");
@@ -1456,41 +1610,41 @@ function sessionEndHook(paths, payload, start = (p) => spawnLearn(p), now = /* @
   if (env[TROD_SESSION_ENV]) return { recorded: false, pending: 0, started: false, reason: `a session trod started (${env[TROD_SESSION_ENV]})` };
   if (!payload.session_id) return { recorded: false, pending: 0, started: false, reason: "no session id" };
   ensureStateDir(paths.projectDir);
-  appendFileSync2(path7.join(paths.projectDir, INBOX_FILE), `${JSON.stringify({ session: payload.session_id, transcript: payload.transcript_path, endedAt: now.toISOString() })}
+  appendFileSync3(path8.join(paths.projectDir, INBOX_FILE), `${JSON.stringify({ session: payload.session_id, transcript: payload.transcript_path, endedAt: now.toISOString() })}
 `);
   const pending = pendingSessions(paths).length;
   if (pending < config.after) return { recorded: true, pending, started: false, reason: `${pending}/${config.after} sessions since the last learning run` };
-  const stateFile2 = path7.join(paths.projectDir, AUTO_STATE_FILE);
+  const stateFile2 = path8.join(paths.projectDir, AUTO_STATE_FILE);
   let last = 0;
   try {
-    last = Date.parse(JSON.parse(readFileSync7(stateFile2, "utf8")).lastStarted ?? "") || 0;
+    last = Date.parse(JSON.parse(readFileSync8(stateFile2, "utf8")).lastStarted ?? "") || 0;
   } catch {
   }
   const cooldown = (config.cooldownHours ?? 6) * 36e5;
   if (now.getTime() - last < cooldown) return { recorded: true, pending, started: false, reason: "cooldown since the last automatic run" };
   if (learnLockHeld(paths.projectDir)) return { recorded: true, pending, started: false, reason: "a learning run is in progress" };
-  writeFileSync6(stateFile2, JSON.stringify({ lastStarted: now.toISOString(), pending }));
+  writeFileSync7(stateFile2, JSON.stringify({ lastStarted: now.toISOString(), pending }));
   start(paths);
   return { recorded: true, pending, started: true };
 }
 
 // packages/cli/src/doctor.ts
 import { spawnSync as spawnSync2 } from "node:child_process";
-import { existsSync as existsSync7, readdirSync as readdirSync4, readFileSync as readFileSync8 } from "node:fs";
-import path8 from "node:path";
+import { existsSync as existsSync8, readdirSync as readdirSync4, readFileSync as readFileSync9 } from "node:fs";
+import path9 from "node:path";
 import { listToolEntries, notesLinked as notesLinked2, notesPaths as notesPaths2, readChecks, readTrodConfig as readTrodConfig3, NOTES_MAX_CHARS as NOTES_MAX_CHARS3 } from "../server/trod-lib.mjs";
 var HOOK_EVENTS = ["PostToolUse", "SessionStart", "UserPromptSubmit", "SessionEnd"];
 function execEnabled(projectDir, env = process.env) {
   if (env.TROD_ALLOW_EXEC === "1") return true;
   const entry = (file) => readJson2(file)?.mcpServers?.trod;
-  if (entry(path8.join(projectDir, ".mcp.json"))?.env?.TROD_ALLOW_EXEC === "1") return true;
-  if (entry(path8.join(projectDir, ".agents", "mcp_config.json"))?.env?.TROD_ALLOW_EXEC === "1") return true;
-  const codex = path8.join(projectDir, ".codex", "config.toml");
-  return existsSync7(codex) && /^\s*TROD_ALLOW_EXEC\s*=\s*"1"/m.test(readFileSync8(codex, "utf8"));
+  if (entry(path9.join(projectDir, ".mcp.json"))?.env?.TROD_ALLOW_EXEC === "1") return true;
+  if (entry(path9.join(projectDir, ".agents", "mcp_config.json"))?.env?.TROD_ALLOW_EXEC === "1") return true;
+  const codex = path9.join(projectDir, ".codex", "config.toml");
+  return existsSync8(codex) && /^\s*TROD_ALLOW_EXEC\s*=\s*"1"/m.test(readFileSync9(codex, "utf8"));
 }
 function readJson2(file) {
   try {
-    const v = JSON.parse(readFileSync8(file, "utf8"));
+    const v = JSON.parse(readFileSync9(file, "utf8"));
     return v && typeof v === "object" ? v : void 0;
   } catch {
     return void 0;
@@ -1508,20 +1662,20 @@ function doctor(paths, opts = {}) {
   const sessions = [];
   const claude = (opts.claudeVersion ?? (() => defaultClaudeVersion(env)))();
   setup.push(claude ? { level: "ok", text: `Claude Code CLI: ${claude}` } : { level: "warn", text: "Claude Code CLI not found (`claude`): trod learn, forge and tune need it; the MCP server and hooks do not" });
-  const mcp = readJson2(path8.join(dir, ".mcp.json"));
+  const mcp = readJson2(path9.join(dir, ".mcp.json"));
   const server = mcp?.mcpServers?.trod;
-  const antigravity = readJson2(path8.join(dir, ".agents", "mcp_config.json"))?.mcpServers?.trod;
-  const codexFile = path8.join(dir, ".codex", "config.toml");
-  const codex = existsSync7(codexFile) && /^\s*\[\s*mcp_servers\s*\.\s*trod\s*\]/m.test(readFileSync8(codexFile, "utf8"));
+  const antigravity = readJson2(path9.join(dir, ".agents", "mcp_config.json"))?.mcpServers?.trod;
+  const codexFile = path9.join(dir, ".codex", "config.toml");
+  const codex = existsSync8(codexFile) && /^\s*\[\s*mcp_servers\s*\.\s*trod\s*\]/m.test(readFileSync9(codexFile, "utf8"));
   const clients = [server && "Claude Code (.mcp.json)", antigravity && "Antigravity (.agents/mcp_config.json)", codex && "Codex (.codex/config.toml)"].filter(Boolean);
   const installed = clients.length > 0;
   setup.push(
     installed ? { level: "ok", text: `MCP server set up for ${clients.join(", ")}` } : { level: "info", text: "No trod server in this repository's config (fine if you use the Claude Code plugin; otherwise run `trod init`)" }
   );
-  const settingsFile = path8.join(dir, ".claude", "settings.json");
+  const settingsFile = path9.join(dir, ".claude", "settings.json");
   const hooks = trodHookEvents(dir);
   const missing = HOOK_EVENTS.filter((e) => !hooks.includes(e));
-  if (existsSync7(settingsFile) && !readJson2(settingsFile)) setup.push({ level: "bad", text: ".claude/settings.json is not valid JSON: Claude Code ignores it, hooks included" });
+  if (existsSync8(settingsFile) && !readJson2(settingsFile)) setup.push({ level: "bad", text: ".claude/settings.json is not valid JSON: Claude Code ignores it, hooks included" });
   else if (!hooks.length) setup.push({ level: "info", text: "No trod hooks in .claude/settings.json (the plugin brings its own; `trod init` installs them for every session, cloud ones included)" });
   else if (missing.length) setup.push({ level: "warn", text: `Hooks: ${hooks.join(", ")} installed, ${missing.join(", ")} missing (an older trod wrote them: run \`trod init\` again)` });
   else setup.push({ level: "ok", text: "Hooks installed: tool validation, notes delivery, session counting" });
@@ -1530,19 +1684,19 @@ function doctor(paths, opts = {}) {
     execOn ? { level: "ok", text: "Tools may run (TROD_ALLOW_EXEC=1): their code runs outside the client's permission prompts" } : { level: "info", text: "Tools do not run in sessions (TROD_ALLOW_EXEC is not set). Notes work without it; for tools, see `trod help init`" }
   );
   const np = notesPaths2(paths);
-  const hasNotes = existsSync7(np.notes);
+  const hasNotes = existsSync8(np.notes);
   const linked = hasNotes && notesLinked2(paths);
   const config = readTrodConfig3(paths);
   if (hasNotes) {
-    const chars = readFileSync8(np.notes, "utf8").length;
+    const chars = readFileSync9(np.notes, "utf8").length;
     const { checks, errors } = readChecks(np.checks);
     const how = linked ? config.delivery === "hooks" ? `delivered by trod's hooks${config.holdout ? ` (${Math.round(config.holdout * 100)}% holdout)` : ""}` : "linked from CLAUDE.md" : "NOT linked: sessions do not load them";
     knowledge.push({ level: linked ? chars > NOTES_MAX_CHARS3 ? "warn" : "ok" : "warn", text: `Notes: ${chars.toLocaleString("en-US")} chars${chars > NOTES_MAX_CHARS3 ? ` (over ${NOTES_MAX_CHARS3}: every session pays for them, trim them)` : ""}, ${how}` });
     if (errors.length) knowledge.push({ level: "bad", text: `Note checks: ${errors[0]}${errors.length > 1 ? ` (and ${errors.length - 1} more)` : ""}` });
     else knowledge.push({ level: "info", text: checks.length ? `Note checks: ${checks.length} (run them with \`trod verify\`)` : "Note checks: none (the notes rest on the sessions they were learned from)" });
   } else knowledge.push({ level: "info", text: "No notes yet (.trod/notes.md)" });
-  const wikiDir = path8.join(paths.trodDir, "wiki");
-  const pages = existsSync7(wikiDir) ? readdirSync4(wikiDir).filter((f) => f.endsWith(".md")).length : 0;
+  const wikiDir = path9.join(paths.trodDir, "wiki");
+  const pages = existsSync8(wikiDir) ? readdirSync4(wikiDir).filter((f) => f.endsWith(".md")).length : 0;
   if (pages) knowledge.push({ level: "ok", text: `Wiki: ${pages} page(s) for particular kinds of task` });
   const library = listToolEntries(paths.libraryDir).length;
   const sessionTools = listToolEntries(paths.toolsDir).length;
@@ -1550,6 +1704,8 @@ function doctor(paths, opts = {}) {
   else if (library || sessionTools) knowledge.push({ level: library ? "ok" : "info", text: `Tools: ${library} in the library${sessionTools ? `, ${sessionTools} session tool(s) not promoted` : ""}` });
   const ledger = readLedger(dir);
   if (ledger.exists) knowledge.push(ledger.errors.length ? { level: "bad", text: `Evidence ledger: ${ledger.errors[0]}` } : { level: "ok", text: `Evidence: ${summarizeLedger(ledger.rules)}` });
+  const pruned = summarizePruneHistory(readPruneHistory(dir));
+  if (pruned) knowledge.push({ level: "info", text: pruned });
   const files = (opts.transcripts ?? (() => findTranscripts([transcriptDir(dir), ...codexTranscripts(dir)])))();
   const state = readLearnState(dir);
   const CAP = 200;
@@ -1676,6 +1832,7 @@ is promoted as unverified); the notes' checks are run, and the notes are linked 
   --reset <cmd>            Starts a fresh practice attempt
 ${SESSION_OPTIONS}`,
   tune: `trod tune [--config <file>] [--iterations <n>] [--runs <n>] [--margin <n>] [--proposer <id>] [--dry-run]
+trod tune --prune [--sections] [--threshold <points>] [--model <id>] [--dry-run]
 
 Tunes the notes against your own tasks. List them in .trod/tune.json: {"tasks": [{"id", "prompt", "check"}]}, where
 check is a shell command and exit 0 means done. A model (default Haiku) runs the practice tasks, each in a throwaway
@@ -1691,7 +1848,14 @@ only if it passes at least --margin more held-out validation runs than the curre
   --proposer <id>          The model that rewrites the notes (default Opus)
   --parallel <n>           Sessions at a time (default 3)
   --timeout <minutes>      Per task session (default 15)
-  --budget <usd>           Spend cap per task session (default 2)`,
+  --budget <usd>           Spend cap per task session (default 2)
+
+With --prune, nothing is rewritten. It runs every task with the notes and without them (and with --sections, without
+each \`##\` section of notes.md in turn) on --model, and says per part: KEEP (removing it costs pass rate), CUT (no
+measurable effect: the upper end of the interval is below --threshold points, default 5) or INCONCLUSIVE (with the
+runs that would decide it). It deletes nothing, and appends the note size and verdicts to .trod/prune-history.jsonl,
+which \`trod doctor\` summarizes, so you can see the notes shrink as models improve. Single rules are not ablated: for
+those, ruleprof (pypi.org/project/ruleprof) measures adherence per rule.`,
   verify: `trod verify [--json]
 
 Re-runs every library tool's examples and every note check against the current environment. Exits 1 if any tool or
@@ -1754,7 +1918,7 @@ function suggestCommand(input) {
 
 // packages/cli/src/cli.ts
 import { pathToFileURL } from "node:url";
-import path9 from "node:path";
+import path10 from "node:path";
 import { parseArgs } from "node:util";
 import { ANTIGRAVITY_NOTES_RULE as ANTIGRAVITY_NOTES_RULE3, codexNotesFile as codexNotesFile3, linkAntigravityNotes as linkAntigravityNotes3, linkCodexNotes as linkCodexNotes3, computeStats, formatStats, linkNotes as linkNotes2, listToolEntries as listToolEntries2, loadToolEntry, NOTES_IMPORT as NOTES_IMPORT3, NOTES_MAX_CHARS as NOTES_MAX_CHARS4, promoteTool as promoteTool2, readLogs, resolveProjectDir, runToolExamples, trodPaths as trodPaths4, verifyNotes as verifyNotes3, notesPaths as notesPaths3, readTrodConfig as readTrodConfig4, writeTrodConfig as writeTrodConfig2 } from "../server/trod-lib.mjs";
 async function main(argv, out = console.log) {
@@ -1795,6 +1959,9 @@ async function main(argv, out = console.log) {
       proposer: { type: "string" },
       parallel: { type: "string" },
       "dry-run": { type: "boolean", default: false },
+      prune: { type: "boolean", default: false },
+      sections: { type: "boolean", default: false },
+      threshold: { type: "string" },
       auto: { type: "string" }
     }
   });
@@ -1825,7 +1992,7 @@ async function main(argv, out = console.log) {
     out("trod: --timeout must be a positive number of minutes (at most 35791)");
     return 1;
   }
-  const paths = trodPaths4(values.dir ? path9.resolve(values.dir) : resolveProjectDir());
+  const paths = trodPaths4(values.dir ? path10.resolve(values.dir) : resolveProjectDir());
   switch (command) {
     case "mcp": {
       await import(pathToFileURL(values.server ?? defaultServerPath()).href);
@@ -1859,12 +2026,12 @@ async function main(argv, out = console.log) {
         return 1;
       }
       const res = await promoteTool2(paths, name);
-      out(`promoted ${name} -> ${path9.relative(paths.projectDir, res.to)}${res.replaced ? " (replaced the previous library version)" : ""}${res.examplesPassed ? `, ${res.examplesPassed} example(s) passed` : ""}`);
+      out(`promoted ${name} -> ${path10.relative(paths.projectDir, res.to)}${res.replaced ? " (replaced the previous library version)" : ""}${res.examplesPassed ? `, ${res.examplesPassed} example(s) passed` : ""}`);
       out("Commit .trod/library/ so later sessions load it.");
       return 0;
     }
     case "report": {
-      const sources = values.from?.length ? values.from.map((f) => path9.resolve(f)) : [transcriptDir(paths.projectDir), ...codexTranscripts(paths.projectDir)];
+      const sources = values.from?.length ? values.from.map((f) => path10.resolve(f)) : [transcriptDir(paths.projectDir), ...codexTranscripts(paths.projectDir)];
       const sessions = findTranscripts(sources).map((f) => sessionMetrics(f)).filter((m) => m !== void 0);
       const delivery = sessionDelivery(paths);
       const logged = sessions.filter((s) => delivery.has(s.id));
@@ -1875,7 +2042,7 @@ async function main(argv, out = console.log) {
       return 0;
     }
     case "stats": {
-      const stats = computeStats(readLogs(values.logs ? path9.resolve(values.logs) : paths.logsDir));
+      const stats = computeStats(readLogs(values.logs ? path10.resolve(values.logs) : paths.logsDir));
       out(values.json ? JSON.stringify(stats, null, 2) : formatStats(stats));
       return 0;
     }
@@ -1904,7 +2071,7 @@ async function main(argv, out = console.log) {
         out("trod forge: --brief is required (text, or @path/to/brief.md)");
         return 1;
       }
-      const brief = values.brief.startsWith("@") ? readFileSync9(values.brief.slice(1), "utf8") : values.brief;
+      const brief = values.brief.startsWith("@") ? readFileSync10(values.brief.slice(1), "utf8") : values.brief;
       if (values.reset && !values.practice) {
         out("trod forge: --reset needs --practice");
         return 1;
@@ -1914,7 +2081,7 @@ async function main(argv, out = console.log) {
       return forgeExit("forge", res, values.json, out);
     }
     case "tune": {
-      const file = values.config ? path9.resolve(values.config) : path9.join(paths.projectDir, TUNE_CONFIG);
+      const file = values.config ? path10.resolve(values.config) : path10.join(paths.projectDir, TUNE_CONFIG);
       let config;
       try {
         config = readTuneConfig(file);
@@ -1928,6 +2095,20 @@ async function main(argv, out = console.log) {
         if (values.proposer) config.proposer = values.proposer;
         if (values.budget) config.maxBudgetUsd = values.budget;
         if (values.timeout) config.timeoutMinutes = Math.ceil(Number(values.timeout));
+        if (values.prune) {
+          const threshold = values.threshold === void 0 ? 5 : Number(values.threshold);
+          if (!(threshold > 0 && threshold <= 100)) throw new Error("--threshold must be a number of points between 0 and 100");
+          if (values["dry-run"]) {
+            const runs = config.runs ?? 2;
+            const notesFile = path10.join(paths.projectDir, ".trod", "notes.md");
+            const sections = values.sections && existsSync9(notesFile) ? splitSections(readFileSync10(notesFile, "utf8")).sections.length : 0;
+            out(`prune: ${config.tasks.length} task(s) \xD7 ${runs} run(s), with and without the notes${sections ? ` and without each of ${sections} section(s)` : ""}: ${config.tasks.length * runs * (2 + sections)} session(s) on ${config.model ?? DEFAULT_TUNE_MODEL}`);
+            return 0;
+          }
+          const res2 = await prune({ projectDir: paths.projectDir, config, out, configFile: file, sections: values.sections, threshold });
+          if (values.json) out(JSON.stringify(res2, null, 2));
+          return res2.withNotes.runs > 0 ? 0 : 1;
+        }
         const { practice, validate } = splitTasks(config.tasks);
         if (values["dry-run"]) {
           const runs = config.runs ?? 2;
@@ -1954,7 +2135,7 @@ async function main(argv, out = console.log) {
         out("trod learn: --reset needs --practice");
         return 1;
       }
-      const sources = values.from?.length ? values.from.map((f) => path9.resolve(f)) : [transcriptDir(paths.projectDir), ...codexTranscripts(paths.projectDir)];
+      const sources = values.from?.length ? values.from.map((f) => path10.resolve(f)) : [transcriptDir(paths.projectDir), ...codexTranscripts(paths.projectDir)];
       const outcomes = values.outcomes ? readOutcomes(values.outcomes) : void 0;
       const limit = values.limit ? Number(values.limit) : 200;
       if (!Number.isInteger(limit) || limit < 1) {
@@ -1998,16 +2179,16 @@ async function main(argv, out = console.log) {
 Notes: ${had.holdout ? "HOLDOUT (this session ran without notes or wiki pages)" : `${had.notes ? ".trod/notes.md loaded" : ".trod/notes.md not delivered (none yet)"}${had.pages.length ? `; wiki pages added: ${had.pages.join(", ")}` : ""}`}
 `);
         }
-        digestsDir = mkdtempSync3(path9.join(tmpdir3(), "trod-learn-"));
+        digestsDir = mkdtempSync3(path10.join(tmpdir3(), "trod-learn-"));
         const dir = digestsDir;
-        const counts = writeDigests(path9.join(dir, "sessions"), picked);
+        const counts = writeDigests(path10.join(dir, "sessions"), picked);
         out(`learning from ${picked.length} session(s) (${counts.pass} passed, ${counts.fail} failed, ${counts.unknown} unknown)${files.length > picked.length && picked.length === limit ? `, the ${limit} most recent` : ""}`);
-        let brief = values.brief ? values.brief.startsWith("@") ? readFileSync9(values.brief.slice(1), "utf8") : values.brief : "No brief: learn from the sessions and the project's files.";
+        let brief = values.brief ? values.brief.startsWith("@") ? readFileSync10(values.brief.slice(1), "utf8") : values.brief : "No brief: learn from the sessions and the project's files.";
         if (!execEnabled(paths.projectDir)) brief += "\n\nSessions in this project cannot run trod tools (execution is off), so do not build tools and do not refer to any in the notes: put everything a session needs into the notes themselves.";
         const practice = values.practice ? { check: values.practice, reset: values.reset } : void 0;
         const before = snapshot(paths.projectDir);
         const ledgerBefore = readLedger(paths.projectDir).rules;
-        const res = await forge({ projectDir: paths.projectDir, brief, model: values.model, server: values.server, maxBudgetUsd: values.budget, timeoutMs: values.timeout ? Number(values.timeout) * 6e4 : void 0, streamFile: values.stream, out, linkNotes: !values["no-link"], practice, activity: `learning from ${picked.length} session(s)`, notesBasis: "they rest on the sessions they were learned from", prompt: LEARN_PROMPT(path9.join(dir, "sessions"), counts, values.all ? void 0 : state, values.all) });
+        const res = await forge({ projectDir: paths.projectDir, brief, model: values.model, server: values.server, maxBudgetUsd: values.budget, timeoutMs: values.timeout ? Number(values.timeout) * 6e4 : void 0, streamFile: values.stream, out, linkNotes: !values["no-link"], practice, activity: `learning from ${picked.length} session(s)`, notesBasis: "they rest on the sessions they were learned from", prompt: LEARN_PROMPT(path10.join(dir, "sessions"), counts, values.all ? void 0 : state, values.all) });
         if (!res.promoted.length && snapshot(paths.projectDir) === before) {
           out("learn: the learner changed nothing in .trod/notes.md, .trod/wiki/ or the evidence ledger");
           forgeExit("learn", res, values.json, out);
@@ -2025,7 +2206,7 @@ Notes: ${had.holdout ? "HOLDOUT (this session ran without notes or wiki pages)" 
         if (res.exitCode === 0) writeLearnState(paths.projectDir, picked.map((d) => d.id));
         return code;
       } finally {
-        if (digestsDir) rmSync3(digestsDir, { recursive: true, force: true });
+        if (digestsDir) rmSync4(digestsDir, { recursive: true, force: true });
         release();
       }
     }
@@ -2116,11 +2297,11 @@ Notes: ${had.holdout ? "HOLDOUT (this session ran without notes or wiki pages)" 
   }
 }
 function snapshot(projectDir) {
-  const read = (f) => existsSync8(f) ? readFileSync9(f, "utf8") : "";
-  const wiki = path9.join(projectDir, ".trod", "wiki");
-  const pages = existsSync8(wiki) ? readdirSync5(wiki).sort().map((f) => `${f}
-${read(path9.join(wiki, f))}`) : [];
-  return [read(path9.join(projectDir, ".trod", "notes.md")), read(path9.join(projectDir, LEDGER_FILE)), ...pages].join("\n\0");
+  const read = (f) => existsSync9(f) ? readFileSync10(f, "utf8") : "";
+  const wiki = path10.join(projectDir, ".trod", "wiki");
+  const pages = existsSync9(wiki) ? readdirSync5(wiki).sort().map((f) => `${f}
+${read(path10.join(wiki, f))}`) : [];
+  return [read(path10.join(projectDir, ".trod", "notes.md")), read(path10.join(projectDir, LEDGER_FILE)), ...pages].join("\n\0");
 }
 function forgeExit(command, res, json, out) {
   out(`${command}: ${res.promoted.length} tool(s) promoted${res.unverified.length ? ` (${res.unverified.length} without examples)` : ""}, ${res.rejected.length} rejected${res.notes ? `, notes ${res.notes.linked ? "linked" : "not linked"}` : ", no notes"}${res.costUsd !== void 0 ? `, $${res.costUsd.toFixed(3)}, ${res.turns} turns` : ""}`);
@@ -2182,11 +2363,11 @@ async function setDelivery(paths, delivery, holdout, out) {
   return 0;
 }
 function removeNotesImport(claudeMd) {
-  if (!existsSync8(claudeMd)) return false;
-  const text = readFileSync9(claudeMd, "utf8");
+  if (!existsSync9(claudeMd)) return false;
+  const text = readFileSync10(claudeMd, "utf8");
   const next = text.replace(/\n?## Project notes \(trod\)\n\nVerified notes about this project's environment, kept by trod[^\n]*\n\n[ \t]*@\.trod\/notes\.md[ \t]*\n?/, "\n").replace(/^[ \t]*@\.trod\/notes\.md[ \t]*(\r?\n|$)/gm, "");
   if (next === text) return false;
-  writeFileSync7(claudeMd, next.replace(/\n{3,}/g, "\n\n"));
+  writeFileSync8(claudeMd, next.replace(/\n{3,}/g, "\n\n"));
   return true;
 }
 function deliveryHookCommand(dir) {
@@ -2196,7 +2377,7 @@ function deliveryHookCommand(dir) {
   if (!installed) return { command: current };
   if (/^npx -y trod(@\S+)? hook$/.test(installed.trim())) return { command: installed.trim() === "npx -y trod hook" ? installed.trim() : current };
   if (installed.includes(".trod/pkg/bin/trod")) {
-    const vendored = packageVersion(path9.join(dir, ".trod", "pkg"));
+    const vendored = packageVersion(path10.join(dir, ".trod", "pkg"));
     if (version && vendored !== version) return { error: `the vendored trod in .trod/pkg is ${vendored ?? "unknown"}, older than ${version}: re-run \`trod init --vendor\` first, so its hook handles notes delivery` };
   }
   return { command: installed };
@@ -2219,7 +2400,7 @@ async function hookMessage(raw, env = process.env) {
   if (!m) return void 0;
   const [, projectDir, kind, first] = m;
   const source = kind === "library" ? "library" : "session";
-  const entry = path9.join(projectDir, ".trod", kind, first);
+  const entry = path10.join(projectDir, ".trod", kind, first);
   let isDir = false;
   try {
     isDir = statSync3(entry).isDirectory();

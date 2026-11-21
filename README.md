@@ -5,12 +5,18 @@
 [![CI](https://github.com/swissspidy/trod/actions/workflows/ci.yml/badge.svg)](https://github.com/swissspidy/trod/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Teach Claude Code your project once.**
+**Generated context files usually do not help coding agents. trod shows when they do.**
 
-Every new session starts from zero: it rediscovers how your API pages, which flag the build needs, what "active
-customer" means here. trod turns that experience into a short set of verified notes (and tools), written by a
-dedicated learning session. Every later session loads them, so a small, cheap model works like one that already
-knows the place.
+Published studies find that LLM-written AGENTS.md files do not raise success on well-known repositories
+([Gloaguen et al., 2026](https://arxiv.org/abs/2602.11988)), and that skills a model writes for itself before trying a
+task do not help either ([SkillsBench](https://arxiv.org/abs/2602.12670)). trod's own runs agree: no gain on SWE-bench
+Django, BIRD or the full AppWorld test sets.
+
+Where the model lacks the knowledge and the same knowledge comes back in every task (an internal API, in-house tooling,
+an unfamiliar workflow), trod writes notes from graded attempts, practice or past sessions, and holds them back until
+they pass a check. On an invented API that no model can have seen, trod's notes took Haiku 5.5 from 75% to 99–100% and
+Opus 5.5 from 69% to 100%, while the CLAUDE.md that Claude Code's `/init` wrote did not help (63% and 75%). On public
+benchmarks Haiku went from 17% to 36% on AutomationBench, 68% to 90% on MiniWoB++ and 52% to 89% on ScienceWorld.
 
 ```sh
 npx trod init       # set this repository up (commit what it writes)
@@ -21,78 +27,100 @@ npx trod doctor     # see what trod knows here and what to do next
 > trod is not on npm yet. Until the first release, install the plugin (below), or clone this repository and run
 > `node <clone>/plugin/bin/trod init --vendor` in your project.
 
-## Does it work?
+## Results
 
-Measured on public benchmarks, with held-out test tasks the learning session never saw. Same model, same tasks,
-with and without the notes ([site](https://swissspidy.github.io/trod/),
-[all 18 rounds](https://swissspidy.github.io/trod/experiments.html)):
+Held-out test tasks the learning session never saw; same model and tasks with and without trod
+([site](https://swissspidy.github.io/trod/), [all rounds](https://swissspidy.github.io/trod/experiments.html)):
 
-| Tasks solved by Haiku 5.5 | alone | with trod's notes |
+| Tasks solved by Haiku 5.5 | alone | with trod |
 |---|---|---|
-| [AutomationBench](results-18/README.md): business workflows across 50 apps, 300 held-out tasks | 17% | **36%** |
-| [MiniWoB++](results-9/README.md): 30 hardest web task types | 68% | **90%**; [95%](results-14/README.md) after further learning and validated tuning |
-| [ScienceWorld](results-8/README.md): 30 kinds of science task | 52% | **89%** |
-| [AppWorld](results-17/README.md): everyday chores across 9 apps, all 585 test tasks | 85.8% | 86.5% |
-| [BIRD](results-7/README.md): text-to-SQL | 61% | 63% |
-| [SWE-bench Verified](results-5/README.md): Django issues | 79.6% | 79.1% |
+| [Zorbit](results-19/README.md): an invented API with twelve quirks, 40 tasks | 75% | **100%** (forge), **99%** (learn); `/init`'s file: 63% |
+| [AutomationBench](results-18/README.md): business workflows across 50 apps, 300 tasks | 17% | **36%** (learned notes) |
+| [MiniWoB++](results-9/README.md): 30 hardest web task types | 68% | **90%** (practice notes); [95%](results-14/README.md) after tuning |
+| [ScienceWorld](results-8/README.md): 30 kinds of science task | 52% | **89%** (notes from expert runs) |
+| [AppWorld](results-17/README.md): everyday chores in 9 apps, all 585 test tasks | 85.8% | 86.5% (notes) |
+| [BIRD](results-7/README.md): text-to-SQL | 61% | 63% (notes) |
+| [SWE-bench Verified](results-5/README.md): Django issues | 79.6% | 79.1% (a forged tool library; notes were not tested) |
 
-On the first three, Haiku with notes also beats Sonnet without them (30%, 67% and 67%) at about a tenth of the cost
-per run. On AutomationBench the notes came from `trod learn` alone: one $2 learning session over Haiku's own earlier
-sessions, and the same notes take Sonnet from 30% to 44%.
+On Zorbit, Opus 5.5 solves 69% alone and 100% with the same notes, at a third of the cost per run. On AutomationBench,
+MiniWoB++ and ScienceWorld, Haiku with notes also beats Sonnet without them (30%, 67% and 67%). Corrections are published
+with the same care: an earlier AppWorld gain measured on a 120-task sample [did not hold](results-17/README.md) on the
+full test sets, and notes learned there carried a rule that broke tasks.
 
-**It helps** where the same hidden rules come back in every task: internal or quirky APIs, unfamiliar codebases,
-in-house tooling, web and app workflows. **It does not help** where the model already knows the domain (Django),
-where it already does well without notes (AppWorld), or where every task needs its own fact that no earlier task
-taught (BIRD). The null results are published with the same care as the wins, and so are corrections: an earlier
-AppWorld gain measured on a 120-task sample [did not hold](results-17/README.md) on the full test sets, and notes learned there
-from 90 sessions with only 6 failures added nothing and carried one rule that broke tasks. Check learned notes on
-held-out tasks before relying on them (`trod tune` does).
+**What trod has and has not shown.** In round 19 an unrelated notes file of similar length did not help (66%), so there
+the gain came from the notes' content, not the priming effect [Zhang et al.](https://arxiv.org/abs/2604.11088) found on
+SWE-bench. That is one invented environment whose quirks can all be found by probing it; knowledge that exists only in
+people's heads has not been tested.
+
+## When not to use trod
+
+- **A frontier model on a well-known stack.** The model already knows what notes would say. trod measured no gain on
+  SWE-bench Django, and the AGENTS.md studies agree.
+- **A short AGENTS.md is enough.** If you know the few things every session gets wrong, write them down. Do not assume a
+  generated one helps: on Zorbit, `/init`'s file stated 3 of 12 quirks plus one wrong guess, and cut Haiku from 75% to 63%.
+- **The model already does well.** On AppWorld, Haiku completes 86% alone; notes added nothing.
+- **Each task needs its own fact.** On BIRD, notes from other questions did not raise accuracy.
+- **Nothing to learn from.** trod needs graded attempts, past sessions or an environment to explore. On Zorbit a forge
+  that only probed the live service did as well as one that practised; the self-generated skills in SkillsBench, written
+  with little exploration and no attempts, did not help.
+- **You want to prune or enforce a rules file you already have.** Use [ruleprof](https://pypi.org/project/ruleprof/) or
+  [obey](https://github.com/B0yko/obey) (see below).
 
 ## Three ways to teach it
 
-**From the sessions you already had.** No setup, no labels. `trod learn` reads the transcripts Claude Code keeps for
-this project, compares sessions that went wrong with ones that went right, and writes the rules that would have
-prevented the failures.
+**From the sessions you already had.** `trod learn` reads the transcripts Claude Code keeps for this project, compares
+sessions that went wrong with ones that went right, and writes the rules that would have prevented the failures.
 
 ```sh
-npx trod learn --dry-run     # see which sessions it would read; starts nothing
+npx trod learn --dry-run     # which sessions it would read; starts nothing
 npx trod learn               # one learning session; review the diff, then commit
-npx trod learn --auto 10     # or: keep learning by itself, after every 10 sessions
+npx trod learn --auto 10     # or keep learning by itself, after every 10 sessions
 ```
 
-**By studying something new.** Describe an API, a tool or a workflow in a few lines, and `trod forge` explores it in
-a dedicated session. Give it a success check and it practises against it first.
+**By practising on something new.** Describe an API, tool or workflow, give it a command that says whether an attempt
+succeeded, and `trod forge` practises against it before writing notes.
 
 ```sh
 npx trod forge --brief @env.md --practice 'npm test'
 ```
 
-**Against your own tasks.** List a few tasks with a command that checks each one, and `trod tune` rewrites the
-notes and keeps the rewrite only if it passes more held-out tasks than before.
+**Against your own tasks.** List tasks with a command that checks each one, and `trod tune` keeps a rewrite of the
+notes only if it passes more held-out tasks than the current notes (`.trod/tune.json`, `npx trod tune --dry-run`).
 
-```sh
-npx trod tune --dry-run      # tasks live in .trod/tune.json
-```
+What comes out is plain text in your repository: `.trod/notes.md` (rules, each with the action to take), optional
+`.trod/wiki/` pages and `.trod/library/` tools. You review it in a pull request like any other change.
 
-What comes out is plain text in your repository: `.trod/notes.md` (rules, each with the action to take),
-optionally `.trod/wiki/` pages for particular kinds of task and tools in `.trod/library/`. You review it in a pull
-request like any other change.
+## What the gates check
 
-## Why trust the notes?
+- **Practice:** with `--practice`, notes are linked only if the forge passed your check at least once.
+- **Held-out tasks:** `trod tune` rejects a rewrite that does not beat the current notes on validation tasks.
+- **Evidence:** `trod learn` counts how often later sessions confirmed or contradicted each rule, and fixes or drops
+  rules contradicted more often than confirmed.
+- **Checked claims:** a note can carry a check that runs a library tool; `npx trod verify` in CI fails when a check or a
+  tool example fails. Notes without a check are not verified by it, and it does not measure whether a note helps.
+- **Measured:** `npx trod report` compares your sessions with and without notes; with `npx trod notes --delivery hooks`,
+  a random 10% of sessions get no notes, so the comparison is an experiment.
 
-Notes an agent writes about your project can be wrong. trod does not take them on faith:
+## Compared with
 
-- **Checked claims.** A note can carry a check that re-runs against your environment. `npx trod verify` in CI
-  fails when a tool or a note has gone stale.
-- **Practice.** With `--practice`, notes are linked only if the learning session passed your success check at
-  least once.
-- **Evidence.** `trod learn` keeps a ledger: how often later sessions confirmed or contradicted each rule. Rules
-  contradicted more often than confirmed are fixed or dropped.
-- **Measured.** `npx trod report` compares your sessions with and without the notes: turns, failed tool calls,
-  follow-up prompts, tokens. With `npx trod notes --delivery hooks`, a random 10% of sessions get no notes, so the
-  comparison is a real experiment.
-- **Validated rewrites.** `trod tune` rejects a rewrite that does not beat the current notes on held-out tasks. On
-  AppWorld it rejected three plausible rewrites, one of which would have cost 3.5 points on the validation tasks.
+- **[ruleprof](https://pypi.org/project/ruleprof/):** removes one block of your CLAUDE.md at a time and measures whether
+  the agent still follows it, with intervals and the token cost of each block. Better than anything trod has for pruning
+  a rules file; use it. It measures adherence, not task success.
+- **[obey](https://github.com/B0yko/obey):** checks whether agents follow each rule against a no-rule baseline, and turns
+  rules into hooks. Use it to enforce rules; trod enforces nothing.
+- **[rulebench](https://pypi.org/project/rulebench/):** trap tests for a rule set across configurations, reporting which
+  tests told the configurations apart at all.
+- **[context-eval](https://jasonxzwen.github.io/context-eval/):** a general A/B harness for context variants on your own
+  repository; `trod tune` does this only for the notes trod writes.
+- **[NVIDIA SkillEvaluator](https://developer.nvidia.com/blog/evaluating-ai-agent-skill-performance-with-nvidia-skillevaluator/):**
+  measures the lift of a skill you already have. trod writes notes; it does not evaluate skills.
+- **[Antigravity /learn](https://antigravity.google/docs/commands/learn/):** turns your corrections in one session into
+  a rule or skill after you approve it, with no automated check. `trod learn` reads many sessions, compares failures with
+  successes and keeps an evidence ledger, with no approval step.
+- **CLAUDE.md, auto memory, Agent Skills, memory layers:** you or the agent write notes as you go, or retrieve past
+  history; curated skills are measured by SkillsBench (+16pp on average). trod writes the content and measures it.
+- **Research on learning from experience (Voyager, ExpeL, Agent Workflow Memory, ACE):** the same idea; trod is a
+  version you can install, with its evaluations published.
 
 ## Install
 
@@ -100,59 +128,16 @@ Notes an agent writes about your project can be wrong. trod does not take them o
 npx trod init                # Claude Code: local, cloud and mobile-app sessions of this repository
 npx trod init --codex        # Codex
 npx trod init --antigravity  # Antigravity
+claude plugin marketplace add swissspidy/trod && claude plugin install trod@trod   # or the plugin, no npm
 ```
 
-Commit what it writes. Or install the Claude Code plugin, which needs no npm:
-
-```sh
-claude plugin marketplace add swissspidy/trod
-claude plugin install trod@trod
-```
-
-Any other MCP client can run the server with `npx -y trod mcp`. The [reference](docs/reference.md) covers every
-route, and `npx trod help` lists the commands.
-
-## Is it safe?
-
-trod can also let an agent write its own tools mid-session and run them. Tool code runs outside the client's
-permission prompts, so **execution is off unless you turn it on** (`TROD_ALLOW_EXEC=1`, meant for ephemeral cloud
-containers). Notes need no execution at all. Tools run in a subprocess with a timeout and without your API keys or
-tokens in their environment. trod has no telemetry, and your transcripts stay on your machine apart from the
-condensed versions a learning session reads. Details: [SECURITY.md](SECURITY.md).
-
-## How it works
-
-1. **A learning session, separate from your work.** `trod learn`, `trod forge` and `trod tune` each start a
-   headless Claude Code session whose only job is to write down what future sessions need: rules a newcomer gets
-   wrong, each with the action to take.
-2. **A small always-loaded layer.** The notes are linked into `CLAUDE.md` (or `AGENTS.md`, or an Antigravity rule),
-   and kept short (trod warns above 6,000 characters). Rules for one kind of task go into wiki pages, which the
-   agent reads, or trod's hooks add, only when a task calls for them.
-3. **Live tools, if you want them.** The agent writes `.trod/tools/<name>.mjs` with its normal Write tool; trod's
-   MCP server validates it, runs its examples and registers it in the same session. Good ones are promoted to a
-   committed library.
-
-## How it compares
-
-- **`CLAUDE.md`, auto memory, Cline's Memory Bank:** notes you or the agent write as you go. trod writes them in a
-  dedicated session from many sessions at once, checks them, and measures whether they help.
-- **Agent Skills:** packaged know-how that someone authors. trod produces the know-how; the two work together.
-- **Memory layers (Letta, Mem0, MCP memory servers):** retrieve what happened before. trod distils rules that apply
-  to new tasks.
-- **Research (Voyager, ExpeL, Agent Workflow Memory, ACE, Anthropic's
-  [components of agent memory](https://www.anthropic.com/research/components-of-agent-memory)):** the same idea of
-  learning from experience. trod is a version you can install, with its evaluations published.
+Any other MCP client can run the server with `npx -y trod mcp`. trod can also let an agent write and run its own tools
+mid-session; that is off unless you set `TROD_ALLOW_EXEC=1`, and notes need no execution at all. trod has no telemetry.
+See the [reference](docs/reference.md) for how it works and every option, and [SECURITY.md](SECURITY.md).
 
 ## More
 
-- [Reference](docs/reference.md): the tool format, every install route, the CLI, configuration.
-- [Experiments](experiments/) and the results of each round: [1](results/README.md) … [18](results-18/README.md).
-- [Design decisions](docs/adr/), [distribution](docs/distribution.md), [changelog](plugin/CHANGELOG.md).
-- [Contributing](CONTRIBUTING.md) and [security](SECURITY.md).
-
-```sh
-pnpm install && pnpm check    # typecheck, lint, tests
-pnpm build                    # rebuilds the bundles under plugin/ (committed)
-```
-
-MIT licensed.
+[Experiments](experiments/) and the results of each round ([1](results/README.md) … [19](results-19/README.md)),
+[design decisions](docs/adr/), [distribution](docs/distribution.md), [changelog](plugin/CHANGELOG.md),
+[contributing](CONTRIBUTING.md). `pnpm install && pnpm check` runs typecheck, lint and tests; `pnpm build` rebuilds the
+bundles under `plugin/`. MIT licensed.

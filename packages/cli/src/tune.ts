@@ -166,7 +166,7 @@ export interface RunResult {
   error?: string;
 }
 
-interface Ctx {
+export interface Ctx {
   projectDir: string;
   out: (s: string) => void;
   claudeBin?: string;
@@ -221,7 +221,7 @@ async function runTask(ctx: Ctx, harness: string, task: TuneTask, run: number, o
 }
 
 /** Every task × run with a harness, a few at a time. */
-async function runBatch(ctx: Ctx, harness: string, tasks: TuneTask[], outDir: string, label: string): Promise<RunResult[]> {
+export async function runBatch(ctx: Ctx, harness: string, tasks: TuneTask[], outDir: string, label: string): Promise<RunResult[]> {
   mkdirSync(outDir, { recursive: true });
   const jobs = tasks.flatMap((t) => Array.from({ length: ctx.config.runs }, (_, i) => [t, i + 1] as const));
   const results: RunResult[] = [];
@@ -241,7 +241,7 @@ async function runBatch(ctx: Ctx, harness: string, tasks: TuneTask[], outDir: st
   return results;
 }
 
-const passed = (rs: RunResult[]) => rs.filter((r) => r.pass).length;
+export const passed = (rs: RunResult[]) => rs.filter((r) => r.pass).length;
 
 export const TUNE_PROMPT = (model: string, sessionsDir: string, failed: number, total: number) => `You are tuning notes. You are not solving a task: you are rewriting the notes that ${model} sessions in this project load (.trod/notes.md, and the pages in .trod/wiki/ it points to), so that they pass tasks like the ones below.
 
@@ -323,13 +323,19 @@ export interface TuneOptions {
   configFile?: string;
 }
 
-export async function tune(opts: TuneOptions): Promise<TuneResult> {
-  const out = opts.out ?? (() => {});
+/** The shared context for task runs (tune and prune): defaults, a scratch dir outside the project, the MCP config. */
+export function createContext(opts: Pick<TuneOptions, 'projectDir' | 'config' | 'out' | 'claudeBin' | 'env' | 'configFile'>): Ctx {
   const config = { model: DEFAULT_TUNE_MODEL, runs: 2, parallel: 3, timeoutMinutes: 15, ...opts.config };
-  const margin = config.margin ?? 1;
   const scratch = mkdtempSync(path.join(tmpdir(), 'trod-tune-'));
-  const ctx: Ctx = { projectDir: opts.projectDir, out, claudeBin: opts.claudeBin, env: opts.env ?? process.env, config, scratch, hide: hiddenPaths(opts.projectDir, opts.configFile), mcpConfig: path.join(scratch, 'mcp.json') };
+  const ctx: Ctx = { projectDir: opts.projectDir, out: opts.out ?? (() => {}), claudeBin: opts.claudeBin, env: opts.env ?? process.env, config, scratch, hide: hiddenPaths(opts.projectDir, opts.configFile), mcpConfig: path.join(scratch, 'mcp.json') };
   writeFileSync(ctx.mcpConfig, JSON.stringify({ mcpServers: { trod: { command: process.execPath, args: [defaultServerPath()] } } }));
+  return ctx;
+}
+
+export async function tune(opts: TuneOptions): Promise<TuneResult> {
+  const ctx = createContext(opts);
+  const { out, config } = ctx;
+  const margin = config.margin ?? 1;
   const { practice, validate } = splitTasks(config.tasks);
   const outDir = opts.outDir ?? path.join(opts.projectDir, TUNE_DIR, new Date().toISOString().replace(/[:.]/g, '-'));
   mkdirSync(outDir, { recursive: true });

@@ -4,6 +4,12 @@
 
 Development milestones before the first npm release; their changes ship in 0.1.0.
 
+### Unreleased
+
+- `trod tune --prune [--sections] [--threshold <points>]`: runs your tune tasks with and without the notes (and without
+  each `##` section) on a given model and calls each part KEEP, CUT or INCONCLUSIVE; nothing is deleted. The history
+  goes to `.trod/prune-history.jsonl`, summarized by `trod doctor` (ADR 0005).
+
 ### Milestone "0.5.0"
 
 - Scheduled learning: `trod learn` is incremental (`.trod/state/learn.json`, self-ignoring; nothing new means no

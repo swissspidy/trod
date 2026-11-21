@@ -1,0 +1,108 @@
+[
+  {
+    "arm": "none",
+    "passed": 22,
+    "runs": 32,
+    "infra": 0,
+    "rate": 0.6875,
+    "wilson": [
+      0.5143300030196761,
+      0.8204764788338126
+    ],
+    "taskBootstrap": [
+      0.5,
+      0.875
+    ],
+    "vsRef": null,
+    "costPerRun": 0.29281666249999994,
+    "turns": 15.9375,
+    "tokens": 392209.4375
+  },
+  {
+    "arm": "init",
+    "passed": 24,
+    "runs": 32,
+    "infra": 0,
+    "rate": 0.75,
+    "wilson": [
+      0.5789310822975338,
+      0.8674775601737845
+    ],
+    "taskBootstrap": [
+      0.5625,
+      0.90625
+    ],
+    "vsRef": {
+      "tasks": 16,
+      "meanDiff": 0.0625,
+      "ci": [
+        -0.125,
+        0.25
+      ],
+      "p": 0.5877463048058315,
+      "better": 4,
+      "worse": 3
+    },
+    "costPerRun": 0.24391648124999998,
+    "turns": 11.96875,
+    "tokens": 287838.8125
+  },
+  {
+    "arm": "forge",
+    "passed": 32,
+    "runs": 32,
+    "infra": 0,
+    "rate": 1,
+    "wilson": [
+      0.8928172849426365,
+      1
+    ],
+    "taskBootstrap": [
+      1,
+      1
+    ],
+    "vsRef": {
+      "tasks": 16,
+      "meanDiff": 0.3125,
+      "ci": [
+        0.125,
+        0.5
+      ],
+      "p": 0.019222024218602193,
+      "better": 7,
+      "worse": 0
+    },
+    "costPerRun": 0.08883260625,
+    "turns": 4.09375,
+    "tokens": 82038.71875
+  },
+  {
+    "arm": "learn",
+    "passed": 32,
+    "runs": 32,
+    "infra": 0,
+    "rate": 1,
+    "wilson": [
+      0.8928172849426365,
+      1
+    ],
+    "taskBootstrap": [
+      1,
+      1
+    ],
+    "vsRef": {
+      "tasks": 16,
+      "meanDiff": 0.3125,
+      "ci": [
+        0.125,
+        0.5
+      ],
+      "p": 0.019222024218602193,
+      "better": 7,
+      "worse": 0
+    },
+    "costPerRun": 0.1018019875,
+    "turns": 4.9375,
+    "tokens": 101207.34375
+  }
+]

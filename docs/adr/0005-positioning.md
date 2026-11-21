@@ -1,6 +1,6 @@
 # ADR 0005: Positioning against prior work, a private-knowledge experiment, and note pruning
 
-- Status: Proposed (for review; nothing in this ADR has been run)
+- Status: Accepted; round 19 ran (see the addenda)
 - Date: 2026-11-21
 
 ## Context
@@ -323,3 +323,38 @@ and is not in the table above.
 4. Forge arm: with `--practice` as proposed. A forge without practice would test conflict 2 directly, for about $1 more
    on Haiku and $12–23 more on Opus.
 5. Budget cap of $150, and 3 Opus trials or 2?
+
+## Addendum: review decisions and calibration (2026-11-21)
+
+**Decisions after review.**
+- No hand-written baseline ("no one writes these by hand anymore"). In its place: a CLAUDE.md written by Claude Code's
+  own `/init` (Opus 5.5) in the task workspace, which is what people do and is the ETH study's "LLM-generated" condition.
+  The question it answers is "why not just run /init?".
+- The placebo arm (round 18's AutomationBench notes, same kind of file, unrelated content) and a forge without practice
+  are added.
+- Opus 5.5 is the frontier model, with 2 trials. The total budget for the round is $40, so the Opus arms are cut to what
+  fits after the Haiku arms; the cost table above is superseded.
+
+**Calibration (iteration 1, the only one).** Haiku with no notes on the 20 train tasks, 2 trials: 28/40 passed (70%),
+above the 60% bound set above. The failures were mostly knowledge that probing did not reveal: every fiscal-week run
+failed because no session tried a DD.MM.YYYY date (they tried ISO, RFC 3339, US-style and epoch, then declined to
+answer), and wrong answers matched a missed clock offset (Q4), voided orders (Q5) or legacy region codes (Q11). The
+environment was **not** changed: tuning it until notes help would add choices made after seeing data, and 30 points of
+headroom is not a ceiling. This is a deviation from the bound, reported here and in the write-up.
+
+**Measured costs** replace the estimates: Haiku 5.5 $0.016 per run on this suite.
+
+## Addendum: outcome (2026-11-21)
+
+Round 19 ran within the budget ($34.14 of $40); full write-up in [results-19](../../results-19/README.md).
+
+- Haiku 5.5, 40 test tasks × 2: none 75.0%, `/init` 62.5%, placebo 66.3%, forge 100%, forge without practice 100%,
+  learn 98.8%. Opus 5.5, 16 tasks × 2: none 68.8%, `/init` 75.0%, forge 100%, learn 100%.
+- Conflict 3 (priming): in this environment the placebo did not help, so the gain came from the notes' content.
+- Conflict 2 (forge without practice): here it worked as well as the forge with practice, because every quirk could be
+  found by probing the live service. The README now says trod needs something to learn from (attempts, sessions or an
+  environment to explore), not specifically a success check.
+- Not resolved: the Opus comparisons against `/init` (p = 0.031 each) do not survive a Holm correction over the four
+  primary comparisons; knowledge that exists only in people's heads was not tested.
+- Section 5 is implemented as `trod tune --prune [--sections] [--threshold <points>]` (packages/cli/src/prune.ts), with
+  `.trod/prune-history.jsonl` summarized by `trod doctor`. It has not been run against a real project yet.
