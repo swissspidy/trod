@@ -1,6 +1,6 @@
 {
   "name": "trod",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Self-morphing tools for Claude Code and Antigravity: an MCP server that turns files into live tools mid-session, plus forged tool libraries and verified notes.",
   "mcpName": "io.github.swissspidy/trod",
   "type": "module",

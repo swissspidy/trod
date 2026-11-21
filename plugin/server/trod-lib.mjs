@@ -17769,7 +17769,7 @@ function formatStats(s) {
 }
 
 // packages/server/src/server.ts
-var VERSION = "0.0.0";
+var VERSION = "0.1.0";
 var STATUS_TOOL = {
   name: "trod_status",
   description: 'Shows the trod tool registry: which tools in .trod/tools (session) and .trod/library are live, which failed validation and why (schema, syntax, failing examples), and per-tool usage. Call it after writing or changing a tool to confirm it registered. Pass "name" for one tool in detail.',
