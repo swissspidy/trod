@@ -69,6 +69,24 @@ export function newcombe(k1: number, n1: number, k2: number, n2: number): [numbe
   return [d - Math.sqrt((p1 - l1) ** 2 + (u2 - p2) ** 2), d + Math.sqrt((u1 - p1) ** 2 + (p2 - l2) ** 2)];
 }
 
+/**
+ * Two-sided exact sign test over per-task differences (ties dropped): the chance of a split at least this lopsided if
+ * tasks were as likely to go either way. It holds at any number of tasks, whatever the tasks' own variation.
+ */
+export function signTest(diffs: number[]): number {
+  const pos = diffs.filter((d) => d > 0).length;
+  const n = pos + diffs.filter((d) => d < 0).length;
+  if (!n) return 1;
+  const k = Math.min(pos, n - pos);
+  let tail = 0;
+  let c = 1; // C(n, i)
+  for (let i = 0; i <= k; i++) {
+    tail += c;
+    c = (c * (n - i)) / (i + 1);
+  }
+  return Math.min(1, (2 * tail) / 2 ** n);
+}
+
 /** Below these, no verdict: the intervals are too unreliable to call a part KEEP or CUT. */
 export const MIN_TASKS = 5;
 export const MIN_RUNS = 10;
@@ -111,7 +129,8 @@ export interface Effect {
  * KEEP if the drop's interval is above 0, CUT if its upper end is below the threshold, else INCONCLUSIVE. The interval
  * is the wider of two: a bootstrap over tasks (runs of one task are not independent) and Newcombe's interval over all
  * runs (which stays honest when every task gives the same result, where a bootstrap collapses to a point). With fewer
- * than MIN_TASKS shared tasks or MIN_RUNS runs on either side there is no verdict.
+ * than MIN_TASKS shared tasks or MIN_RUNS runs on either side there is no verdict. KEEP also needs the tasks themselves
+ * to agree (sign test, p < 0.05): with few tasks, the intervals alone can exclude zero by chance when tasks differ.
  */
 export function verdict(part: string, withPart: Map<string, boolean[]>, withoutPart: Map<string, boolean[]>, threshold: number, runs: number): Effect {
   const shared = [...withPart.keys()].filter((t) => withoutPart.has(t));
@@ -125,7 +144,7 @@ export function verdict(part: string, withPart: Map<string, boolean[]>, withoutP
   const nc = newcombe(a.filter(Boolean).length, a.length, b.filter(Boolean).length, b.length);
   const ci: [number, number] = [Math.min(boot[0], nc[0]), Math.max(boot[1], nc[1])];
   const enough = shared.length >= MIN_TASKS && a.length >= MIN_RUNS && b.length >= MIN_RUNS;
-  if (enough && ci[0] > 0) return { part, drop, ci, verdict: 'KEEP', tasks: shared.length };
+  if (enough && ci[0] > 0 && signTest(diffs) < 0.05) return { part, drop, ci, verdict: 'KEEP', tasks: shared.length };
   if (enough && ci[1] < threshold) return { part, drop, ci, verdict: 'CUT', tasks: shared.length };
   // The interval narrows with the square root of the runs; aim for a half-width of half the threshold.
   const half = (ci[1] - ci[0]) / 2;

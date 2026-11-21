@@ -1447,6 +1447,19 @@ function newcombe(k1, n1, k2, n2) {
   const d = p1 - p2;
   return [d - Math.sqrt((p1 - l1) ** 2 + (u2 - p2) ** 2), d + Math.sqrt((u1 - p1) ** 2 + (p2 - l2) ** 2)];
 }
+function signTest(diffs) {
+  const pos = diffs.filter((d) => d > 0).length;
+  const n = pos + diffs.filter((d) => d < 0).length;
+  if (!n) return 1;
+  const k = Math.min(pos, n - pos);
+  let tail = 0;
+  let c = 1;
+  for (let i = 0; i <= k; i++) {
+    tail += c;
+    c = c * (n - i) / (i + 1);
+  }
+  return Math.min(1, 2 * tail / 2 ** n);
+}
 var MIN_TASKS = 5;
 var MIN_RUNS = 10;
 function bootstrapMean(diffs, reps = 5e3) {
@@ -1480,7 +1493,7 @@ function verdict(part, withPart, withoutPart, threshold, runs) {
   const nc = newcombe(a.filter(Boolean).length, a.length, b.filter(Boolean).length, b.length);
   const ci = [Math.min(boot[0], nc[0]), Math.max(boot[1], nc[1])];
   const enough = shared.length >= MIN_TASKS && a.length >= MIN_RUNS && b.length >= MIN_RUNS;
-  if (enough && ci[0] > 0) return { part, drop, ci, verdict: "KEEP", tasks: shared.length };
+  if (enough && ci[0] > 0 && signTest(diffs) < 0.05) return { part, drop, ci, verdict: "KEEP", tasks: shared.length };
   if (enough && ci[1] < threshold) return { part, drop, ci, verdict: "CUT", tasks: shared.length };
   const half = (ci[1] - ci[0]) / 2;
   let suggestRuns = half > 0 ? Math.min(50, Math.ceil(runs * (half / (threshold / 2)) ** 2)) : runs;

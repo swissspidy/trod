@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { main } from '../src/cli.ts';
-import { countRules, newcombe, prune, PRUNE_HISTORY, readPruneHistory, splitSections, summarizePruneHistory, verdict } from '../src/prune.ts';
+import { countRules, newcombe, prune, signTest, PRUNE_HISTORY, readPruneHistory, splitSections, summarizePruneHistory, verdict } from '../src/prune.ts';
 
 const tmp = () => mkdtempSync(path.join(tmpdir(), 'trod-prune-'));
 
@@ -68,6 +68,12 @@ describe('prune', () => {
     // Two tasks, one run each, notes pass and no notes fail: 1 time in 8 by chance when the notes do nothing.
     expect(verdict('x', runs(2, 1, true), runs(2, 1, false), 0.05, 1).verdict).toBe('INCONCLUSIVE');
     expect(verdict('x', runs(4, 5, true), runs(4, 5, false), 0.05, 5).verdict).toBe('INCONCLUSIVE');
+    // Five tasks that all agree: if tasks were as likely to go either way, that happens 1 time in 16 (6.25%).
+    expect(signTest([1, 1, 1, 1, 1])).toBeCloseTo(0.0625);
+    expect(verdict('x', runs(5, 2, true), runs(5, 2, false), 0.05, 2).verdict).toBe('INCONCLUSIVE');
+    // Six that agree: 1 in 32, below 5%.
+    expect(signTest([1, 1, 1, 1, 1, 1])).toBeCloseTo(0.03125);
+    expect(signTest([1, -1, 0, 1])).toBe(1); // 2 of 3 non-zero differences: no evidence either way
   });
 
   it('runs with and without the notes and each section, records the history, and changes nothing', async () => {
