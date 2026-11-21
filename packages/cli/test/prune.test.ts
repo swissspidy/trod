@@ -91,6 +91,7 @@ describe('prune', () => {
     expect(h[0]).toMatchObject({ notesChars: NOTES.length, rules: 3, sections: 2 });
     expect(summarizePruneHistory(h)).toMatch(/notes KEEP \(\+100 points\), 0 part\(s\) to cut/);
     expect(lines.join('\n')).toMatch(/Nothing was changed/);
+    expect(lines.join('\n')).toMatch(/describe the tasks in your tune config only/);
   });
 
   it('trod tune --prune --dry-run counts the sessions and starts none; doctor shows the last prune', async () => {

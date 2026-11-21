@@ -334,9 +334,12 @@ unwritten changelog rule, one iteration took Haiku from 0 to 3 of 3 validation r
 
 `npx trod tune --prune --model <id>` rewrites nothing. It runs every task in `.trod/tune.json` with the notes and
 without them, and with `--sections` also without each `##` section of `notes.md` in turn, and gives a verdict per part:
-KEEP (removing it costs pass rate: the 95% bootstrap interval of the drop is above zero), CUT (no measurable effect: the
-interval's upper end is below `--threshold` points, default 5) or INCONCLUSIVE (with roughly how many runs per task
-would decide it). Nothing is deleted. Each run appends the date, model, note size, rule count and verdicts to
+KEEP (removing it costs pass rate), CUT (no measurable effect: the interval's upper end is below `--threshold` points,
+default 5) or INCONCLUSIVE (with roughly how many runs per task would decide it). The interval for the drop is the wider
+of a bootstrap over tasks and Newcombe's interval over all runs; KEEP also needs the tasks to agree (an exact sign test,
+p < 0.05), and there is no verdict below 5 tasks or 10 runs per arm. Verdicts describe the tasks in `.trod/tune.json`
+only: a part that matters for a kind of task not listed there can still show as CUT, so add such tasks before removing
+anything. Nothing is deleted. Each run appends the date, model, note size, rule count and verdicts to
 `.trod/prune-history.jsonl`, and `trod doctor` shows the latest one and how the notes changed since the first, so you
 can see whether notes shrink as you move to newer models. `--dry-run` prints how many sessions it would take.
 

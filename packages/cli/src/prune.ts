@@ -269,7 +269,7 @@ export async function prune(opts: PruneOptions): Promise<PruneResult> {
     };
     out(`with notes ${result.withNotes.passed}/${result.withNotes.runs}, without ${result.withoutNotes.passed}/${result.withoutNotes.runs}`);
     for (const e of effects) out(`  ${e.verdict.padEnd(12)} ${e.part}: removing it changes the pass rate by ${pts(-e.drop)} points [${pts(-e.ci[1])}, ${pts(-e.ci[0])}] on ${e.tasks} task(s)${e.suggestRuns ? `; about ${e.suggestRuns} runs per task would decide it` : ''}`);
-    out('Nothing was changed. CUT means the part had no measurable effect on this model: consider removing it and re-running.');
+    out('Nothing was changed. Verdicts describe the tasks in your tune config only: CUT means no measurable effect on those tasks on this model, so a part that matters for a kind of task not in the config can still show as CUT. Add such tasks before removing a part.');
     const entry: PruneHistoryEntry = {
       date: new Date().toISOString(),
       model: config.model,

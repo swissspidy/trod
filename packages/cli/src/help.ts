@@ -126,7 +126,8 @@ only if it passes at least --margin more held-out validation runs than the curre
 With --prune, nothing is rewritten. It runs every task with the notes and without them (and with --sections, without
 each \`##\` section of notes.md in turn) on --model, and says per part: KEEP (removing it costs pass rate), CUT (no
 measurable effect: the upper end of the interval is below --threshold points, default 5) or INCONCLUSIVE (with the
-runs that would decide it). It deletes nothing, and appends the note size and verdicts to .trod/prune-history.jsonl,
+runs that would decide it). Verdicts describe the tasks in the config only: a part that matters for a kind of task
+not listed there can still show as CUT. It deletes nothing, and appends the note size and verdicts to .trod/prune-history.jsonl,
 which \`trod doctor\` summarizes, so you can see the notes shrink as models improve. Single rules are not ablated: for
 those, ruleprof (pypi.org/project/ruleprof) measures adherence per rule.`,
 
