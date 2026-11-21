@@ -3,6 +3,25 @@
 Everything the [README](../README.md) leaves out: the tool format, every install route, the CLI, configuration and
 releasing.
 
+## How it works
+
+1. **A learning session, separate from your work.** `trod learn`, `trod forge` and `trod tune` each start a headless
+   Claude Code session whose only job is to write down what future sessions need: rules a newcomer gets wrong, each
+   with the action to take.
+2. **A small always-loaded layer.** The notes are linked into `CLAUDE.md` (or `AGENTS.md`, or an Antigravity rule), and
+   kept short (trod warns above 6,000 characters). Rules for one kind of task go into wiki pages, which the agent reads,
+   or trod's hooks add, only when a task calls for them.
+3. **Live tools, if you want them.** The agent writes `.trod/tools/<name>.mjs` with its normal Write tool; trod's MCP
+   server validates it, runs its examples and registers it in the same session. Good ones are promoted to a committed
+   library.
+
+**Safety.** Tool code runs outside the client's permission prompts, so execution is off in your sessions unless you
+turn it on (`TROD_ALLOW_EXEC=1`, meant for ephemeral cloud containers). Notes need no execution at all. The exception is
+trod's own learning sessions: `trod forge`, `trod learn` and `trod tune` set `TROD_ALLOW_EXEC=1` for the session they
+start, so it can build and test tools; run them in an environment where that is acceptable. Tools run in a subprocess
+with a timeout and without your API keys or tokens in their environment. Your transcripts stay on your machine apart
+from the condensed versions a learning session reads. Details: [SECURITY.md](../SECURITY.md).
+
 ## The tool format
 
 One file, `.trod/tools/<name>.mjs`:
@@ -310,6 +329,23 @@ Validation is the point. On AppWorld, three plausible rewrites from Opus were ea
 better on held-out tasks; one did 3.5 points worse ([round 15](../results-15/README.md)). On MiniWoB++, the pages
 that did win took Haiku from 137 to 141 of 150 ([round 13](../results-13/README.md)). On a toy repository with an
 unwritten changelog rule, one iteration took Haiku from 0 to 3 of 3 validation runs for $0.26.
+
+### Pruning: does each part still earn its place?
+
+`npx trod tune --prune --model <id>` rewrites nothing. It runs every task in `.trod/tune.json` with the notes and
+without them, and with `--sections` also without each `##` section of `notes.md` in turn, and gives a verdict per part:
+KEEP (removing it costs pass rate), CUT (no measurable effect: the interval's upper end is below `--threshold` points,
+default 5) or INCONCLUSIVE (with roughly how many runs per task would decide it). The interval for the drop is the wider
+of a bootstrap over tasks and Newcombe's interval over all runs; KEEP also needs the tasks to agree (an exact sign test,
+p < 0.05), and there is no verdict below 5 tasks or 10 runs per arm. Verdicts describe the tasks in `.trod/tune.json`
+only: a part that matters for a kind of task not listed there can still show as CUT, so add such tasks before removing
+anything. Nothing is deleted. Each run appends the date, model, note size, rule count and verdicts to
+`.trod/prune-history.jsonl`, and `trod doctor` shows the latest one and how the notes changed since the first, so you
+can see whether notes shrink as you move to newer models. `--dry-run` prints how many sessions it would take.
+
+Single rules are not ablated: their effect on task success needs more runs than most projects have tasks, and rule
+effects are not additive ([Zhang et al., 2026](https://arxiv.org/abs/2604.11088)). For rules with an observable
+behaviour, [ruleprof](https://pypi.org/project/ruleprof/) measures adherence per rule.
 
 ## Is it helping?
 

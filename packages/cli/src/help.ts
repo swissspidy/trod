@@ -105,6 +105,7 @@ is promoted as unverified); the notes' checks are run, and the notes are linked 
 ${SESSION_OPTIONS}`,
 
   tune: `trod tune [--config <file>] [--iterations <n>] [--runs <n>] [--margin <n>] [--proposer <id>] [--dry-run]
+trod tune --prune [--sections] [--threshold <points>] [--model <id>] [--dry-run]
 
 Tunes the notes against your own tasks. List them in .trod/tune.json: {"tasks": [{"id", "prompt", "check"}]}, where
 check is a shell command and exit 0 means done. A model (default Haiku) runs the practice tasks, each in a throwaway
@@ -120,7 +121,15 @@ only if it passes at least --margin more held-out validation runs than the curre
   --proposer <id>          The model that rewrites the notes (default Opus)
   --parallel <n>           Sessions at a time (default 3)
   --timeout <minutes>      Per task session (default 15)
-  --budget <usd>           Spend cap per task session (default 2)`,
+  --budget <usd>           Spend cap per task session (default 2)
+
+With --prune, nothing is rewritten. It runs every task with the notes and without them (and with --sections, without
+each \`##\` section of notes.md in turn) on --model, and says per part: KEEP (removing it costs pass rate), CUT (no
+measurable effect: the upper end of the interval is below --threshold points, default 5) or INCONCLUSIVE (with the
+runs that would decide it). Verdicts describe the tasks in the config only: a part that matters for a kind of task
+not listed there can still show as CUT. It deletes nothing, and appends the note size and verdicts to .trod/prune-history.jsonl,
+which \`trod doctor\` summarizes, so you can see the notes shrink as models improve. Single rules are not ablated: for
+those, ruleprof (pypi.org/project/ruleprof) measures adherence per rule.`,
 
   verify: `trod verify [--json]
 

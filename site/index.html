@@ -74,8 +74,8 @@ p code,li code,td code{font-size:.92em;background:var(--surface-2);padding:1px 5
 <body><main>
 
 <p class="eyebrow">trod · for Claude Code</p>
-<h1>Teach a small model your environment once.</h1>
-<p class="lead">trod runs one dedicated session that studies, or practises on, your API, tooling or workflow. It writes a verified tool library and short, rule-shaped notes. Every later session loads them, so a cheap model works like one that already knows the place.</p>
+<h1>Generated context usually does not help. trod shows when it does.</h1>
+<p class="lead">LLM-written AGENTS.md files do not raise success on well-known repositories (<a href="https://arxiv.org/abs/2602.11988">Gloaguen et al.</a>), and skills a model writes before trying a task do not help (<a href="https://arxiv.org/abs/2602.12670">SkillsBench</a>). Our own null results agree. Where the model lacks the knowledge and it recurs in every task, trod writes notes from graded attempts, practice or past sessions. With a check of yours (<code>--practice</code>, note checks), trod does not link notes that fail it; notes an existing import or hooks delivery already loads keep loading, with a warning. <code>trod tune</code> separately measures rewrites on held-out tasks.</p>
 <div class="cta">
   <a class="btn primary" href="#install">Get started</a>
   <a class="btn ghost" href="https://github.com/swissspidy/trod">GitHub</a>
@@ -83,14 +83,14 @@ p code,li code,td code{font-size:.92em;background:var(--surface-2);padding:1px 5
 </div>
 
 <div class="tiles">
+  <div class="tile"><div class="tl">Zorbit: an invented API no model has seen</div><div class="big">75% → 100%</div><div class="sub">Haiku, forged notes, 40 held-out tasks · <code>/init</code>'s file: 63% · Opus, 16 tasks: 69% → 100%</div></div>
   <div class="tile"><div class="tl">AutomationBench business workflows, 300 held-out tasks</div><div class="big">17% → 36%</div><div class="sub">Haiku, notes from one <code>trod learn</code> session · Sonnet: 30% → 44% with the same notes</div></div>
   <div class="tile"><div class="tl">MiniWoB++ web tasks, hardest 30 types</div><div class="big">68% → 90%</div><div class="sub">Haiku, with practice notes · Sonnet alone: 67%</div></div>
   <div class="tile"><div class="tl">ScienceWorld</div><div class="big">52% → 89%</div><div class="sub">Haiku, with forged notes · Sonnet alone: 67%</div></div>
-  <div class="tile"><div class="tl">Learned from past sessions alone</div><div class="big">68% → 91%</div><div class="sub">MiniWoB++, three rounds of <code>trod learn</code> · no setup</div></div>
 </div>
 
 <h2>Where it shines</h2>
-<p>Forged knowledge pays in proportion to how much of tomorrow's work today's lessons cover. Across eighteen rounds of experiments; in those that forged or learned notes, the test cases were ones the forge never saw:</p>
+<p>Notes pay in proportion to how much of tomorrow's work today's lessons cover, and only where the model does not already know it. Across nineteen rounds; in those that forged or learned notes, the test cases were ones the learning session never saw. In round 19 an unrelated notes file of similar length did not help (66% against 75%), so there the gain came from the notes' content, not the priming <a href="https://arxiv.org/abs/2604.11088">Zhang et al.</a> found on SWE-bench.</p>
 <div class="chart" role="figure" aria-label="Share of tasks Haiku solved alone and with forged notes (a forged tool library for SWE-bench), per benchmark">
   <div class="legend"><span><i class="sw" style="background:var(--series-2)"></i>Haiku alone</span><span><i class="sw" style="background:var(--series-1)"></i>Haiku with forged notes (SWE-bench: forged tool library)</span></div>
   <div id="rows"></div>
@@ -110,6 +110,10 @@ p code,li code,td code{font-size:.92em;background:var(--surface-2);padding:1px 5
     <li>Domains the model already knows well (SWE-bench on Django: no change)</li>
     <li>Tasks the model already solves without help (AppWorld, full test sets: 86% either way; notes learned from 84 passes and 6 failures added nothing)</li>
     <li>Tasks that each need a fact no earlier task taught (BIRD: tokens saved, accuracy flat)</li>
+    <li>A frontier model on a well-known stack: the published AGENTS.md studies find no gain either</li>
+    <li>When a short AGENTS.md is enough: if you know the few rules every session needs, write them down</li>
+    <li>Nothing to learn from: trod needs graded attempts, past sessions or an environment to explore</li>
+    <li>Trusting a generated <code>/init</code> file: on Zorbit it stated 3 of 12 quirks plus a wrong guess, and cut Haiku from 75% to 63%</li>
     <li>Building tools mid-task instead of forging once: no cheaper than writing a script</li>
   </ul></div>
 </div>
@@ -124,13 +128,19 @@ p code,li code,td code{font-size:.92em;background:var(--surface-2);padding:1px 5
 <p style="margin-top:14px">Underneath sits a live MCP tool server. The agent can write <code>.trod/tools/&lt;name&gt;.mjs</code> mid-session, and trod validates it, runs its examples and registers it without a restart.</p>
 
 <h2>Compared with</h2>
-<p>Learning from experience is not a new idea. What trod adds is a forge you can run, gates that hold back notes whose checks fail or that never passed your success check, and published measurements of when it helps.</p>
+<p>Several tools now measure context files, and some do it better than trod. trod writes notes and measures whether they raise task success; where another tool already does a job well, use it.</p>
 <div class="scroll"><table>
   <tr><th></th><th>Who writes the knowledge</th><th>Verified?</th><th>Learns by practice?</th><th>Measured gains</th></tr>
-  <tr class="us"><td>trod</td><td class="y">A dedicated forge session (any model), from probing, practice or past sessions</td><td class="y">Tool examples, note checks, <code>trod verify</code></td><td class="y">Yes, against your success check</td><td class="y">18 rounds, positive and negative</td></tr>
+  <tr class="us"><td>trod</td><td class="y">A dedicated session (any model), from practice, graded past sessions or held-out tasks</td><td class="y">Practice gate, held-out validation (<code>trod tune</code>), evidence ledger; <code>trod verify</code> checks only claims a tool can observe</td><td class="y">Yes, against your success check</td><td class="y">19 rounds, positive and negative</td></tr>
+  <tr><td><a href="https://pypi.org/project/ruleprof/">ruleprof</a></td><td>You (it audits an existing CLAUDE.md)</td><td class="y">Per-block ablation with intervals and token cost</td><td class="n">No</td><td>Adherence per rule; better than trod for pruning a rules file</td></tr>
+  <tr><td><a href="https://github.com/B0yko/obey">obey</a></td><td>You (it audits AGENTS.md and other rule files)</td><td class="y">Per-rule probes against a no-rule baseline, Wilson intervals; turns rules into hooks</td><td class="n">No</td><td>Compliance: 1,474 of 1,474 runs with the rule, 81% without</td></tr>
+  <tr><td><a href="https://pypi.org/project/rulebench/">rulebench</a></td><td>You (it tests a rules pack)</td><td class="y">Trap tests across configurations, graded by rubric</td><td class="n">No</td><td>Reports which tests differ between configurations at all</td></tr>
+  <tr><td><a href="https://jasonxzwen.github.io/context-eval/">context-eval</a></td><td>You (any context variant)</td><td class="y">A/B runs with validation commands, repeated trials</td><td class="n">No</td><td class="n">None published</td></tr>
+  <tr><td><a href="https://developer.nvidia.com/blog/evaluating-ai-agent-skill-performance-with-nvidia-skillevaluator/">NVIDIA SkillEvaluator</a></td><td>You (it evaluates existing skills)</td><td class="y">Runs with and without a skill, "skill lift"</td><td class="n">No</td><td>+41 points correctness on NVIDIA's skills; mostly one attempt per case</td></tr>
+  <tr><td><a href="https://antigravity.google/docs/commands/learn/">Antigravity /learn</a></td><td>The agent, from your corrections in one session, after you approve</td><td class="n">Human review only</td><td class="n">No</td><td class="n">n/a</td></tr>
   <tr><td><code>CLAUDE.md</code>, auto memory</td><td>You, or the agent as it goes</td><td class="n">No</td><td class="n">No</td><td class="n">n/a</td></tr>
   <tr><td>Cline Memory Bank</td><td>The agent, on request, as markdown files</td><td class="n">No</td><td class="n">No</td><td class="n">n/a</td></tr>
-  <tr><td>Agent Skills (<code>SKILL.md</code>)</td><td>An author, by hand</td><td class="n">No</td><td class="n">No</td><td class="n">n/a; complementary: trod produces the know-how a skill would package</td></tr>
+  <tr><td>Agent Skills (<code>SKILL.md</code>)</td><td>An author</td><td>Measurable with SkillEvaluator</td><td class="n">No</td><td>Curated skills +16pp on average in SkillsBench; self-generated ones no gain or worse. trod can produce the content a skill packages</td></tr>
   <tr><td>Memory layers (Letta, MCP memory servers)</td><td>Stored history, retrieved later</td><td class="n">No</td><td class="n">No</td><td class="n">Vendor claims</td></tr>
   <tr><td>Runtime tool MCP servers (e.g. DIY Tools MCP)</td><td>The agent, one tool at a time</td><td class="n">Varies</td><td class="n">No</td><td class="n">n/a</td></tr>
   <tr><td>Harness² (Google Research)</td><td>An editor agent per task, plus a persistent "improvement harness" of lessons</td><td>Contrastive probes on the same task (no ground truth)</td><td class="y">Yes, on each task</td><td>Up to +11.5 pts WorkBuddy-Bench, +4.5 JobBench, +11.8 pp LAB (GLM-5, Gemini 3.5 Flash); a research framework, not a Claude Code tool</td></tr>
@@ -151,6 +161,7 @@ npx trod verify                     # in CI</code></pre>
 
 <script>
 const data = [
+  { name: 'Zorbit', note: 'an invented API no model has seen; forged notes', base: 75.0, notes: 100.0, runs: 80, href: 'https://github.com/swissspidy/trod/blob/main/results-19/README.md' },
   { name: 'AutomationBench', note: 'business workflows, 50 apps; notes from trod learn', base: 16.7, notes: 36.3, runs: 300, href: 'https://github.com/swissspidy/trod/blob/main/results-18/README.md' },
   { name: 'MiniWoB++', note: '30 hardest web task types', base: 68.0, notes: 90.0, runs: 150, href: 'round-9/' },
   { name: 'ScienceWorld', note: '30 science task types', base: 52.2, notes: 88.9, runs: 180, href: 'round-8/' },

@@ -5,6 +5,7 @@ import { listToolEntries, notesLinked, notesPaths, readChecks, readTrodConfig, N
 import { autoLearnConfig } from './autolearn.ts';
 import { trodHookEvents } from './init.ts';
 import { codexTranscripts, findTranscripts, pickSessions, readLearnState, readLedger, summarizeLedger, transcriptDir } from './learn.ts';
+import { readPruneHistory, summarizePruneHistory } from './prune.ts';
 
 /**
  * `trod doctor`: one screen that answers "is this set up, what does trod know here, and what do I do next?".
@@ -128,6 +129,8 @@ export function doctor(paths: TrodPaths, opts: DoctorOptions = {}): DoctorReport
   else if (library || sessionTools) knowledge.push({ level: library ? 'ok' : 'info', text: `Tools: ${library} in the library${sessionTools ? `, ${sessionTools} session tool(s) not promoted` : ''}` });
   const ledger = readLedger(dir);
   if (ledger.exists) knowledge.push(ledger.errors.length ? { level: 'bad', text: `Evidence ledger: ${ledger.errors[0]}` } : { level: 'ok', text: `Evidence: ${summarizeLedger(ledger.rules)}` });
+  const pruned = summarizePruneHistory(readPruneHistory(dir));
+  if (pruned) knowledge.push({ level: 'info', text: pruned });
 
   // --- Sessions
   const files = (opts.transcripts ?? (() => findTranscripts([transcriptDir(dir), ...codexTranscripts(dir)])))();

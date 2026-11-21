@@ -18287,6 +18287,14 @@ ${notes.trim().replaceAll(CODEX_NOTES_MARKER, "<!-- trod notes (quoted) -->").re
 ${CODEX_NOTES_END}
 `;
 }
+function replaceCodexNotesBlock(text, notes) {
+  const start = text.indexOf(CODEX_NOTES_MARKER);
+  const end = start >= 0 ? text.indexOf(CODEX_NOTES_END, start) : -1;
+  if (start < 0 || end < start) return text;
+  const after = text.slice(end + CODEX_NOTES_END.length);
+  if (notes !== void 0) return text.slice(0, start) + codexNotesBlock(notes).trimEnd() + after;
+  return (text.slice(0, start).trimEnd() + "\n" + after.replace(/^\n+/, "\n")).replace(/^\n+/, "");
+}
 function linkCodexNotes(paths) {
   const name = codexNotesFile(paths);
   const file = path7.join(paths.projectDir, name);
@@ -18532,6 +18540,7 @@ export {
   readChecks,
   readLogs,
   readTrodConfig,
+  replaceCodexNotesBlock,
   resolveProjectDir,
   runToolExamples,
   scrubEnv,

@@ -6,6 +6,7 @@ import { defaultPackageRoot, init, installClaudeHooks, installedHookCommand, pac
 import { buildHoldoutReport, buildReport, formatReport, notesSince, sessionMetrics, type SessionMetrics } from './report.ts';
 import { notesHook, sessionDelivery } from './delivery.ts';
 import { DEFAULT_TUNE_MODEL, DEFAULT_TUNE_PROPOSER, readTuneConfig, splitTasks, tune, TUNE_CONFIG } from './tune.ts';
+import { prune, splitSections } from './prune.ts';
 import { sessionEndHook, setAutoLearn } from './autolearn.ts';
 import { doctor, execEnabled, formatDoctor } from './doctor.ts';
 import { DETAILS, OVERVIEW, suggestCommand } from './help.ts';
@@ -52,6 +53,9 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
       proposer: { type: 'string' },
       parallel: { type: 'string' },
       'dry-run': { type: 'boolean', default: false },
+      prune: { type: 'boolean', default: false },
+      sections: { type: 'boolean', default: false },
+      threshold: { type: 'string' },
       auto: { type: 'string' },
     },
   });
@@ -193,6 +197,20 @@ export async function main(argv: string[], out: (s: string) => void = console.lo
         if (values.proposer) config.proposer = values.proposer;
         if (values.budget) config.maxBudgetUsd = values.budget;
         if (values.timeout) config.timeoutMinutes = Math.ceil(Number(values.timeout));
+        if (values.prune) {
+          const threshold = values.threshold === undefined ? 5 : Number(values.threshold);
+          if (!(threshold > 0 && threshold <= 100)) throw new Error('--threshold must be a number of points between 0 and 100');
+          if (values['dry-run']) {
+            const runs = config.runs ?? 2;
+            const notesFile = path.join(paths.projectDir, '.trod', 'notes.md');
+            const sections = values.sections && existsSync(notesFile) ? splitSections(readFileSync(notesFile, 'utf8')).sections.length : 0;
+            out(`prune: ${config.tasks.length} task(s) × ${runs} run(s), with and without the notes${sections ? ` and without each of ${sections} section(s)` : ''}: ${config.tasks.length * runs * (2 + sections)} session(s) on ${config.model ?? DEFAULT_TUNE_MODEL}`);
+            return 0;
+          }
+          const res = await prune({ projectDir: paths.projectDir, config, out, configFile: file, sections: values.sections, threshold });
+          if (values.json) out(JSON.stringify(res, null, 2));
+          return res.withNotes.runs > 0 ? 0 : 1;
+        }
         const { practice, validate } = splitTasks(config.tasks);
         if (values['dry-run']) {
           const runs = config.runs ?? 2;
