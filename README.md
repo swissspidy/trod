@@ -13,8 +13,8 @@ task do not help either ([SkillsBench](https://arxiv.org/abs/2602.12670)). trod'
 Django, BIRD or the full AppWorld test sets.
 
 Where the model lacks the knowledge and the same knowledge comes back in every task (an internal API, in-house tooling,
-an unfamiliar workflow), trod writes notes from graded attempts, practice or past sessions, and holds them back until
-they pass a check. On an invented API that no model can have seen, trod's notes took Haiku 5.5 from 75% to 99–100% and
+an unfamiliar workflow), trod writes notes from graded attempts, practice or past sessions, and can hold them back
+until they pass your check (`--practice`, note checks, or held-out tasks with `trod tune`). On an invented API that no model can have seen, trod's notes took Haiku 5.5 from 75% to 99–100% and
 Opus 5.5 from 69% to 100%, while the CLAUDE.md that Claude Code's `/init` wrote did not help (63% and 75%). On public
 benchmarks Haiku went from 17% to 36% on AutomationBench, 68% to 90% on MiniWoB++ and 52% to 89% on ScienceWorld.
 
@@ -132,7 +132,9 @@ claude plugin marketplace add swissspidy/trod && claude plugin install trod@trod
 ```
 
 Any other MCP client can run the server with `npx -y trod mcp`. trod can also let an agent write and run its own tools
-mid-session; that is off unless you set `TROD_ALLOW_EXEC=1`, and notes need no execution at all. trod has no telemetry.
+mid-session; that is off in your sessions unless you set `TROD_ALLOW_EXEC=1`, and notes need no execution at all. The
+learning sessions that `trod forge`, `trod learn` and `trod tune` start do run tools, so run those where that is fine.
+trod has no telemetry.
 See the [reference](docs/reference.md) for how it works and every option, and [SECURITY.md](SECURITY.md).
 
 ## More

@@ -81,6 +81,34 @@ describe('tune config', () => {
     expect(existsSync(ws.dir)).toBe(false);
   });
 
+  it('rewrites the copy of the notes in AGENTS.md to the harness notes, or removes it when the harness has none', () => {
+    const dir = project();
+    const block = '<!-- trod notes -->\n## Project notes (trod)\n\n- Old rule from the project.\n<!-- /trod notes -->\n';
+    writeFileSync(path.join(dir, 'AGENTS.md'), `# Agents\n\nUse pnpm.\n\n${block}\nKeep this line.\n`);
+    writeFileSync(path.join(dir, 'AGENTS.override.md'), block);
+    const withNotes = path.join(tmp(), 'h1');
+    mkdirSync(withNotes);
+    writeFileSync(path.join(withNotes, 'notes.md'), '# Notes\n- candidate rule\n');
+    const a = makeWorkspace(dir, withNotes, path.join(tmp(), 'scratch'));
+    const agents = readFileSync(path.join(a.dir, 'AGENTS.md'), 'utf8');
+    expect(agents).toContain('candidate rule');
+    expect(agents).not.toContain('Old rule');
+    expect(agents).toContain('Use pnpm.');
+    expect(agents).toContain('Keep this line.');
+    expect(readFileSync(path.join(a.dir, 'AGENTS.override.md'), 'utf8')).toContain('candidate rule');
+    a.remove();
+    const noNotes = path.join(tmp(), 'h2');
+    mkdirSync(noNotes);
+    const b = makeWorkspace(dir, noNotes, path.join(tmp(), 'scratch'));
+    const bare = readFileSync(path.join(b.dir, 'AGENTS.md'), 'utf8');
+    expect(bare).not.toContain('trod notes');
+    expect(bare).not.toContain('Old rule');
+    expect(bare).toContain('Use pnpm.');
+    expect(bare).toContain('Keep this line.');
+    expect(readFileSync(path.join(b.dir, 'AGENTS.override.md'), 'utf8')).not.toContain('Old rule');
+    b.remove();
+  });
+
   it('exports HEAD without history in a git repository, and hides the tune config', () => {
     const dir = project();
     writeFileSync(path.join(dir, '.trod', 'tune.json'), '{"tasks": []}');

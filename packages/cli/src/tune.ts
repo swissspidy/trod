@@ -3,7 +3,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, write
 import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
-import { NOTES_IMPORT, NOTES_MAX_CHARS, trodPaths, verifyNotes } from '@trod/server';
+import { NOTES_IMPORT, NOTES_MAX_CHARS, replaceCodexNotesBlock, trodPaths, verifyNotes } from '@trod/server';
 import { defaultServerPath, forge, lastResultEvent } from './forge.ts';
 import { digestTranscript } from './learn.ts';
 import { TROD_SESSION_ENV } from './session-env.ts';
@@ -133,6 +133,16 @@ export function makeWorkspace(projectDir: string, harness: string, scratch: stri
   snapshotHarness(harness, trodDir);
   // After the harness, which could carry a hidden path back in (a config kept under .trod/wiki).
   for (const h of hide) rmSync(path.join(dir, h), { recursive: true, force: true });
+  // AGENTS.md (or AGENTS.override.md) can hold a copy of the notes for Codex: make it match this harness, so a variant
+  // without the notes, or without some of them, does not get them back from there.
+  const harnessNotes = existsSync(path.join(trodDir, 'notes.md')) ? readFileSync(path.join(trodDir, 'notes.md'), 'utf8') : undefined;
+  for (const f of ['AGENTS.md', 'AGENTS.override.md']) {
+    const file = path.join(dir, f);
+    if (!existsSync(file)) continue;
+    const before = readFileSync(file, 'utf8');
+    const after = replaceCodexNotesBlock(before, harnessNotes);
+    if (after !== before) writeFileSync(file, after);
+  }
   const claudeMd = path.join(dir, 'CLAUDE.md');
   const text = existsSync(claudeMd) ? readFileSync(claudeMd, 'utf8') : '';
   if (existsSync(path.join(trodDir, 'notes.md')) && !text.split('\n').some((l) => l.trim() === NOTES_IMPORT)) writeFileSync(claudeMd, `${text.trimEnd()}${text ? '\n\n' : ''}${NOTES_IMPORT}\n`);

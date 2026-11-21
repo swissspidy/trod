@@ -1119,7 +1119,7 @@ import { cpSync, existsSync as existsSync5, mkdirSync as mkdirSync5, mkdtempSync
 import { tmpdir as tmpdir2 } from "node:os";
 import { createHash as createHash2 } from "node:crypto";
 import path6 from "node:path";
-import { NOTES_IMPORT as NOTES_IMPORT2, NOTES_MAX_CHARS as NOTES_MAX_CHARS2, trodPaths as trodPaths3, verifyNotes as verifyNotes2 } from "../server/trod-lib.mjs";
+import { NOTES_IMPORT as NOTES_IMPORT2, NOTES_MAX_CHARS as NOTES_MAX_CHARS2, replaceCodexNotesBlock, trodPaths as trodPaths3, verifyNotes as verifyNotes2 } from "../server/trod-lib.mjs";
 var TUNE_CONFIG = path6.join(".trod", "tune.json");
 var TUNE_DIR = path6.join(".trod", "tune");
 var DEFAULT_TUNE_MODEL = "claude-haiku-5-5";
@@ -1185,6 +1185,14 @@ function makeWorkspace(projectDir, harness, scratch, hide = [TUNE_CONFIG]) {
   for (const f of HARNESS_FILES) rmSync2(path6.join(trodDir, f), { recursive: true, force: true });
   snapshotHarness(harness, trodDir);
   for (const h of hide) rmSync2(path6.join(dir, h), { recursive: true, force: true });
+  const harnessNotes = existsSync5(path6.join(trodDir, "notes.md")) ? readFileSync6(path6.join(trodDir, "notes.md"), "utf8") : void 0;
+  for (const f of ["AGENTS.md", "AGENTS.override.md"]) {
+    const file = path6.join(dir, f);
+    if (!existsSync5(file)) continue;
+    const before = readFileSync6(file, "utf8");
+    const after = replaceCodexNotesBlock(before, harnessNotes);
+    if (after !== before) writeFileSync5(file, after);
+  }
   const claudeMd = path6.join(dir, "CLAUDE.md");
   const text = existsSync5(claudeMd) ? readFileSync6(claudeMd, "utf8") : "";
   if (existsSync5(path6.join(trodDir, "notes.md")) && !text.split("\n").some((l) => l.trim() === NOTES_IMPORT2)) writeFileSync5(claudeMd, `${text.trimEnd()}${text ? "\n\n" : ""}${NOTES_IMPORT2}
@@ -1420,8 +1428,27 @@ var countRules = (notes) => notes.split("\n").filter((l) => /^\s*(?:[-*]|\d+\.)\
 function perTask(rs) {
   const by = /* @__PURE__ */ new Map();
   for (const r of rs) if (!r.error) by.set(r.task, [...by.get(r.task) ?? [], r.pass]);
-  return new Map([...by].map(([t, ps]) => [t, ps.filter(Boolean).length / ps.length]));
+  return by;
 }
+function wilson(k, n) {
+  if (!n) return [0, 1];
+  const z = 1.96;
+  const p = k / n;
+  const d = 1 + z * z / n;
+  const c = (p + z * z / (2 * n)) / d;
+  const h = z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d;
+  return [Math.max(0, c - h), Math.min(1, c + h)];
+}
+function newcombe(k1, n1, k2, n2) {
+  const p1 = n1 ? k1 / n1 : 0;
+  const p2 = n2 ? k2 / n2 : 0;
+  const [l1, u1] = wilson(k1, n1);
+  const [l2, u2] = wilson(k2, n2);
+  const d = p1 - p2;
+  return [d - Math.sqrt((p1 - l1) ** 2 + (u2 - p2) ** 2), d + Math.sqrt((u1 - p1) ** 2 + (p2 - l2) ** 2)];
+}
+var MIN_TASKS = 5;
+var MIN_RUNS = 10;
 function bootstrapMean(diffs, reps = 5e3) {
   if (!diffs.length) return [0, 0];
   let seed = 5;
@@ -1443,13 +1470,21 @@ function bootstrapMean(diffs, reps = 5e3) {
 }
 function verdict(part, withPart, withoutPart, threshold, runs) {
   const shared = [...withPart.keys()].filter((t) => withoutPart.has(t));
-  const diffs = shared.map((t) => withPart.get(t) - withoutPart.get(t));
+  const rate = (ps) => ps.filter(Boolean).length / ps.length;
+  const diffs = shared.map((t) => rate(withPart.get(t)) - rate(withoutPart.get(t)));
   const drop = diffs.reduce((s, x) => s + x, 0) / (diffs.length || 1);
-  const ci = bootstrapMean(diffs);
-  if (shared.length && ci[0] > 0) return { part, drop, ci, verdict: "KEEP", tasks: shared.length };
-  if (shared.length && ci[1] < threshold) return { part, drop, ci, verdict: "CUT", tasks: shared.length };
+  const all = (m) => shared.flatMap((t) => m.get(t));
+  const a = all(withPart);
+  const b = all(withoutPart);
+  const boot = bootstrapMean(diffs);
+  const nc = newcombe(a.filter(Boolean).length, a.length, b.filter(Boolean).length, b.length);
+  const ci = [Math.min(boot[0], nc[0]), Math.max(boot[1], nc[1])];
+  const enough = shared.length >= MIN_TASKS && a.length >= MIN_RUNS && b.length >= MIN_RUNS;
+  if (enough && ci[0] > 0) return { part, drop, ci, verdict: "KEEP", tasks: shared.length };
+  if (enough && ci[1] < threshold) return { part, drop, ci, verdict: "CUT", tasks: shared.length };
   const half = (ci[1] - ci[0]) / 2;
-  const suggestRuns = half > 0 ? Math.min(50, Math.ceil(runs * (half / (threshold / 2)) ** 2)) : runs;
+  let suggestRuns = half > 0 ? Math.min(50, Math.ceil(runs * (half / (threshold / 2)) ** 2)) : runs;
+  if (shared.length) suggestRuns = Math.max(suggestRuns, Math.ceil(MIN_RUNS / shared.length));
   return { part, drop, ci, verdict: "INCONCLUSIVE", suggestRuns, tasks: shared.length };
 }
 function readPruneHistory(projectDir) {
@@ -1479,6 +1514,8 @@ async function prune(opts) {
   const tasks = config.tasks;
   const outDir = opts.outDir ?? path7.join(opts.projectDir, TUNE_DIR, `prune-${(/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-")}`);
   mkdirSync6(outDir, { recursive: true });
+  const ignore = path7.join(opts.projectDir, TUNE_DIR, ".gitignore");
+  if (existsSync6(path7.dirname(ignore)) && !existsSync6(ignore)) writeFileSync6(ignore, "*\n");
   const trodDir = path7.join(opts.projectDir, ".trod");
   const notesFile = path7.join(trodDir, "notes.md");
   if (!existsSync6(notesFile)) throw new Error("no .trod/notes.md to prune");
@@ -1505,7 +1542,7 @@ async function prune(opts) {
     if (opts.sections) {
       for (const [i, sec] of sections.entries()) {
         const h = path7.join(outDir, `harness-without-${i + 1}`);
-        snapshotHarness(trodDir, h);
+        snapshotHarness(full, h);
         writeFileSync6(path7.join(h, "notes.md"), [preamble, ...sections.filter((_, j) => j !== i).map((s) => s.text)].join("\n"));
         const rs = await runBatch(ctx, h, tasks, path7.join(outDir, `without-${i + 1}`), `without "${sec.title}"`);
         cost += add(rs);

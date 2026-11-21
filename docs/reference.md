@@ -15,8 +15,10 @@ releasing.
    server validates it, runs its examples and registers it in the same session. Good ones are promoted to a committed
    library.
 
-**Safety.** Tool code runs outside the client's permission prompts, so execution is off unless you turn it on
-(`TROD_ALLOW_EXEC=1`, meant for ephemeral cloud containers). Notes need no execution at all. Tools run in a subprocess
+**Safety.** Tool code runs outside the client's permission prompts, so execution is off in your sessions unless you
+turn it on (`TROD_ALLOW_EXEC=1`, meant for ephemeral cloud containers). Notes need no execution at all. The exception is
+trod's own learning sessions: `trod forge`, `trod learn` and `trod tune` set `TROD_ALLOW_EXEC=1` for the session they
+start, so it can build and test tools; run them in an environment where that is acceptable. Tools run in a subprocess
 with a timeout and without your API keys or tokens in their environment. Your transcripts stay on your machine apart
 from the condensed versions a learning session reads. Details: [SECURITY.md](../SECURITY.md).
 

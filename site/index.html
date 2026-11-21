@@ -75,7 +75,7 @@ p code,li code,td code{font-size:.92em;background:var(--surface-2);padding:1px 5
 
 <p class="eyebrow">trod · for Claude Code</p>
 <h1>Generated context usually does not help. trod shows when it does.</h1>
-<p class="lead">LLM-written AGENTS.md files do not raise success on well-known repositories (<a href="https://arxiv.org/abs/2602.11988">Gloaguen et al.</a>), and skills a model writes before trying a task do not help (<a href="https://arxiv.org/abs/2602.12670">SkillsBench</a>). Our own null results agree. Where the model lacks the knowledge and it recurs in every task, trod writes notes from graded attempts, practice or past sessions, holds them back until they pass a check, and measures them on held-out tasks.</p>
+<p class="lead">LLM-written AGENTS.md files do not raise success on well-known repositories (<a href="https://arxiv.org/abs/2602.11988">Gloaguen et al.</a>), and skills a model writes before trying a task do not help (<a href="https://arxiv.org/abs/2602.12670">SkillsBench</a>). Our own null results agree. Where the model lacks the knowledge and it recurs in every task, trod writes notes from graded attempts, practice or past sessions. With a check of yours (<code>--practice</code>, note checks), notes that fail it are not linked, and <code>trod tune</code> measures rewrites on held-out tasks.</p>
 <div class="cta">
   <a class="btn primary" href="#install">Get started</a>
   <a class="btn ghost" href="https://github.com/swissspidy/trod">GitHub</a>
@@ -83,7 +83,7 @@ p code,li code,td code{font-size:.92em;background:var(--surface-2);padding:1px 5
 </div>
 
 <div class="tiles">
-  <div class="tile"><div class="tl">Zorbit: an invented API no model has seen, 40 held-out tasks</div><div class="big">75% → 100%</div><div class="sub">Haiku, forged notes · Opus: 69% → 100% · Claude Code's <code>/init</code> file: 63%</div></div>
+  <div class="tile"><div class="tl">Zorbit: an invented API no model has seen</div><div class="big">75% → 100%</div><div class="sub">Haiku, forged notes, 40 held-out tasks · <code>/init</code>'s file: 63% · Opus, 16 tasks: 69% → 100%</div></div>
   <div class="tile"><div class="tl">AutomationBench business workflows, 300 held-out tasks</div><div class="big">17% → 36%</div><div class="sub">Haiku, notes from one <code>trod learn</code> session · Sonnet: 30% → 44% with the same notes</div></div>
   <div class="tile"><div class="tl">MiniWoB++ web tasks, hardest 30 types</div><div class="big">68% → 90%</div><div class="sub">Haiku, with practice notes · Sonnet alone: 67%</div></div>
   <div class="tile"><div class="tl">ScienceWorld</div><div class="big">52% → 89%</div><div class="sub">Haiku, with forged notes · Sonnet alone: 67%</div></div>

@@ -32,7 +32,7 @@ node experiments/private/calibrate.ts                         # no cost
 node experiments/runner/run.ts --suite zorbit:train --arms baseline --model claude-haiku-5-5 \
   --as-user agent --seeds 2 --out /srv/r19/haiku-train-none   # the sessions trod learn reads
 node experiments/private/produce.ts learn /srv/r19/produce/learn /srv/r19/haiku-train-none
-ZORBIT_NOTES=/srv/r19/notes/learn.md node experiments/runner/run.ts --suite zorbit:test --arms baseline \
+ZORBIT_NOTES=/srv/r19/produce/learn/notes.md node experiments/runner/run.ts --suite zorbit:test --arms baseline \
   --model claude-haiku-5-5 --as-user agent --seeds 2 --out /srv/r19/haiku-test-learn
 node experiments/private/compare.ts summary.json none=/srv/r19/haiku-test-none learn=/srv/r19/haiku-test-learn
 ```

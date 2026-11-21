@@ -125,12 +125,21 @@ export function world(s = seed()): World {
   };
   const letters = 'ABCDEFGHJKLMNPRSTVWXYZ';
   const usedCodes = new Set<string>();
+  const usedLegacy = new Set<string>();
   const regions: Region[] = REGION_NAMES.map((name, i) => {
     let code = '';
     do code = letters[int(r, 0, letters.length - 1)]! + letters[int(r, 0, letters.length - 1)]!;
     while (usedCodes.has(code));
     usedCodes.add(code);
-    return { code, name, legacy: i % 2 === 0 ? [String(10 + int(r, 0, 89))] : [] };
+    // Legacy codes must be unique too, or two regions' customers would carry the same code. Redrawing only on a
+    // collision leaves every seed without one unchanged.
+    let legacy = '';
+    if (i % 2 === 0) {
+      do legacy = String(10 + int(r, 0, 89));
+      while (usedLegacy.has(legacy));
+      usedLegacy.add(legacy);
+    }
+    return { code, name, legacy: legacy ? [legacy] : [] };
   });
   const usedNames = new Set<string>();
   const customers: Customer[] = [];
@@ -454,7 +463,8 @@ export function grade(q: Question, raw: string): CheckResult {
   if (!got || typeof got !== 'object') return { pass: false, score: 0, details: 'expected an object of counts' };
   const want = q.answer;
   const g = got as Record<string, unknown>;
-  const right = Object.keys(want).filter((k) => Number(g[k] ?? 0) === want[k]).length;
+  // Every region must be present, including those with 0: a missing key is wrong, not 0.
+  const right = Object.keys(want).filter((k) => Object.hasOwn(g, k) && Number(g[k]) === want[k]).length;
   const n = Object.keys(want).length;
   return { pass: right === n, score: right / n, details: `${right}/${n} regions right` };
 }

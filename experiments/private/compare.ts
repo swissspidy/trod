@@ -33,7 +33,12 @@ function load(dir: string): { runs: Run[]; infra: number } {
   for (const task of readdirSync(dir)) {
     for (const run of readdirSync(path.join(dir, task))) {
       const f = path.join(dir, task, run, 'result.json');
-      if (!existsSync(f)) continue;
+      // The runner keeps a run that hit an infrastructure problem as result.infra.json and retries it on the next
+      // invocation; a retry that finished writes result.json, which then counts instead.
+      if (!existsSync(f)) {
+        if (existsSync(path.join(dir, task, run, 'result.infra.json'))) infra++;
+        continue;
+      }
       const r = JSON.parse(readFileSync(f, 'utf8'));
       if (r.check?.infra) {
         infra++;
@@ -122,17 +127,19 @@ for (const a of arms) {
   const n = a.runs.length;
   const [lo, hi] = wilson(k, n);
   const tasks = perTask(a.runs);
-  const [tlo, thi] = bootstrap([...tasks.values()]);
+  const [tlo, thi] = tasks.size ? bootstrap([...tasks.values()]) : [NaN, NaN];
   const shared = [...tasks.keys()].filter((t) => refTasks.has(t));
   const diffs = shared.map((t) => tasks.get(t)! - refTasks.get(t)!);
-  const meanDiff = diffs.reduce((s, x) => s + x, 0) / (diffs.length || 1);
-  const [dlo, dhi] = a === ref ? [0, 0] : bootstrap(diffs);
-  const p = a === ref ? 1 : wilcoxon(diffs);
+  // Without tasks both arms graded there is nothing to pair: the comparison is unavailable, not zero.
+  const paired = a !== ref && diffs.length > 0;
+  const meanDiff = paired ? diffs.reduce((s, x) => s + x, 0) / diffs.length : NaN;
+  const [dlo, dhi] = paired ? bootstrap(diffs) : [NaN, NaN];
+  const p = paired ? wilcoxon(diffs) : NaN;
   const better = diffs.filter((x) => x > 0).length;
   const worse = diffs.filter((x) => x < 0).length;
   const mean = (f: (r: Run) => number) => a.runs.reduce((s, r) => s + f(r), 0) / (n || 1);
-  const row = { arm: a.arm, passed: k, runs: n, infra: a.infra, rate: k / (n || 1), wilson: [lo, hi], taskBootstrap: [tlo, thi], vsRef: a === ref ? null : { tasks: shared.length, meanDiff, ci: [dlo, dhi], p, better, worse }, costPerRun: mean((r) => r.cost), turns: mean((r) => r.turns), tokens: mean((r) => r.tokens) };
+  const row = { arm: a.arm, passed: k, runs: n, infra: a.infra, rate: n ? k / n : null, wilson: [lo, hi], taskBootstrap: [tlo, thi], vsRef: a === ref ? null : paired ? { tasks: shared.length, meanDiff, ci: [dlo, dhi], p, better, worse } : { tasks: 0, unavailable: true }, costPerRun: mean((r) => r.cost), turns: mean((r) => r.turns), tokens: mean((r) => r.tokens) };
   summary.push(row);
-  console.log(`| ${a.arm} | ${k}/${n}${a.infra ? ` (+${a.infra} infra)` : ''} | ${pct(k / (n || 1))} [${pct(lo)}, ${pct(hi)}] | [${pct(tlo)}, ${pct(thi)}] | ${a === ref ? '' : `${pp(meanDiff)} pp [${pp(dlo)}, ${pp(dhi)}] on ${shared.length}`} | ${a === ref ? '' : p < 0.001 ? '< 0.001' : p.toFixed(3)} | ${a === ref ? '' : `${better} / ${worse}`} | ${mean((r) => r.cost).toFixed(4)} | ${mean((r) => r.turns).toFixed(1)} | ${Math.round(mean((r) => r.tokens) / 1000)}k |`);
+  console.log(`| ${a.arm} | ${k}/${n}${a.infra ? ` (+${a.infra} infra)` : ''} | ${n ? `${pct(k / n)} [${pct(lo)}, ${pct(hi)}]` : 'no graded runs'} | ${tasks.size ? `[${pct(tlo)}, ${pct(thi)}]` : ''} | ${a === ref ? '' : paired ? `${pp(meanDiff)} pp [${pp(dlo)}, ${pp(dhi)}] on ${shared.length}` : 'unavailable (no shared tasks)'} | ${paired ? (p < 0.001 ? '< 0.001' : p.toFixed(3)) : ''} | ${paired ? `${better} / ${worse}` : ''} | ${mean((r) => r.cost).toFixed(4)} | ${mean((r) => r.turns).toFixed(1)} | ${Math.round(mean((r) => r.tokens) / 1000)}k |`);
 }
 writeFileSync(outFile, JSON.stringify(summary, null, 2));

@@ -41,12 +41,37 @@ export function splitSections(notes: string): { preamble: string; sections: Sect
 /** Rules: bullet or numbered list items. A rough count for the history, not a parse. */
 export const countRules = (notes: string) => notes.split('\n').filter((l) => /^\s*(?:[-*]|\d+\.)\s+\S/.test(l)).length;
 
-/** Per-task pass rates from a batch (runs that errored are left out). */
-function perTask(rs: RunResult[]): Map<string, number> {
+/** Per-task outcomes from a batch (runs that errored are left out). */
+function perTask(rs: RunResult[]): Map<string, boolean[]> {
   const by = new Map<string, boolean[]>();
   for (const r of rs) if (!r.error) by.set(r.task, [...(by.get(r.task) ?? []), r.pass]);
-  return new Map([...by].map(([t, ps]) => [t, ps.filter(Boolean).length / ps.length]));
+  return by;
 }
+
+/** Wilson 95% score interval for k successes in n. */
+function wilson(k: number, n: number): [number, number] {
+  if (!n) return [0, 1];
+  const z = 1.96;
+  const p = k / n;
+  const d = 1 + (z * z) / n;
+  const c = (p + (z * z) / (2 * n)) / d;
+  const h = (z * Math.sqrt((p * (1 - p)) / n + (z * z) / (4 * n * n))) / d;
+  return [Math.max(0, c - h), Math.min(1, c + h)];
+}
+
+/** Newcombe's 95% interval for the difference of two proportions (k1/n1 − k2/n2), from Wilson intervals. */
+export function newcombe(k1: number, n1: number, k2: number, n2: number): [number, number] {
+  const p1 = n1 ? k1 / n1 : 0;
+  const p2 = n2 ? k2 / n2 : 0;
+  const [l1, u1] = wilson(k1, n1);
+  const [l2, u2] = wilson(k2, n2);
+  const d = p1 - p2;
+  return [d - Math.sqrt((p1 - l1) ** 2 + (u2 - p2) ** 2), d + Math.sqrt((u1 - p1) ** 2 + (p2 - l2) ** 2)];
+}
+
+/** Below these, no verdict: the intervals are too unreliable to call a part KEEP or CUT. */
+export const MIN_TASKS = 5;
+export const MIN_RUNS = 10;
 
 /** 95% bootstrap interval of the mean of per-task differences (deterministic). */
 export function bootstrapMean(diffs: number[], reps = 5000): [number, number] {
@@ -82,17 +107,30 @@ export interface Effect {
   tasks: number;
 }
 
-/** KEEP if the drop's interval is above 0, CUT if its upper end is below the threshold, else INCONCLUSIVE. */
-export function verdict(part: string, withPart: Map<string, number>, withoutPart: Map<string, number>, threshold: number, runs: number): Effect {
+/**
+ * KEEP if the drop's interval is above 0, CUT if its upper end is below the threshold, else INCONCLUSIVE. The interval
+ * is the wider of two: a bootstrap over tasks (runs of one task are not independent) and Newcombe's interval over all
+ * runs (which stays honest when every task gives the same result, where a bootstrap collapses to a point). With fewer
+ * than MIN_TASKS shared tasks or MIN_RUNS runs on either side there is no verdict.
+ */
+export function verdict(part: string, withPart: Map<string, boolean[]>, withoutPart: Map<string, boolean[]>, threshold: number, runs: number): Effect {
   const shared = [...withPart.keys()].filter((t) => withoutPart.has(t));
-  const diffs = shared.map((t) => withPart.get(t)! - withoutPart.get(t)!);
+  const rate = (ps: boolean[]) => ps.filter(Boolean).length / ps.length;
+  const diffs = shared.map((t) => rate(withPart.get(t)!) - rate(withoutPart.get(t)!));
   const drop = diffs.reduce((s, x) => s + x, 0) / (diffs.length || 1);
-  const ci = bootstrapMean(diffs);
-  if (shared.length && ci[0] > 0) return { part, drop, ci, verdict: 'KEEP', tasks: shared.length };
-  if (shared.length && ci[1] < threshold) return { part, drop, ci, verdict: 'CUT', tasks: shared.length };
+  const all = (m: Map<string, boolean[]>) => shared.flatMap((t) => m.get(t)!);
+  const a = all(withPart);
+  const b = all(withoutPart);
+  const boot = bootstrapMean(diffs);
+  const nc = newcombe(a.filter(Boolean).length, a.length, b.filter(Boolean).length, b.length);
+  const ci: [number, number] = [Math.min(boot[0], nc[0]), Math.max(boot[1], nc[1])];
+  const enough = shared.length >= MIN_TASKS && a.length >= MIN_RUNS && b.length >= MIN_RUNS;
+  if (enough && ci[0] > 0) return { part, drop, ci, verdict: 'KEEP', tasks: shared.length };
+  if (enough && ci[1] < threshold) return { part, drop, ci, verdict: 'CUT', tasks: shared.length };
   // The interval narrows with the square root of the runs; aim for a half-width of half the threshold.
   const half = (ci[1] - ci[0]) / 2;
-  const suggestRuns = half > 0 ? Math.min(50, Math.ceil(runs * (half / (threshold / 2)) ** 2)) : runs;
+  let suggestRuns = half > 0 ? Math.min(50, Math.ceil(runs * (half / (threshold / 2)) ** 2)) : runs;
+  if (shared.length) suggestRuns = Math.max(suggestRuns, Math.ceil(MIN_RUNS / shared.length));
   return { part, drop, ci, verdict: 'INCONCLUSIVE', suggestRuns, tasks: shared.length };
 }
 
@@ -161,6 +199,9 @@ export async function prune(opts: PruneOptions): Promise<PruneResult> {
   const tasks = config.tasks;
   const outDir = opts.outDir ?? path.join(opts.projectDir, TUNE_DIR, `prune-${new Date().toISOString().replace(/[:.]/g, '-')}`);
   mkdirSync(outDir, { recursive: true });
+  // As trod tune does: copied harnesses and transcripts stay out of git (the history file lives outside this folder).
+  const ignore = path.join(opts.projectDir, TUNE_DIR, '.gitignore');
+  if (existsSync(path.dirname(ignore)) && !existsSync(ignore)) writeFileSync(ignore, '*\n');
   const trodDir = path.join(opts.projectDir, '.trod');
   const notesFile = path.join(trodDir, 'notes.md');
   if (!existsSync(notesFile)) throw new Error('no .trod/notes.md to prune');
@@ -188,7 +229,8 @@ export async function prune(opts: PruneOptions): Promise<PruneResult> {
     if (opts.sections) {
       for (const [i, sec] of sections.entries()) {
         const h = path.join(outDir, `harness-without-${i + 1}`);
-        snapshotHarness(trodDir, h);
+        // From the snapshot the baseline ran with, not the live .trod, which may have changed since.
+        snapshotHarness(full, h);
         writeFileSync(path.join(h, 'notes.md'), [preamble, ...sections.filter((_, j) => j !== i).map((s) => s.text)].join('\n'));
         const rs = await runBatch(ctx, h, tasks, path.join(outDir, `without-${i + 1}`), `without "${sec.title}"`);
         cost += add(rs);

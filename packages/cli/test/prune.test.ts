@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { main } from '../src/cli.ts';
-import { countRules, prune, PRUNE_HISTORY, readPruneHistory, splitSections, summarizePruneHistory, verdict } from '../src/prune.ts';
+import { countRules, newcombe, prune, PRUNE_HISTORY, readPruneHistory, splitSections, summarizePruneHistory, verdict } from '../src/prune.ts';
 
 const tmp = () => mkdtempSync(path.join(tmpdir(), 'trod-prune-'));
 
@@ -45,27 +45,45 @@ describe('prune', () => {
     expect(countRules(NOTES)).toBe(3);
   });
 
-  it('calls a part KEEP when removing it costs pass rate, CUT when it changes nothing, INCONCLUSIVE in between', () => {
-    const all = new Map([['a', 1], ['b', 1], ['c', 1], ['d', 1]]);
-    expect(verdict('x', all, new Map([['a', 0], ['b', 0], ['c', 0], ['d', 0]]), 0.05, 2).verdict).toBe('KEEP');
-    expect(verdict('x', all, all, 0.05, 2).verdict).toBe('CUT');
-    const mixed = verdict('x', new Map([['a', 1], ['b', 0], ['c', 1], ['d', 0]]), new Map([['a', 0], ['b', 1], ['c', 1], ['d', 0]]), 0.05, 2);
+  const runs = (tasks: number, perTask: number, pass: boolean | ((t: number, r: number) => boolean)) =>
+    new Map(Array.from({ length: tasks }, (_, t) => [`t${t}`, Array.from({ length: perTask }, (_, r) => (typeof pass === 'function' ? pass(t, r) : pass))]));
+
+  it('matches the published Newcombe interval', () => {
+    // Newcombe (1998), method 10: 56/70 vs 48/80 gives 0.0524 to 0.3339.
+    expect(newcombe(56, 70, 48, 80).map((x) => +x.toFixed(4))).toEqual([0.0524, 0.3339]);
+  });
+
+  it('calls a part KEEP when removing it costs pass rate, CUT only with enough runs to rule out an effect, INCONCLUSIVE otherwise', () => {
+    expect(verdict('x', runs(6, 2, true), runs(6, 2, false), 0.05, 2).verdict).toBe('KEEP');
+    // No difference on 6 tasks × 2: too few runs to rule out a 5-point effect.
+    const same = verdict('x', runs(6, 2, true), runs(6, 2, true), 0.05, 2);
+    expect(same.verdict).toBe('INCONCLUSIVE');
+    expect(same.suggestRuns).toBeGreaterThan(2);
+    expect(verdict('x', runs(40, 5, true), runs(40, 5, true), 0.05, 5).verdict).toBe('CUT');
+    const mixed = verdict('x', runs(6, 2, (t) => t % 2 === 0), runs(6, 2, (t) => t % 3 === 0), 0.05, 2);
     expect(mixed.verdict).toBe('INCONCLUSIVE');
-    expect(mixed.suggestRuns).toBeGreaterThan(2);
+  });
+
+  it('gives no verdict from too few tasks or runs, however clean they look', () => {
+    // Two tasks, one run each, notes pass and no notes fail: 1 time in 8 by chance when the notes do nothing.
+    expect(verdict('x', runs(2, 1, true), runs(2, 1, false), 0.05, 1).verdict).toBe('INCONCLUSIVE');
+    expect(verdict('x', runs(4, 5, true), runs(4, 5, false), 0.05, 5).verdict).toBe('INCONCLUSIVE');
   });
 
   it('runs with and without the notes and each section, records the history, and changes nothing', async () => {
     const dir = project();
     const lines: string[] = [];
-    const res = await prune({ projectDir: dir, config: { tasks: tasks(3), runs: 1 }, claudeBin: fakeClaude(tmp()), out: (s) => lines.push(s), sections: true });
-    expect(res.withNotes).toEqual({ passed: 3, runs: 3 });
-    expect(res.withoutNotes).toEqual({ passed: 0, runs: 3 });
-    expect(res.effects.map((e) => [e.part, e.verdict])).toEqual([['all notes', 'KEEP'], ['Finishing', 'KEEP'], ['Style', 'CUT']]);
+    const res = await prune({ projectDir: dir, config: { tasks: tasks(6), runs: 2, parallel: 6 }, claudeBin: fakeClaude(tmp()), out: (s) => lines.push(s), sections: true });
+    expect(res.withNotes).toEqual({ passed: 12, runs: 12 });
+    expect(res.withoutNotes).toEqual({ passed: 0, runs: 12 });
+    // "Style" changes nothing here, but 12 runs cannot rule out a 5-point effect.
+    expect(res.effects.map((e) => [e.part, e.verdict])).toEqual([['all notes', 'KEEP'], ['Finishing', 'KEEP'], ['Style', 'INCONCLUSIVE']]);
+    expect(existsSync(path.join(dir, '.trod', 'tune', '.gitignore'))).toBe(true);
     expect(readFileSync(path.join(dir, '.trod', 'notes.md'), 'utf8')).toBe(NOTES);
     const h = readPruneHistory(dir);
     expect(h).toHaveLength(1);
     expect(h[0]).toMatchObject({ notesChars: NOTES.length, rules: 3, sections: 2 });
-    expect(summarizePruneHistory(h)).toMatch(/notes KEEP \(\+100 points\), 1 part\(s\) to cut/);
+    expect(summarizePruneHistory(h)).toMatch(/notes KEEP \(\+100 points\), 0 part\(s\) to cut/);
     expect(lines.join('\n')).toMatch(/Nothing was changed/);
   });
 

@@ -50,10 +50,11 @@ describe('zorbit environment (round 19)', () => {
       const p2 = (await (await fetch(`${s.base}/zb/customers?page=2`, { headers: h })).json()) as { items: { id: string }[] };
       expect(p2.items[0]?.id).toBe(p1.items.at(-1)?.id);
       const burst = await Promise.all(Array.from({ length: world().params.throttle + 2 }, () => fetch(`${s.base}/zb/customers?page=3`, { headers: h })));
-      const last = burst.at(-1)!;
-      expect(last.status).toBe(200);
-      expect(last.headers.get('x-zb-throttled')).toBe('1');
-      expect(((await last.json()) as { items: unknown[] }).items.length).toBeLessThan(25);
+      // Promise.all keeps request order, not arrival order: pick a response the server throttled.
+      expect(burst.every((r) => r.status === 200)).toBe(true);
+      const throttled = burst.find((r) => r.headers.get('x-zb-throttled') === '1');
+      expect(throttled).toBeDefined();
+      expect(((await throttled!.json()) as { items: unknown[] }).items.length).toBeLessThan(25);
     } finally {
       s.close();
     }
@@ -70,5 +71,10 @@ describe('zorbit environment (round 19)', () => {
     const off = { ...(r.answer as Record<string, number>) };
     off[Object.keys(off)[0]!]! += 1;
     expect(grade(r, JSON.stringify({ answer: off })).score).toBeLessThan(1);
+    // A region left out counts as wrong even when its expected count is 0.
+    const want = r.answer as Record<string, number>;
+    const zero = Object.keys(want).find((k) => want[k] === 0);
+    const partial = Object.fromEntries(Object.entries(want).filter(([k]) => k !== (zero ?? Object.keys(want)[0])));
+    expect(grade(r, JSON.stringify({ answer: partial })).pass).toBe(false);
   });
 });

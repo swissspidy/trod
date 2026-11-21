@@ -179,6 +179,20 @@ ${CODEX_NOTES_END}
 }
 
 /**
+ * Rewrites the trod block of an AGENTS.md text to carry `notes`, or removes the block when `notes` is undefined. Text
+ * without a complete block is returned unchanged. Used for throwaway workspaces whose notes differ from the project's
+ * (trod tune and its --prune variants), so the copy in AGENTS.md cannot bring back notes a variant left out.
+ */
+export function replaceCodexNotesBlock(text: string, notes: string | undefined): string {
+  const start = text.indexOf(CODEX_NOTES_MARKER);
+  const end = start >= 0 ? text.indexOf(CODEX_NOTES_END, start) : -1;
+  if (start < 0 || end < start) return text;
+  const after = text.slice(end + CODEX_NOTES_END.length);
+  if (notes !== undefined) return text.slice(0, start) + codexNotesBlock(notes).trimEnd() + after;
+  return (text.slice(0, start).trimEnd() + '\n' + after.replace(/^\n+/, '\n')).replace(/^\n+/, '');
+}
+
+/**
  * For projects that use Codex (a .codex/ folder, e.g. from `trod init --codex`, or an AGENTS.md or
  * AGENTS.override.md already there, as in projects that only use the Codex plugin): adds a block to the instruction
  * file Codex reads (AGENTS.override.md if it exists, else AGENTS.md) with a copy of .trod/notes.md, and refreshes
