@@ -22,9 +22,9 @@
     "@changesets/cli": "^3.0.3",
     "@types/node": "^26.6.6",
     "esbuild": "^0.28.2",
-    "oxlint": "^1.93.0",
+    "oxlint": "^1.94.0",
     "publint": "^0.3.25",
     "typescript": "^7.0.2",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.1"
   }
 }
